@@ -27,6 +27,8 @@ Create a context-first collaboration system that enables:
 - Human-readable Markdown interface
 - Git-friendly workflows
 - Self-documenting projects (like this one)
+- In-editor review and context awareness via VS Code/Cursor extension
+- Pre-baked Cursor rules for AI-assisted proposal and risk authoring
 ```
 
 ```ctx
@@ -66,6 +68,30 @@ if we can't use our own tool effectively, we shouldn't expect others to.
 
 This file and others (DECISIONS.md, PLAN.md, RISKS.md, QUESTIONS.md) are managed
 through the context-first system, demonstrating the approach in practice.
+```
+
+```ctx
+type: constraint
+id: constraint-004
+status: accepted
+---
+The system must install cleanly into any existing git repository without polluting it.
+
+**Requirements**:
+- No forced changes to existing files
+- Minimal new files (only `.context/` directory)
+- All features are opt-in
+- Existing Markdown files work unchanged (ctx blocks are optional)
+- No breaking changes to existing git workflows
+- Clean .gitignore entries (only ignore `.context/` directory)
+- Backward compatible - repositories without the system continue to work normally
+
+**Installation should be**:
+- Non-invasive: Add `.context/` directory, optionally add context files
+- Reversible: Can be removed without breaking the repository
+- Incremental: Can adopt gradually, file by file
+- Optional: Existing docs continue to work without ctx blocks
+- Migration-friendly: Can reverse engineer existing merge requests/PRs to extract context
 ```
 
 ```ctx

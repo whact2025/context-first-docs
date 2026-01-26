@@ -21,6 +21,10 @@ export interface ProposalMetadata {
   modifiedBy: string;
   /** Optional description of why this change is proposed */
   rationale?: string;
+  /** Git commit hashes that implement this proposal (when accepted) */
+  implementedInCommits?: string[];
+  /** Git commit hash when this proposal was accepted */
+  acceptedInCommit?: string;
 }
 
 /**

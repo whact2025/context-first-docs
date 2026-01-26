@@ -41,7 +41,9 @@ A **context-first collaboration system** with:
 - Bidirectional Markdown ↔ context synchronization
 - GitHub / GitLab as *projection targets*, not the source of truth
 - First-class agent APIs for safe consumption and proposal generation
-- Optional VS Code integration for in-editor review and context awareness
+- VS Code/Cursor extension for in-editor review and context awareness
+- Pre-baked Cursor rules for AI-assisted proposal and risk authoring
+- Reverse engineering of merge requests/PRs to extract historical context
 
 This is infrastructure for **long-lived, multi-human, multi-agent systems**.
 
@@ -169,7 +171,7 @@ It is a **semantic context layer** that:
 - Review semantics before realtime polish
 - Agent safety before convenience
 
-Realtime collaboration and deep IDE integration are additive — not required for v1.
+VS Code/Cursor extension is required for v1 to enable in-editor review and context awareness. Realtime collaboration is additive.
 
 ---
 

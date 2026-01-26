@@ -103,10 +103,19 @@ Agents always:
 - Distinguish accepted truth from proposals
 - Respect review workflows
 
+## VS Code/Cursor Extension (Required)
+
+The VS Code/Cursor extension is a core component, not optional:
+
+- **In-editor review**: Review proposals, accept/reject changes without leaving the editor
+- **Context awareness**: See related decisions, risks, and tasks while coding
+- **Authoring support**: Create proposals and nodes directly from the editor
+- **Syntax support**: Highlight and validate ctx blocks
+- **Git integration**: Link commits to proposals, track implementation
+
 ## Future Extensions
 
 - Real-time collaboration
-- VS Code extension for in-editor review
 - GitHub/GitLab integration
 - Advanced query language
 - Cross-reference resolution

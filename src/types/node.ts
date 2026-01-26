@@ -43,6 +43,10 @@ export interface NodeMetadata {
   modifiedBy: string;
   /** Tags for categorization */
   tags?: string[];
+  /** Git commit hash when this node was first accepted/implemented */
+  implementedInCommit?: string;
+  /** Git commit hashes that reference or update this node */
+  referencedInCommits?: string[];
 }
 
 /**
