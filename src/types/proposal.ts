@@ -25,6 +25,21 @@ export interface ProposalMetadata {
   implementedInCommits?: string[];
   /** Git commit hash when this proposal was accepted */
   acceptedInCommit?: string;
+  /** Required approvers for this proposal (if any) */
+  requiredApprovers?: string[];
+  /** Approvers who have approved this proposal */
+  approvedBy?: string[];
+  /** Actions created when this proposal was approved */
+  createdActions?: string[]; // Action IDs
+  /** Action configuration for this proposal */
+  actionConfig?: {
+    /** Auto-create actions on approval */
+    autoCreate?: boolean;
+    /** Create actions as task nodes */
+    createAsTaskNodes?: boolean;
+    /** Action templates to use */
+    templates?: string[]; // Template IDs
+  };
 }
 
 /**
@@ -192,6 +207,8 @@ export interface Review {
   proposalId: string;
   /** Who reviewed */
   reviewer: string;
+  /** Role of the reviewer (contributor, approver, admin) */
+  reviewerRole?: "contributor" | "approver" | "admin";
   /** When reviewed */
   reviewedAt: string;
   /** Action taken */
@@ -200,4 +217,6 @@ export interface Review {
   comment?: string;
   /** Which operations were accepted/rejected (if partial) */
   operationIds?: string[];
+  /** Whether this review counts as an approval (for multi-approval workflows) */
+  isApproval?: boolean;
 }

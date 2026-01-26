@@ -56,6 +56,12 @@ export interface ContextStore {
   applyProposal(proposalId: string): Promise<void>;
 
   /**
+   * Create actions from an approved proposal.
+   * Called automatically when a proposal is approved (if configured).
+   */
+  createActionsFromProposal(proposalId: string, reviewId: string): Promise<ActionCreationResult>;
+
+  /**
    * Get review history for a proposal.
    */
   getReviewHistory(proposalId: string): Promise<Review[]>;

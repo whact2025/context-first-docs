@@ -64,7 +64,10 @@ Planned implementations:
 1. Proposal is created (from Markdown edit or agent)
 2. Reviewers comment and review
 3. Proposal is accepted or rejected
-4. If accepted, operations are applied to store
+4. If accepted:
+   - Operations are applied to store
+   - Actions are automatically created (if configured)
+   - Actions can be created as task nodes
 5. Markdown is regenerated
 
 ## Key Design Decisions

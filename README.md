@@ -44,6 +44,8 @@ A **context-first collaboration system** with:
 - VS Code/Cursor extension for in-editor review and context awareness
 - Pre-baked Cursor rules for AI-assisted proposal and risk authoring
 - Reverse engineering of merge requests/PRs to extract historical context
+- Designated contributors and approvers with role-based access control
+- Automatic action creation when proposals are approved
 
 This is infrastructure for **long-lived, multi-human, multi-agent systems**.
 

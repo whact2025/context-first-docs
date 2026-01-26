@@ -87,17 +87,50 @@ status: accepted
 ```ctx
 type: decision
 id: decision-005
-status: proposed
+status: accepted
 ---
-**Decision**: Store context in Git as structured data (JSON/YAML), not in Markdown.
+**Decision**: Store context in Git as JSON files, committed to the repository.
 
 **Rationale**:
-- Git diffs on structured data are more meaningful
+- Git diffs on structured data are more meaningful than Markdown diffs
 - Easier to query and process programmatically
 - Markdown files are generated deterministically from the store
 - Enables advanced features like cross-references and validation
+- JSON provides excellent git diffs and merge conflict resolution
+- One file per node/proposal enables scalable, queryable storage
+- Committed to git provides full version history and collaboration
 
-**Status**: Under review - this is a key architectural decision for v1
+**Storage Structure**:
+```
+.context/
+├── nodes/
+│   ├── {type}-{id}.json      # One file per node
+├── proposals/
+│   ├── proposal-{id}.json    # One file per proposal
+├── reviews/
+│   └── review-{id}.json      # One file per review
+└── index.json                # Metadata and indexes
+```
+
+**Format Choice**: JSON over YAML because:
+- More machine-friendly and deterministic
+- Better tooling support
+- Excellent git diffs
+- Standard format widely supported
+
+**Git Integration**: Context store is committed to git (not ignored) for:
+- Full version history
+- Collaboration via git workflows
+- Review context changes in PRs
+- Git-based backup and distribution
+
+**Alternatives Considered**:
+- YAML (more human-readable but less strict, whitespace-sensitive)
+- Single monolithic file (poor git diffs, merge conflicts)
+- Git-ignored storage (loses version history and collaboration)
+- Database/external service (loses git integration)
+
+**Decided At**: 2026-01-26
 ```
 
 ```ctx
@@ -240,6 +273,113 @@ status: accepted
 - Manual migration only (too time-consuming, loses historical context)
 - Starting fresh without historical context (loses valuable institutional knowledge)
 - External tools for PR analysis (adds dependencies, less integrated)
+
+**Decided At**: 2026-01-26
+```
+
+```ctx
+type: decision
+id: decision-011
+status: accepted
+---
+**Decision**: The system must support designated contributors and approvers with role-based access control.
+
+**Rationale**:
+- Enables proper governance and quality control
+- Prevents unauthorized changes to accepted context
+- Supports organizational hierarchies and responsibilities
+- Allows fine-grained control over who can create vs approve proposals
+- Enables multi-approval workflows for critical decisions
+- Integrates with GitLab/GitHub permission models
+
+**Role Model**:
+- **Contributors**: Can create proposals and nodes, but cannot approve
+- **Approvers**: Can review and approve/reject proposals, can also create proposals
+- **Admins**: Full access, can manage users and roles
+
+**Capabilities**:
+- Configure designated contributors per project/namespace
+- Configure designated approvers per project/namespace
+- Support per-node-type approvers (e.g., architecture decisions require senior engineers)
+- Support multi-approval requirements (e.g., critical risks need 2 approvals)
+- Track who approved proposals (for audit trail)
+- Validate permissions before allowing actions
+- Integrate with GitLab/GitHub user/group permissions
+
+**Implementation**:
+- Role configuration stored in `.context/roles.json` (or similar)
+- User roles can be synced from GitLab/GitHub groups
+- Permission checks before proposal creation, review, and approval
+- Review records include reviewer role and approval status
+- Proposal metadata tracks required and actual approvers
+
+**Use Cases**:
+- Architecture decisions require senior engineer approval
+- Risk proposals need security team approval
+- Contributors can propose changes but approvers must review
+- Multi-approval for critical decisions (e.g., 2 senior engineers)
+- Admin-only actions (managing users, changing roles)
+
+**Alternatives Considered**:
+- No access control (too permissive, allows unauthorized changes)
+- Single approver model (too restrictive, doesn't scale)
+- External permission system only (loses integration, harder to manage)
+
+**Decided At**: 2026-01-26
+```
+
+```ctx
+type: decision
+id: decision-012
+status: accepted
+---
+**Decision**: Approval of proposals must trigger automatic creation of actions (tasks/implementation items).
+
+**Rationale**:
+- Approved proposals represent decisions that need implementation
+- Automatically creating actions ensures nothing falls through the cracks
+- Links approval decisions to actionable work items
+- Enables tracking of implementation progress
+- Supports workflow automation and reduces manual work
+- Makes it clear what needs to be done after approval
+
+**Workflow**:
+1. Proposal is reviewed and approved
+2. System checks if proposal has action configuration
+3. Actions are automatically created based on templates or custom configuration
+4. Actions can be created as task nodes in the context store
+5. Actions are linked back to the proposal and approval
+
+**Action Types**:
+- **Implementation tasks**: Work needed to implement the approved proposal
+- **Follow-up items**: Related work or next steps
+- **Review tasks**: Items that need review or verification
+- **Custom actions**: Proposal-specific action items
+
+**Configuration**:
+- Proposals can specify action templates to use
+- Action templates define what actions to create based on proposal type/content
+- Custom actions can be defined per proposal
+- Actions can be created as task nodes in context store
+- Actions can have assignees, due dates, dependencies, priorities
+
+**Examples**:
+- Approved decision proposal → Creates implementation task
+- Approved risk proposal → Creates mitigation task
+- Approved constraint proposal → Creates compliance verification task
+- Approved plan proposal → Creates tasks for each plan step
+
+**Integration**:
+- Actions created as task nodes can be queried and tracked
+- Actions link back to originating proposal
+- Actions can reference related nodes (decisions, risks, etc.)
+- Actions can be assigned to contributors
+- Actions can have dependencies on other tasks
+
+**Alternatives Considered**:
+- Manual action creation (too much work, things get forgotten)
+- No action creation (loses connection between approval and implementation)
+- External task management only (loses integration, harder to track)
 
 **Decided At**: 2026-01-26
 ```

@@ -19,10 +19,14 @@ status: accepted
 1. Implement proposal authoring APIs and helpers
 2. Add risk authoring tools and validation
 3. Create authoring helpers for all node types (decisions, tasks, questions, etc.)
-4. Implement proposal review workflow
-5. Add comment threading
-6. Support partial accept/reject
-7. Build review history tracking
+4. Implement role and permission system (contributors, approvers, admins)
+5. Add designated contributors and approvers support
+6. Implement proposal review workflow with approval requirements
+7. Add action creation on approval - automatically create tasks/actions when proposals are approved
+8. Add comment threading
+9. Support partial accept/reject
+10. Build review history tracking
+11. Support multi-approval workflows
 
 **Phase 3: Persistence & Git Integration**
 1. File-based store implementation (JSON/YAML) - independent persistence
@@ -283,4 +287,60 @@ id: task-030
 status: open
 ---
 Build GitHub/GitLab API integration - access PR/MR data, comments, and commit history for reverse engineering.
+```
+
+```ctx
+type: task
+id: task-031
+status: open
+---
+Implement role and permission system - contributors, approvers, and admins with proper access control.
+```
+
+```ctx
+type: task
+id: task-032
+status: open
+---
+Add designated contributors and approvers - configure who can create proposals and who can approve them.
+```
+
+```ctx
+type: task
+id: task-033
+status: open
+---
+Implement approval requirements - support multi-approval workflows and required approvers per node type.
+```
+
+```ctx
+type: task
+id: task-034
+status: open
+---
+Add role validation - check permissions before allowing proposal creation, review, and approval actions.
+```
+
+```ctx
+type: task
+id: task-035
+status: open
+---
+Implement action creation on approval - automatically create tasks/actions when proposals are approved.
+```
+
+```ctx
+type: task
+id: task-036
+status: open
+---
+Build action templates system - define reusable action templates for different proposal types.
+```
+
+```ctx
+type: task
+id: task-037
+status: open
+---
+Add action configuration to proposals - allow proposals to specify what actions should be created on approval.
 ```

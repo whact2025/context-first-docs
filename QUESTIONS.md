@@ -50,14 +50,18 @@ status: open
 ```ctx
 type: question
 id: question-004
-status: open
+status: resolved
 ---
 **Question**: What's the best format for storing context in Git? JSON vs YAML vs custom?
 
-**Context**:
-- JSON is more machine-friendly
-- YAML is more human-readable
-- Custom format could be optimized
+**Answer**: JSON files in `.context/` directory, committed to git.
+
+**Rationale**:
+- JSON provides excellent git diffs and merge conflict resolution
+- Machine-friendly and deterministic
+- One file per node/proposal enables scalable storage
+- Committed to git provides full version history
+- See `docs/STORAGE_OPTIONS.md` for detailed analysis
 
 **Impact**: Medium - affects developer experience
 ```

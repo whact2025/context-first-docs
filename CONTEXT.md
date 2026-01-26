@@ -29,6 +29,8 @@ Create a context-first collaboration system that enables:
 - Self-documenting projects (like this one)
 - In-editor review and context awareness via VS Code/Cursor extension
 - Pre-baked Cursor rules for AI-assisted proposal and risk authoring
+- Designated contributors and approvers with role-based access control
+- Automatic action creation on proposal approval
 ```
 
 ```ctx
