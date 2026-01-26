@@ -1,0 +1,10 @@
+# Context Store Directory
+
+This directory will contain the canonical context store data (JSON/YAML files)
+once file-based persistence is implemented.
+
+The context store is the source of truth. Markdown files in the project root
+(`CONTEXT.md`, `DECISIONS.md`, `PLAN.md`, `RISKS.md`, `QUESTIONS.md`) are
+projections of this store.
+
+See `.context/README.md` for more details.

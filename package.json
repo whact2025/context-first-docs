@@ -1,0 +1,49 @@
+{
+  "name": "context-first-docs",
+  "version": "0.1.0",
+  "description": "Context-first collaboration system for agentic development - a self-referential implementation",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "dev": "tsc --watch",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "keywords": [
+    "context",
+    "documentation",
+    "agentic",
+    "markdown",
+    "collaboration",
+    "git",
+    "self-referential",
+    "context-graph"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/whact2025/context-first-docs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/whact2025/context-first-docs/issues"
+  },
+  "homepage": "https://github.com/whact2025/context-first-docs#readme",
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.5.0",
+    "prettier": "^3.0.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "markdown-it": "^13.0.0",
+    "yaml": "^2.3.0"
+  }
+}
