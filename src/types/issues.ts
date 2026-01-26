@@ -1,18 +1,18 @@
 /**
- * Action system for creating actionable items from approved proposals.
+ * Issue system for creating issues from approved proposals.
  */
 
 import { NodeId, TaskNode } from "./node.js";
 
 /**
- * Action template defines what actions should be created when a proposal is approved.
+ * Issue template defines what issues should be created when a proposal is approved.
  */
-export interface ActionTemplate {
+export interface IssueTemplate {
   /** Unique identifier for this template */
   id: string;
-  /** Description of the action to create */
+  /** Description of the issue to create */
   description: string;
-  /** Type of action (task, follow-up, implementation, etc.) */
+  /** Type of issue (task, follow-up, implementation, etc.) */
   type: "task" | "follow-up" | "implementation" | "review" | "custom";
   /** Optional assignee (can be overridden) */
   assignee?: string;
@@ -21,38 +21,38 @@ export interface ActionTemplate {
     /** Days from approval */
     days: number;
   };
-  /** Dependencies (other action IDs or node IDs) */
+  /** Dependencies (other issue IDs or node IDs) */
   dependencies?: (string | NodeId)[];
-  /** Conditions for when this action should be created */
+  /** Conditions for when this issue should be created */
   conditions?: {
-    /** Node types that trigger this action */
+    /** Node types that trigger this issue */
     nodeTypes?: string[];
-    /** Proposal types that trigger this action */
+    /** Proposal types that trigger this issue */
     proposalTypes?: string[];
     /** Required proposal metadata fields */
     requiresFields?: string[];
   };
-  /** Priority of the action */
+  /** Priority of the issue */
   priority?: "low" | "medium" | "high" | "critical";
   /** Tags for categorization */
   tags?: string[];
 }
 
 /**
- * An action created from an approved proposal.
+ * An issue created from an approved proposal.
  */
-export interface Action {
+export interface Issue {
   /** Unique identifier */
   id: string;
-  /** The proposal that triggered this action */
+  /** The proposal that triggered this issue */
   proposalId: string;
-  /** The review/approval that triggered this action */
+  /** The review/approval that triggered this issue */
   reviewId: string;
-  /** Action template used (if any) */
+  /** Issue template used (if any) */
   templateId?: string;
-  /** Description of the action */
+  /** Description of the issue */
   description: string;
-  /** Type of action */
+  /** Type of issue */
   type: "task" | "follow-up" | "implementation" | "review" | "custom";
   /** Current state */
   state: "open" | "in-progress" | "blocked" | "completed" | "cancelled";
@@ -68,34 +68,34 @@ export interface Action {
   relatedNodes?: NodeId[];
   /** Tags */
   tags?: string[];
-  /** When this action was created */
+  /** When this issue was created */
   createdAt: string;
-  /** Who created this action (usually system) */
+  /** Who created this issue (usually system) */
   createdBy: string;
   /** Optional: link to created task node */
   taskNodeId?: NodeId;
 }
 
 /**
- * Action creation configuration for a proposal.
+ * Issue creation configuration for a proposal.
  */
-export interface ActionConfiguration {
-  /** Action templates to use when proposal is approved */
-  templates?: ActionTemplate[];
-  /** Custom actions to create (if templates aren't sufficient) */
-  customActions?: Omit<Action, "id" | "proposalId" | "reviewId" | "createdAt" | "createdBy">[];
-  /** Whether to auto-create actions on approval */
+export interface IssueConfiguration {
+  /** Issue templates to use when proposal is approved */
+  templates?: IssueTemplate[];
+  /** Custom issues to create (if templates aren't sufficient) */
+  customIssues?: Omit<Issue, "id" | "proposalId" | "reviewId" | "createdAt" | "createdBy">[];
+  /** Whether to auto-create issues on approval */
   autoCreate?: boolean;
-  /** Whether actions should be created as task nodes in context store */
+  /** Whether issues should be created as task nodes in context store */
   createAsTaskNodes?: boolean;
 }
 
 /**
- * Result of creating actions from an approved proposal.
+ * Result of creating issues from an approved proposal.
  */
-export interface ActionCreationResult {
-  /** Actions that were created */
-  actions: Action[];
+export interface IssueCreationResult {
+  /** Issues that were created */
+  issues: Issue[];
   /** Task nodes created (if createAsTaskNodes is true) */
   taskNodes?: TaskNode[];
   /** Any errors during creation */

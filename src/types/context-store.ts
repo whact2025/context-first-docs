@@ -5,6 +5,7 @@
 
 import { AnyNode, NodeId } from "./node.js";
 import { Proposal, Review } from "./proposal.js";
+import { IssueCreationResult } from "./issues.js";
 
 /**
  * The context store is the source of truth.
@@ -56,10 +57,10 @@ export interface ContextStore {
   applyProposal(proposalId: string): Promise<void>;
 
   /**
-   * Create actions from an approved proposal.
+   * Create issues from an approved proposal.
    * Called automatically when a proposal is approved (if configured).
    */
-  createActionsFromProposal(proposalId: string, reviewId: string): Promise<ActionCreationResult>;
+  createIssuesFromProposal(proposalId: string, reviewId: string): Promise<IssueCreationResult>;
 
   /**
    * Get review history for a proposal.

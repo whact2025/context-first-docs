@@ -22,7 +22,7 @@ status: accepted
 4. Implement role and permission system (contributors, approvers, admins)
 5. Add designated contributors and approvers support
 6. Implement proposal review workflow with approval requirements
-7. Add action creation on approval - automatically create tasks/actions when proposals are approved
+7. Add issue creation on approval - automatically create issues when proposals are approved
 8. Add comment threading
 9. Support partial accept/reject
 10. Build review history tracking
@@ -326,7 +326,7 @@ type: task
 id: task-035
 status: open
 ---
-Implement action creation on approval - automatically create tasks/actions when proposals are approved.
+Implement issue creation on approval - automatically create issues when proposals are approved.
 ```
 
 ```ctx
@@ -334,7 +334,7 @@ type: task
 id: task-036
 status: open
 ---
-Build action templates system - define reusable action templates for different proposal types.
+Build issue templates system - define reusable issue templates for different proposal types.
 ```
 
 ```ctx
@@ -342,5 +342,5 @@ type: task
 id: task-037
 status: open
 ---
-Add action configuration to proposals - allow proposals to specify what actions should be created on approval.
+Add issue configuration to proposals - allow proposals to specify what issues should be created on approval.
 ```

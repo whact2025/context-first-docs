@@ -86,13 +86,13 @@ type: question
 id: question-006
 status: open
 ---
-**Question**: What happens if action creation fails when a proposal is approved?
+**Question**: What happens if issue creation fails when a proposal is approved?
 
 **Context**:
-- Actions are created automatically on approval
-- Action creation might fail (permissions, validation, etc.)
-- Should approval be blocked if actions can't be created?
-- Should approval succeed but actions be queued for retry?
+- Issues are created automatically on approval
+- Issue creation might fail (permissions, validation, etc.)
+- Should approval be blocked if issues can't be created?
+- Should approval succeed but issues be queued for retry?
 - Need error handling and recovery strategy
 
 **Impact**: High - affects approval workflow reliability
@@ -138,17 +138,17 @@ type: question
 id: question-009
 status: open
 ---
-**Question**: Where are action templates stored and how are they versioned?
+**Question**: Where are issue templates stored and how are they versioned?
 
 **Context**:
-- Action templates define what actions to create on approval
+- Issue templates define what issues to create on approval
 - Should templates be in `.context/templates/`?
 - Can templates be shared across repositories?
 - How are template changes versioned?
 - Can proposals reference templates that don't exist yet?
 - Template inheritance or composition?
 
-**Impact**: Medium - affects action creation system design
+**Impact**: Medium - affects issue creation system design
 ```
 
 ```ctx
@@ -334,7 +334,7 @@ status: open
 
 **Context**:
 - Many teams use existing issue trackers
-- Should actions sync to external tools?
+- Should issues sync to external tools?
 - Bidirectional sync or one-way?
 - How to handle conflicts between systems?
 - Integration APIs and webhooks?
@@ -416,14 +416,14 @@ type: question
 id: question-025
 status: open
 ---
-**Question**: What happens to actions when their originating proposal is superseded or rolled back?
+**Question**: What happens to issues when their originating proposal is superseded or rolled back?
 
 **Context**:
-- Actions are created from approved proposals
-- If proposal is superseded, should actions be cancelled?
-- Should actions reference the proposal for traceability?
-- Action lifecycle independent of proposal?
-- How to handle orphaned actions?
+- Issues are created from approved proposals
+- If proposal is superseded, should issues be cancelled?
+- Should issues reference the proposal for traceability?
+- Issue lifecycle independent of proposal?
+- How to handle orphaned issues?
 
-**Impact**: Medium - affects action management and traceability
+**Impact**: Medium - affects issue management and traceability
 ```

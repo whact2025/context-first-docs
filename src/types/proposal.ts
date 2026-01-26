@@ -29,15 +29,15 @@ export interface ProposalMetadata {
   requiredApprovers?: string[];
   /** Approvers who have approved this proposal */
   approvedBy?: string[];
-  /** Actions created when this proposal was approved */
-  createdActions?: string[]; // Action IDs
-  /** Action configuration for this proposal */
-  actionConfig?: {
-    /** Auto-create actions on approval */
+  /** Issues created when this proposal was approved */
+  createdIssues?: string[]; // Issue IDs
+  /** Issue configuration for this proposal */
+  issueConfig?: {
+    /** Auto-create issues on approval */
     autoCreate?: boolean;
-    /** Create actions as task nodes */
+    /** Create issues as task nodes */
     createAsTaskNodes?: boolean;
-    /** Action templates to use */
+    /** Issue templates to use */
     templates?: string[]; // Template IDs
   };
 }
