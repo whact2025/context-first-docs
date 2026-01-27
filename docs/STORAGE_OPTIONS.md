@@ -4,14 +4,18 @@ This document outlines storage options for the context store that can be hosted 
 
 ## Overview
 
-**Important**: Context store files are **NOT manually edited**. All changes go through the **proposal/review workflow** managed at a higher level (UI, agents, etc.). Git diffs are not used for context management - proposals are.
+**Important**: 
+- Context store files are **NOT manually edited** - all changes go through **proposal/review workflow**
+- Context store is **centrally managed** for organization/project
+- Contexts are **NOT subject to git commits/merges** - managed at higher level
+- **No change tracking through Git** - all managed centrally
 
 The context store needs to be:
-- **Git-versioned**: Text-based formats that can be versioned in Git (for collaboration and history)
+- **Centrally managed**: Self-hosted central management within organization
 - **Queryable**: Easy to process programmatically
 - **Human-readable**: Developers can inspect and understand (for debugging/review)
-- **Versioned**: Git provides versioning and history (automatic, from proposal approvals)
-- **Accessible**: Works with GitHub/GitLab web interfaces (for viewing, not editing)
+- **Proposal-based**: All changes through proposals/review workflow
+- **Accessible**: Accessible via API/UI (not through Git)
 
 ## Storage Format Options
 
@@ -36,15 +40,15 @@ The context store needs to be:
 - ✅ **Machine-readable**: Easy to parse and query programmatically
 - ✅ **Standard format**: Widely supported, excellent tooling
 - ✅ **Deterministic**: Same data = same file (critical for proposals)
-- ✅ **Git-versioned**: Can be versioned in Git (changes come from proposal approvals, not manual edits)
-- ✅ **Viewable**: Works with GitHub/GitLab web UI (for viewing context, not editing)
-- ✅ **Programmatic access**: Easy to read/write programmatically
+- ✅ **Centrally manageable**: Easy to manage in central store (not in Git)
+- ✅ **Programmatic access**: Easy to read/write programmatically via API
+- ✅ **Self-hosted**: Can be stored in central management server/service
 
 **Cons**:
 - ❌ Less human-readable than YAML (but files aren't manually edited anyway)
 - ❌ No comments in JSON (but metadata fields can document)
 
-**Note**: Context store files are managed through proposals, not manual edits. Git diffs show the result of approved proposals, not manual file edits.
+**Note**: Context store is centrally managed, NOT in Git. All changes go through proposals/review workflow. No git commits, no merges, no change tracking through Git.
 
 ### Option 2: YAML Files
 
@@ -259,15 +263,15 @@ docs/              # Generated site (GitLab Pages)
 
 **Rationale**:
 1. ✅ **Graph-native**: Matches graph model (see `decision-015`), enables efficient relationship queries
-2. ✅ **Git-versioned**: Can be versioned in Git (changes come from proposal approvals)
+2. ✅ **Centrally manageable**: Easy to manage in central store (not in Git)
 3. ✅ **Queryable**: Native graph structure enables efficient traversal and path finding
-4. ✅ **Versioned**: Git provides full version history (automatic from proposal workflow)
-5. ✅ **Viewable**: GitHub/GitLab web UI can display JSON (for viewing context)
-6. ✅ **Proposal-friendly**: Changes tracked through proposals, not manual edits
-7. ✅ **Self-contained**: All data in Git, no external services (see `constraint-005`)
-8. ✅ **Compatible**: Extends current JSON structure, maintains compatibility
+4. ✅ **Proposal-based**: Changes tracked through proposals/review workflow
+5. ✅ **Programmatic access**: Easy to query and update via API
+6. ✅ **Self-hosted**: Central management within organization (see `constraint-005`)
+7. ✅ **Compatible**: Extends current JSON structure, maintains compatibility
+8. ✅ **No Git operations**: Contexts NOT subject to git commits/merges
 
-**Note**: Context store files are managed through proposals/review workflow. Git is used for versioning and collaboration, but developers don't manually edit these files or create git diffs. Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update → Git Commit.
+**Note**: Context store is centrally managed, NOT in Git. Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update (centrally managed). No git commits, no merges, no change tracking through Git.
 
 ### File Naming Convention
 
@@ -1002,19 +1006,19 @@ node Decision_decision_001 {
 
 ## Summary
 
-**Recommended Storage**: **JSON Graph format in `.context/graph.json`, committed to git**
+**Recommended Storage**: **JSON Graph format in central context store (NOT in Git)**
 
-- **Primary**: JSON Graph format (`.context/graph.json`) - default storage for all collected data
+- **Primary**: JSON Graph format - default storage for all collected data
 - Graph structure with nodes and edges enables efficient relationship queries
-- Individual node files in `.context/nodes/` for granular access
-- Committed to git for versioning and collaboration (changes come from proposal approvals)
+- Individual node files for granular access
+- **Centrally managed**: Context store is centrally managed for organization/project
+- **NOT in Git**: Contexts are NOT subject to git commits/merges
 - **Proposal-based workflow**: All changes go through proposals/review, not manual edits
-- **Git versioning**: Git provides version history (automatic from proposal workflow)
-- Works with GitHub/GitLab web interfaces (for viewing context, not editing)
+- **No change tracking through Git**: Managed at higher level (proposals/reviews)
 - Easy to query and process programmatically with graph structure
-- All data stays within organization (self-hosted Git, no external services)
+- All data stays within organization (self-hosted central management, no external services)
 
-**Workflow**: UI/Agent → Proposal → Review → Approval → Context Store Update → Git Commit
+**Workflow**: UI/Agent → Proposal → Review → Approval → Context Store Update (centrally managed, no git commit)
 
 **Optional Enhancement**: GraphQL SDL for Schema
 - Use `.context/schema.graphql` to define schema (human-readable)

@@ -50,16 +50,17 @@ The canonical source of truth:
 - Handles conflict detection and resolution
 - Creates issues automatically when proposals are approved
 
-**Storage Format**: JSON Graph format (`.context/graph.json`) - default storage for all collected data (see `decision-005`)
+**Storage Format**: JSON Graph format - default storage for all collected data (see `decision-005`)
 - Graph structure with nodes and edges
 - Individual node files for granular access
-- Committed to Git for versioning and collaboration
-- All data stays within organization (self-hosted, no external services - see `constraint-005`)
+- **Centrally managed**: NOT in Git, centrally managed for organization/project
+- **No git commits/merges**: Contexts are not subject to git operations
+- All data stays within organization (self-hosted central management, no external services - see `constraint-005`)
 
 Planned implementations:
 - In-memory store (for testing)
-- File-based store (JSON Graph format)
-- Git-backed store (for versioning)
+- File-based central store (JSON Graph format)
+- Central management server/service (self-hosted within organization)
 - Optional: Embedded graph databases (Kuzu, SQLite) for performance at scale
 
 ## Data Flow
@@ -69,33 +70,34 @@ Planned implementations:
 1. **UI Layer**: Human edits Markdown file in UI (VS Code/Cursor extension, web UI, etc.)
    - Markdown file with ctx blocks exists only in UI, NOT in Git
    - Based on role permissions (read-only or editable)
-2. **Change Detection (Embedded in UI)**: UI extracts ctx blocks and compares with context store
+2. **Change Detection (Embedded in UI)**: UI extracts ctx blocks and compares with central context store
    - New ctx blocks → create proposals
    - Modified ctx blocks → create update proposals
    - Removed ctx blocks → create delete proposals
    - Change detection happens in real-time or on save (UI-dependent)
    - See `docs/CHANGE_DETECTION.md` for detailed process
 3. **Proposal Creation**: Changes imported as proposals (for ctx blocks)
-   - Proposals created immediately in context store
-   - Context store is committed to Git (`.context/graph.json`)
+   - Proposals created immediately in central context store
+   - Context store is centrally managed (NOT in Git)
 4. **Conflict Detection**: System checks for conflicts with open proposals
 5. Non-ctx content changes tracked and synced (UI-only)
 6. Referencing nodes updated if referenced content changed
 7. Proposals are reviewed (by designated approvers) - in UI
-8. Accepted proposals become truth in context store
+8. Accepted proposals become truth in central context store
 9. **UI Updates**: All affected Markdown files regenerated from accepted truth in UI
-10. **Git Commit**: Only context store changes are committed to Git (not Markdown files)
+10. **No Git Operations**: Context store is centrally managed, NOT subject to git commits/merges
 
 ### Reading Context
 
-1. **Agents**: Query context store directly (never read raw Markdown)
-   - Agents never see Markdown files - they only interact with context store
+1. **Agents**: Query central context store directly (never read raw Markdown)
+   - Agents never see Markdown files - they only interact with central context store
+   - Context store is centrally managed (NOT in Git)
 2. **Humans**: View Markdown projection in UI (VS Code/Cursor extension, web UI)
-   - Markdown is generated on-demand from context store
+   - Markdown is generated on-demand from central context store
    - Markdown files exist only in UI, not in Git
-3. Store returns accepted nodes + open proposals (default: accepted only for safety)
+3. Central context store returns accepted nodes + open proposals (default: accepted only for safety)
 4. Agent can distinguish truth from proposals (explicit status indicators)
-5. Agent can create new proposals
+5. Agent can create new proposals (stored in central context store)
 6. **Chain-of-Thought Traversal**: Agents can traverse reasoning chains:
    - Follow logical paths: goal → decision → task → risk
    - Build context progressively as they reason

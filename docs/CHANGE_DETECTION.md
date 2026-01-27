@@ -4,12 +4,16 @@ This document explains how the system detects changes made to Markdown files and
 
 ## Overview
 
-**Important**: ctx blocks and rendered Markdown are **UI-only** and **NOT committed to Git**. Change detection is **embedded in whatever UI is being used** (VS Code/Cursor extension, web UI, etc.).
+**Important**: 
+- ctx blocks and rendered Markdown are **UI-only** and **NOT committed to Git**
+- Context store is **centrally managed** and **NOT subject to git commits/merges**
+- Change detection is **embedded in whatever UI is being used** (VS Code/Cursor extension, web UI, etc.)
 
 The system uses a **bidirectional synchronization** approach:
 - **Markdown → Context Store**: Changes to ctx blocks are detected in UI and imported as proposals
 - **Context Store → Markdown**: Accepted truth is exported back to Markdown deterministically in UI
-- **Git**: Only context store (`.context/graph.json`) is committed to Git, NOT Markdown files
+- **Central Management**: Context store is centrally managed for organization/project (NOT in Git)
+- **No Git Operations**: Contexts are not subject to git commits, merges, or change tracking through Git
 
 Only `ctx` blocks are managed by the system; other Markdown content is preserved.
 
@@ -138,7 +142,7 @@ const proposal = {
 
 ## When Change Detection Runs
 
-**Change detection is embedded in the UI layer** - it does NOT run through Git operations. The UI (VS Code/Cursor extension, web UI, etc.) handles all change detection.
+**Change detection is embedded in the UI layer** - it does NOT run through Git operations. The UI (VS Code/Cursor extension, web UI, etc.) handles all change detection. Context store is centrally managed, NOT in Git.
 
 ### VS Code/Cursor Extension (Primary)
 
@@ -153,10 +157,11 @@ The extension embeds change detection:
 1. User edits `DECISIONS.md` in editor (file exists only in UI, not in Git)
 2. Extension watches for file changes
 3. On save (or manual trigger), extension calls `importFromMarkdown()`
-4. Proposals are created and stored in context store (`.context/graph.json`)
-5. Context store changes are committed to Git (NOT the Markdown file)
+4. Proposals are created and stored in central context store (NOT in Git)
+5. Context store is centrally managed (no git commits/merges)
 6. Proposals are displayed in extension UI
 7. User can review and submit proposals in extension
+8. Approved proposals update central context store (no git operations)
 
 ### Web UI (Future)
 
@@ -456,25 +461,27 @@ Web-based interface:
 - **Proposal Management**: Review and approve proposals
 - **Git Integration**: Commit context store to Git through web UI
 
-### Git Integration
+### Central Management
 
-**Git is used ONLY for context store**:
+**Context store is centrally managed, NOT in Git**:
 
-- **Context Store Versioning**: `.context/graph.json` committed to Git
-- **Collaboration**: Multiple users sync context store through Git
-- **History**: Git provides version history for context store
-- **PR/MR Review**: Review context store changes in pull/merge requests
+- **Central Management**: Context store centrally managed for organization/project
+- **No Git Operations**: Contexts NOT subject to git commits/merges
+- **Self-Hosted**: Central management within organization
+- **Collaboration**: Multiple users access central context store
+- **Proposal-Based**: All changes through proposals/review workflow
 
-**Git is NOT used for**:
-- ❌ Markdown file versioning (UI-only)
-- ❌ Change detection (handled by UI)
-- ❌ ctx block storage (UI-only)
+**NOT in Git**:
+- ❌ Context store (centrally managed)
+- ❌ Markdown files (UI-only)
+- ❌ ctx blocks (UI-only)
+- ❌ Change tracking (managed at higher level)
 
 ### CI/CD
 
-- **Context Store Validation**: Validate context store structure in PRs
-- **Proposal Validation**: Validate proposals before merge
-- **Conflict Detection**: Check for conflicts in context store
+- **Context Store Validation**: Validate context store structure (centrally managed)
+- **Proposal Validation**: Validate proposals before approval
+- **Conflict Detection**: Check for conflicts in central context store
 
 ## Example Workflow
 

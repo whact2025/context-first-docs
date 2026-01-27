@@ -89,25 +89,25 @@ type: decision
 id: decision-005
 status: accepted
 ---
-**Decision**: Store context in Git as a graph format (JSON Graph), committed to the repository. Graph format is the default storage for all collected data.
+**Decision**: Store context in a centrally managed graph format (JSON Graph). Contexts are NOT subject to git commits and merges - they are centrally managed for the organization/project.
 
 **Rationale**:
 - Graph model (see `decision-015`) requires graph-native storage format
 - Graph format enables efficient relationship queries and traversal
-- JSON Graph format extends current JSON structure, maintaining git-versionability
-- **Proposal-based workflow**: All changes go through proposals/review, not manual edits or git diffs
+- JSON Graph format extends current JSON structure, machine-readable and programmatically manageable
+- **Centralized management**: Context store is centrally managed, not distributed via Git
+- **No git commits/merges**: Contexts are not subject to git operations - managed at higher level
+- **Proposal-based workflow**: All changes go through proposals/review workflow
 - Easier to query and process programmatically with graph structure
 - Markdown files are generated deterministically from the graph store
 - Enables advanced features like relationship traversal, path finding, and graph queries
-- JSON Graph format is machine-readable and programmatically manageable
-- Committed to git provides full version history and collaboration (changes come from proposal approvals)
-- All data stays within organization (see `constraint-005`)
+- All data stays within organization (see `constraint-005`) - self-hosted central management
 
-**Workflow**: Context store files are NOT manually edited. Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update → Git Commit
+**Workflow**: Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update (centrally managed, no git commit)
 
-**Storage Structure**:
+**Storage Structure** (Centrally Managed):
 ```
-.context/
+Central Context Store (self-hosted within organization):
 ├── graph.json                 # Primary graph storage (nodes + edges)
 ├── nodes/
 │   ├── {type}-{id}.json      # Individual node files (for granular access)
@@ -117,6 +117,8 @@ status: accepted
 │   └── review-{id}.json      # One file per review
 └── index.json                # Metadata and indexes
 ```
+
+**NOT in Git**: Context store is centrally managed, NOT committed to Git. No git commits, no merges, no change tracking through Git.
 
 **Graph Format**: JSON Graph structure:
 ```json
@@ -148,30 +150,30 @@ status: accepted
 - Machine-readable and programmatically manageable (better than binary formats)
 - Standard JSON format, widely supported
 - Native graph structure enables efficient queries
-- Viewable in PRs (for inspection, not editing)
-- All data in Git, no external services required
+- All data stays within organization (self-hosted central management)
 
-**Git Integration**: Context store is committed to git (not ignored) for:
-- Full version history (automatic from proposal workflow)
-- Collaboration via git workflows (syncing context store between team members)
-- View context changes in PRs (for review/inspection, not manual editing)
-- Git-based backup and distribution
-- All data stays within organization (self-hosted Git)
+**Central Management**: Context store is centrally managed (NOT in Git) for:
+- **No git commits/merges**: Contexts are not subject to git operations
+- **Centralized access**: Single source of truth for organization/project
+- **Proposal-based workflow**: All changes go through proposals/review
+- **Self-hosted**: Central management server/service within organization
+- **No change tracking through Git**: Managed at higher level (proposals/reviews)
+- **Collaboration**: Team members access central context store (not via git sync)
 
-**Important**: Context store files are managed through proposals, not manual edits. Git diffs show the result of approved proposals, but the workflow is proposal-based, not diff-based.
+**Important**: Context store is centrally managed, not distributed via Git. Changes flow through proposals/review workflow, not git commits/merges.
 
 **Alternatives Considered**:
 - Individual JSON files only (loses graph structure, harder to query relationships)
 - GraphML/GEXF (XML overhead, less tooling support)
 - YAML (more human-readable but less strict, whitespace-sensitive)
-- Single monolithic file (poor git diffs, merge conflicts)
-- Git-ignored storage (loses version history and collaboration)
-- External graph databases (loses git integration, violates security constraint)
+- Git-based storage (violates requirement - contexts not subject to git commits/merges)
+- External cloud databases (violates security constraint - must stay within organization)
+- Distributed storage via Git (violates requirement - must be centrally managed)
 
 **Performance Enhancement** (Optional):
 - Embedded file-based databases (Kuzu, SQLite) can sync from JSON Graph for query performance
-- Graph format remains source of truth in Git
-- Database files stored in `.context/` directory, committed to Git
+- Graph format remains source of truth in central management
+- Database files stored in central context store
 - Can be rebuilt from JSON Graph at any time
 - No data loss if database unavailable
 
