@@ -177,16 +177,59 @@ Given the graph model (see `question-003`) and security requirements (see `const
 ```ctx
 type: question
 id: question-005
-status: open
+status: resolved
 ---
 **Question**: How should agents discover and consume context?
 
-**Context**:
-- Need query API
-- Need to distinguish accepted vs proposed
-- May need authentication/authorization
+**Answer**: Comprehensive query API with chain-of-thought traversal capabilities. See `docs/AGENT_API.md` for full API design.
 
-**Impact**: High - core to agent safety
+**Discovery API**:
+- **Query by Type, Status, Keyword**: `queryNodes()` with comprehensive filtering
+  - Filter by node types (decision, task, risk, etc.)
+  - Filter by status (accepted, proposed, rejected, superseded)
+  - Full-text search with advanced options (fields, operators, fuzzy matching)
+  - Tag, namespace, creator, date range filtering
+  - Pagination and sorting support
+
+- **Graph Traversal**: Relationship-based queries
+  - Find related nodes by relationship types
+  - Traverse dependencies, descendants, ancestors
+  - Filter by relationship existence and direction
+  - Depth-controlled traversal
+
+- **Chain-of-Thought Traversal**: Progressive reasoning through contexts
+  - `traverseReasoningChain()`: Follow logical relationship paths (goal → decision → task → risk)
+  - `buildContextChain()`: Build context progressively by following relationship sequences
+  - `followDecisionReasoning()`: Understand decision rationale (goals, alternatives, implementations, risks, constraints)
+  - `discoverRelatedReasoning()`: Find related context through multiple hops and semantic similarity
+  - `queryWithReasoning()`: Query with automatic reasoning chain traversal
+  - Accumulates context progressively as agents reason
+  - Includes rationale and alternatives at each step
+
+**Agent Safety**:
+- **Default Behavior**: Queries return only accepted nodes (truth) by default
+- **Explicit Opt-in**: Agents must explicitly include proposals: `status: ["accepted", "proposed"]`
+- **Clear Status Indicators**: All nodes include explicit status field
+- **Reasoning Paths**: Chain-of-thought traversal shows step-by-step reasoning with rationale
+
+**API Structure**:
+- Programmatic interface (TypeScript/JavaScript)
+- Returns `NodeQueryResult` with pagination metadata
+- Supports complex multi-filter queries
+- Graph-native queries for relationship traversal
+- Chain-of-thought queries for progressive reasoning
+
+**Authentication/Authorization**:
+- To be determined (see `question-007` for role management)
+- Current design supports role-based access control (see `decision-011`)
+- Query API can be extended with authentication/authorization checks
+
+**Examples**:
+- Basic query: `queryNodes({ type: ["decision"], status: ["accepted"], search: "TypeScript" })`
+- Chain-of-thought: `traverseReasoningChain(startNode, { path: [...], accumulateContext: true })`
+- Query with reasoning: `queryWithReasoning({ query: {...}, reasoning: { enabled: true } })`
+
+**Impact**: High - core to agent safety and reasoning capabilities
 ```
 
 ```ctx
