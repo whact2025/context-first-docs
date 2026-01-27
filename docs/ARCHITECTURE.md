@@ -63,13 +63,18 @@ Planned implementations:
 ### Writing Context
 
 1. Human edits Markdown file (e.g., `DECISIONS.md`) - based on role permissions (read-only or editable)
-2. System detects changes to ctx blocks and other content
+2. **Change Detection**: System extracts ctx blocks and compares with context store
+   - New ctx blocks → create proposals
+   - Modified ctx blocks → create update proposals
+   - Removed ctx blocks → create delete proposals
+   - See `docs/CHANGE_DETECTION.md` for detailed process
 3. Changes imported as proposals (for ctx blocks)
-4. Non-ctx content changes tracked and synced
-5. Referencing nodes updated if referenced content changed
-6. Proposals are reviewed
-7. Accepted proposals become truth in context store
-8. All affected Markdown files regenerated from accepted truth
+4. **Conflict Detection**: System checks for conflicts with open proposals
+5. Non-ctx content changes tracked and synced
+6. Referencing nodes updated if referenced content changed
+7. Proposals are reviewed (by designated approvers)
+8. Accepted proposals become truth in context store
+9. All affected Markdown files regenerated from accepted truth
 
 ### Reading Context
 
