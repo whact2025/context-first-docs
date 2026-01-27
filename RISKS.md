@@ -15,7 +15,7 @@ likelihood: possible
 - Provide clear documentation and examples
 - Make ctx blocks optional for simple use cases
 - Ensure Markdown still renders correctly even if ctx blocks are ignored
-- Create migration tools for existing documentation
+- Create reverse engineering tools for extracting historical context from existing documentation
 - Use the project itself as a demonstration
 ```
 

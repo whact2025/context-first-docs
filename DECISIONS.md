@@ -89,97 +89,151 @@ type: decision
 id: decision-005
 status: accepted
 ---
-**Decision**: Store context in a self-hosted Git repository as graph format (JSON Graph). Contexts are stored in Git but NOT subject to manual git commits and merges - they are managed through proposals at a higher level.
+**Decision**: Support both file-based and MongoDB storage implementations through a storage abstraction layer (`ContextStore` interface). Users can start with file-based storage and scale up to MongoDB as needed.
 
 **Rationale**:
-- Graph model (see `decision-015`) requires graph-native storage format
-- Graph format enables efficient relationship queries and traversal
-- JSON Graph format extends current JSON structure, machine-readable and programmatically manageable
-- **Self-hosted in Git**: Context store files are stored in self-hosted Git repository (within organization)
-- **No manual git commits/merges**: Contexts are not manually edited or committed - managed through proposals
-- **Proposal-based workflow**: All changes go through proposals/review workflow, then automatically updated in Git
-- **Automatic Git updates**: Approved proposals automatically update Git repository (no manual git operations)
-- Easier to query and process programmatically with graph structure
-- Markdown files are generated deterministically from the graph store
-- Enables advanced features like relationship traversal, path finding, and graph queries
-- All data stays within organization (see `constraint-005`) - self-hosted Git repository
+- **Abstraction Layer**: `ContextStore` interface allows multiple storage implementations
+- **File-Based Storage**: Simple, Git-friendly, perfect for small projects and development
+- **MongoDB Storage**: Production-ready with ACID transactions, concurrency control, and scalability
+- **Scalability Path**: Users can start simple and scale up without code changes
+- **Graph model** (see `decision-015`) requires graph-native storage format
+- **Self-hosted**: Both implementations run within organization (no external cloud services)
+- **Proposal-based workflow**: All changes go through proposals/review workflow
+- All data stays within organization (see `constraint-005`)
 
-**Workflow**: Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update → Automatic Git Update (no manual git commits/merges)
-
-**Storage Structure** (Self-Hosted in Git):
-```
-.context/                      # In self-hosted Git repository (within organization)
-├── graph.json                 # Primary graph storage (nodes + edges)
-├── nodes/
-│   ├── {type}-{id}.json      # Individual node files (for granular access)
-├── proposals/
-│   ├── proposal-{id}.json    # One file per proposal
-├── reviews/
-│   └── review-{id}.json      # One file per review
-└── index.json                # Metadata and indexes
-```
-
-**Self-Hosted in Git**: Context store files are stored in self-hosted Git repository (GitLab, Gitea, etc. within organization). Files are automatically updated when proposals are approved - no manual git commits/merges required.
-
-**Graph Format**: JSON Graph structure:
-```json
-{
-  "nodes": [
-    {
-      "id": "decision-001",
-      "type": "decision",
-      "status": "accepted",
-      "content": "Use TypeScript",
-      "metadata": { ... }
-    }
-  ],
-  "edges": [
-    {
-      "source": "task-002",
-      "target": "decision-001",
-      "type": "implements",
-      "metadata": { ... }
-    }
-  ]
-}
+**Storage Abstraction**:
+```mermaid
+graph TB
+    subgraph "Application Layer"
+        UI[UI Layer]
+        API[GraphQL API]
+        App[Application Code]
+    end
+    
+    subgraph "Storage Abstraction"
+        Interface[ContextStore Interface]
+    end
+    
+    subgraph "Storage Implementations"
+        FileStore[File-Based Store<br/>JSON Graph in Git]
+        MongoStore[MongoDB Store<br/>Self-Hosted]
+    end
+    
+    UI --> API
+    API --> App
+    App --> Interface
+    Interface --> FileStore
+    Interface --> MongoStore
+    
+    style Interface fill:#e1f5ff
+    style FileStore fill:#fff4e1
+    style MongoStore fill:#e8f5e9
 ```
 
-**Format Choice**: JSON Graph over other formats because:
-- Extends current JSON structure (compatible with existing approach)
-- More machine-friendly and deterministic than XML-based formats (GraphML, GEXF)
-- Better tooling support than GraphML/GEXF
-- Machine-readable and programmatically manageable (better than binary formats)
-- Standard JSON format, widely supported
-- Native graph structure enables efficient queries
-- All data stays within organization (self-hosted Git repository)
+**Workflow**: Changes flow: UI/Agent → Proposal → Review → Approval → Storage Update (via `ContextStore` interface)
 
-**Self-Hosted Git Storage**: Context store is stored in self-hosted Git repository (within organization) for:
-- **Self-hosted**: Git repository hosted within organization (GitLab, Gitea, etc.)
-- **No manual git commits/merges**: Contexts are not manually edited or committed
-- **Automatic Git updates**: Approved proposals automatically update Git repository
-- **Proposal-based workflow**: All changes go through proposals/review, then auto-updated in Git
-- **No change tracking through manual Git**: Managed at higher level (proposals/reviews)
-- **Collaboration**: Team members sync context store through Git (automatic, not manual)
-- **Version history**: Git provides version history (automatic from proposal approvals)
+**Storage Architecture**:
+```mermaid
+graph TB
+    subgraph "UI Layer"
+        UI[VS Code/Cursor Extension<br/>Web UI]
+    end
+    
+    subgraph "API Layer"
+        GraphQL[GraphQL Server<br/>Self-Hosted]
+        Schema[Schema: .context/schema.graphql]
+        GraphQL -.-> Schema
+    end
+    
+    subgraph "Storage Abstraction"
+        Interface[ContextStore Interface]
+    end
+    
+    subgraph "File-Based Implementation"
+        FileStore[File-Based Store]
+        GraphJSON[.context/graph.json]
+        NodeFiles[.context/nodes/]
+        FileStore --> GraphJSON
+        FileStore --> NodeFiles
+    end
+    
+    subgraph "MongoDB Implementation"
+        MongoStore[MongoDB Store<br/>Self-Hosted]
+        Collections[(Collections:<br/>nodes, proposals,<br/>reviews, relationships)]
+        MongoStore --> Collections
+    end
+    
+    subgraph "Git Repository"
+        Git[Git Repository<br/>Backup/Archive]
+        Snapshots[.context/snapshots/]
+        Git --> Snapshots
+    end
+    
+    UI -->|GraphQL API| GraphQL
+    GraphQL --> Interface
+    Interface --> FileStore
+    Interface --> MongoStore
+    FileStore -.->|Periodic| Git
+    MongoStore -.->|Periodic| Git
+    
+    style Interface fill:#e1f5ff
+    style FileStore fill:#fff4e1
+    style MongoStore fill:#e8f5e9
+```
 
-**Important**: Context store files are in self-hosted Git repository, but managed through proposals/review workflow. No manual git commits/merges - changes are automatically updated when proposals are approved.
+**File-Based Storage** (Default for Development/Small Projects):
+- **Format**: JSON Graph in `.context/graph.json` and individual node files
+- **Location**: `.context/` directory in Git repository
+- **Benefits**:
+  - ✅ Simple, no external dependencies
+  - ✅ Fully Git-friendly, reviewable in PRs
+  - ✅ Perfect for small projects and development
+  - ✅ Easy to understand and debug
+  - ✅ All data in Git (versioned, auditable)
+- **Limitations**:
+  - ⚠️ Concurrency issues with multiple simultaneous edits
+  - ⚠️ Scalability concerns with large graphs (thousands of nodes)
+  - ⚠️ No ACID transactions
 
-**Alternatives Considered**:
-- Individual JSON files only (loses graph structure, harder to query relationships)
-- GraphML/GEXF (XML overhead, less tooling support)
-- YAML (more human-readable but less strict, whitespace-sensitive)
-- Manual git commits/merges (violates requirement - contexts managed through proposals)
-- External cloud databases (violates security constraint - must stay within organization)
-- Central management without Git (loses version history and Git-based collaboration)
+**MongoDB Storage** (Recommended for Production/Large Projects):
+- **Database**: Self-hosted MongoDB (within organization)
+- **Collections**: `nodes`, `proposals`, `reviews`, `relationships`
+- **Benefits**:
+  - ✅ **ACID transactions**: Atomic proposal approvals, no partial updates
+  - ✅ **Concurrency control**: Built-in optimistic locking, no file conflicts
+  - ✅ **Scalability**: Indexed queries, horizontal scaling
+  - ✅ **GraphQL integration**: Excellent support via Hasura, Apollo, or custom resolvers
+  - ✅ **Self-hostable**: Docker, Kubernetes deployment within organization
+  - ✅ **Document model**: Natural fit for graph nodes and relationships
+  - ✅ **Query performance**: Indexed relationship queries, aggregation pipeline
+  - ✅ **Air-gapped support**: Can deploy without internet
+- **Git Integration**: Periodic snapshots to Git for backup, version history, audit trail
 
-**Performance Enhancement** (Optional):
-- Embedded file-based databases (Kuzu, SQLite) can sync from JSON Graph for query performance
-- Graph format remains source of truth in central management
-- Database files stored in central context store
-- Can be rebuilt from JSON Graph at any time
-- No data loss if database unavailable
+**Storage Selection**:
+- **Development/Small Projects**: File-based storage (default)
+- **Production/Large Projects**: MongoDB storage (recommended)
+- **Scaling Path**: Switch from file-based to MongoDB via configuration change (same `ContextStore` interface)
+
+**GraphQL Schema** (`.context/schema.graphql`):
+- Type-safe API definition
+- Self-documenting (introspection)
+- Human-readable schema changes (reviewable in PRs)
+- Validation contract
+- Works with both storage implementations
+- See `docs/STORAGE_ARCHITECTURE.md` for full schema design
+
+**Important**: Both storage implementations use the same `ContextStore` interface, allowing seamless scaling from file-based to MongoDB. All infrastructure is self-hosted within organization.
+
+
+**Implementation Strategy**:
+1. Start with file-based storage (simple, Git-friendly)
+2. Implement MongoDB storage (production-ready)
+3. Both use same `ContextStore` interface (abstraction layer)
+4. Users configure storage backend (file-based or MongoDB)
+5. Easy to scale up from file-based to MongoDB
 
 **Decided At**: 2026-01-26
+**Updated At**: 2026-01-26 (support both file-based and MongoDB via abstraction layer)
 ```
 
 ```ctx
@@ -327,7 +381,7 @@ status: accepted
 **Decision**: Integration must support reverse engineering merge requests/PRs in pre-existing repositories.
 
 **Rationale**:
-- Enables migration of existing projects to context-first system
+- Enables reverse engineering of historical context from existing projects
 - Captures historical decisions and rationale from PR/MR comments
 - Extracts proposals, decisions, and risks from existing code review discussions
 - Preserves institutional knowledge that exists only in PR/MR history

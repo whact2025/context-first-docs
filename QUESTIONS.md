@@ -99,79 +99,47 @@ status: resolved
 ---
 **Question**: What's the best format for storing context in Git? JSON vs YAML vs custom? Should graph/document databases be considered?
 
-**Answer**: JSON Graph format in `.context/graph.json` is the default storage for all collected data. Graph format is required, not optional.
+**Answer**: Both file-based and MongoDB storage implementations are available through a storage abstraction layer (`ContextStore` interface). Users can start with file-based and scale up to MongoDB.
 
-**Primary Storage: JSON Graph Format (Default)**:
-- Graph format matches graph model (see `decision-015`), enables efficient relationship queries
-- JSON Graph extends current JSON structure, maintaining git-friendliness
-- Provides excellent git diffs and merge conflict resolution
-- Machine-friendly and deterministic
-- Native graph structure enables efficient traversal and path finding
-- Committed to git provides full version history
-- Git-friendly (required for non-invasive installation)
-- Reviewable in PRs and GitHub/GitLab web UI
-- No external infrastructure required
-- All data stays within organization (see `constraint-005`)
-- See `docs/STORAGE_OPTIONS.md` for detailed analysis
+**Storage Abstraction Layer**:
+- **Interface**: `ContextStore` interface defines storage contract
+- **Multiple Implementations**: Both file-based and MongoDB satisfy the same interface
+- **Configuration-Based**: Users select storage backend via configuration
+- **Seamless Scaling**: Switch from file-based to MongoDB without code changes
 
-**Graph Format Structure**:
-- `.context/graph.json` - Primary graph storage (nodes + edges)
-- `.context/nodes/{id}.json` - Individual node files (for granular access)
-- Graph structure enables efficient relationship queries and traversal
+**File-Based Storage** (Default for Development/Small Projects):
+- **Format**: JSON Graph in `.context/graph.json` and individual node files
+- **Location**: `.context/` directory in Git repository
+- **Benefits**:
+  - Simple, no external dependencies
+  - Fully Git-friendly, reviewable in PRs
+  - Perfect for small projects and development
+  - Easy to understand and debug
+- **Limitations**:
+  - Concurrency issues with multiple simultaneous edits
+  - Scalability concerns with large graphs
 
-**Graph/Document Databases as Optional Enhancement**:
-Given the graph model (see `question-003`) and security requirements (see `constraint-005`), graph/document databases must be Git-hostable and self-hosted:
-
-- **Text-Based Graph Formats** (Git-Native):
-  - **GraphML**: XML-based, git-friendly, human-readable, reviewable in PRs
-  - **DOT**: GraphViz format, very readable, git-friendly
-  - **GEXF**: XML-based network format, git-friendly, rich metadata
-  - **JSON Graph**: Custom format extending current JSON structure
-  - **Storage**: `.context/graph.{format}` files committed to Git
-  - **Benefits**: Fully git-friendly, reviewable, no external services, all data in Git
-  - **Use Case**: Primary graph representation format for Git-hosted storage
-
-- **Embedded Graph Databases** (File-Based):
-  - **Kuzu**: Embedded graph DB, file-based storage, Cypher queries, MIT licensed
-  - **SQLite**: Embedded relational DB, can model graphs, single file
-  - **Storage**: Database files in `.context/` directory, committed to Git
-  - **Benefits**: Self-hosted, no external services, performance optimized
-  - **Tradeoff**: Binary format (less git-friendly, but acceptable for optional layer)
-  - **Use Case**: Optional performance enhancement, JSON/GraphML remains source of truth
-
-- **Traditional Graph Databases** (Not Recommended):
-  - **Neo4j, ArangoDB** (server-based): Require external service, violate security constraint
-  - **MongoDB, CouchDB** (server-based): Require external service, violate security constraint
-  - **Not suitable**: Cannot be stored in Git, require external infrastructure
-
-**Hybrid Approach** (Recommended for Scale and Security):
-- **Primary**: JSON files in Git (source of truth, versioned, reviewable)
-- **Optional Graph Format**: Text-based graph format (GraphML, DOT, GEXF, or JSON Graph) in Git
-  - Generated from JSON node files
-  - Fully git-friendly and reviewable
-  - All data in Git, no external services
-- **Optional Performance Layer**: Embedded file-based database (Kuzu, SQLite)
-  - Database files stored in Git (binary, but versioned)
-  - Syncs from JSON files (one-way: Git → DB)
-  - Used for complex queries and traversal
-  - JSON files remain canonical source
-  - Database can be rebuilt from JSON files at any time
-  - No data loss if database unavailable
-  - Self-hosted, no external services required
-
-**Constraints**:
-- **v1 Requirement**: Must work with Git (non-invasive installation)
-- **v1 Requirement**: Must not require external infrastructure
-- **v1 Requirement**: Must be reviewable in PRs
-- **Security Requirement**: Must keep all context data within organization (no data leak to external services) - see `constraint-005`
-- **Future Enhancement**: Optional graph DB backend for performance (must be file-based and self-hosted)
+**MongoDB Storage** (Recommended for Production/Large Projects):
+- **Database**: Self-hosted MongoDB (within organization)
+- **API Layer**: GraphQL API for type-safe queries and mutations
+- **Schema**: `.context/schema.graphql` - GraphQL schema definition (committed to Git for versioning)
+- **Collections**: `nodes`, `proposals`, `reviews`, `relationships`
+- **Benefits**:
+  - ACID transactions for atomic proposal approvals
+  - Concurrency control (optimistic locking, no file conflicts)
+  - Scalability (indexed queries, horizontal scaling)
+  - Production-ready (proper database with transactions, indexing, scaling)
+- **Git Integration**: Periodic snapshots to Git repository for backup, version history, audit trail
 
 **Decision**: 
-- **Default**: JSON Graph format in `.context/graph.json` (required, not optional)
-- **Architecture**: Graph format is the primary storage for all collected data
-- **Performance Enhancement** (Optional): Embedded file-based databases (Kuzu, SQLite) can sync from JSON Graph
+- **Both Implementations**: File-based (default) and MongoDB (production) both available
+- **Abstraction Layer**: `ContextStore` interface allows seamless switching
+- **Scaling Path**: Start with file-based, scale up to MongoDB via configuration
+- **Architecture**: Storage abstraction enables multiple implementations
 
-**Impact**: Medium - affects developer experience and scalability
+**Impact**: High - fundamental architectural decision enabling scalability path
+
+**Updated At**: 2026-01-26 (support both file-based and MongoDB via abstraction layer)
 ```
 
 ```ctx
@@ -340,17 +308,30 @@ status: open
 ```ctx
 type: question
 id: question-012
-status: open
+status: resolved
 ---
 **Question**: What happens when the context store grows very large (thousands of nodes)?
 
-**Context**:
-- Performance concerns with large context graphs
-- Query performance with many nodes
-- Index file size and loading time
-- Should there be pagination or lazy loading?
-- Archival strategy for old nodes?
-- Performance benchmarks and limits?
+**Answer**: File-based storage has limitations; MongoDB storage scales better. Both support pagination and indexing.
+
+**Resolution**:
+- **File-Based Storage**:
+  - Performance degrades with large graphs (>1000 nodes)
+  - Pagination supported (limit/offset in queries)
+  - Index file helps but still requires parsing graph.json
+  - Recommendation: Use for <1000 nodes, migrate to MongoDB for larger
+- **MongoDB Storage**:
+  - Scales to thousands/millions of nodes
+  - Indexed queries for fast performance
+  - Pagination built-in
+  - Horizontal scaling possible
+- **Both**:
+  - Pagination: Default limit 50, max 1000
+  - Lazy loading: Load nodes on-demand
+  - Archival: Mark old nodes as "archived" status, can query separately
+  - Performance benchmarks: TBD during implementation
+
+**See**: `docs/STORAGE_IMPLEMENTATION_PLAN.md` for scalability details
 
 **Impact**: Medium - affects scalability
 ```
@@ -358,16 +339,22 @@ status: open
 ```ctx
 type: question
 id: question-013
-status: open
+status: resolved
 ---
 **Question**: How do you handle conflicting proposals that modify the same node?
 
-**Context**:
-- Multiple proposals might modify the same node simultaneously
-- Which proposal wins when both are approved?
-- Should system detect conflicts and prevent approval?
-- Can proposals explicitly conflict with each other?
-- Merge strategy for conflicting changes?
+**Answer**: Hybrid conflict detection and resolution approach - detect conflicts, field-level merging, optimistic locking, manual resolution.
+
+**Resolution** (see `decision-014` and `docs/RECONCILIATION_STRATEGIES.md`):
+- **Conflict Detection**: System detects conflicts at proposal creation/approval time
+- **Field-Level Merging**: Auto-merge non-conflicting fields, flag conflicting fields
+- **Optimistic Locking**: Track node versions, reject stale proposals
+- **Manual Resolution**: True conflicts require human review and resolution
+- **Proposal Superseding**: Proposals can explicitly supersede others
+- **Approval Prevention**: System prevents approval of conflicting proposals until resolved
+- **Merge Strategy**: Field-level merging with manual resolution for conflicts
+
+**Implementation**: See Phase 6 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: High - affects data integrity
 ```
@@ -375,17 +362,24 @@ status: open
 ```ctx
 type: question
 id: question-014
-status: open
+status: resolved
 ---
 **Question**: How are proposals and nodes searched and discovered?
 
-**Context**:
-- Need to find proposals by content, author, status
-- Need to find nodes by type, tags, relations
-- Full-text search vs structured queries?
-- Search API design?
-- Integration with GitLab/GitHub search?
-- Search performance with large datasets?
+**Answer**: Comprehensive query API with full-text search, structured queries, and GraphQL API.
+
+**Resolution** (see `docs/AGENT_API.md`):
+- **Query API**: `queryNodes()` and `queryProposals()` with comprehensive filtering
+- **Full-Text Search**: Search across content, decision fields, with fuzzy matching
+- **Structured Queries**: Filter by type, status, tags, namespace, creator, date ranges
+- **Relationship Queries**: Find nodes by relationships, traverse graph
+- **GraphQL API**: Type-safe queries via GraphQL (works with both storage backends)
+- **Search Performance**:
+  - File-based: In-memory search (load graph.json)
+  - MongoDB: Text indexes for fast full-text search
+- **Pagination**: Built-in pagination support (limit/offset)
+
+**See**: `docs/AGENT_API.md` for full API documentation and `docs/STORAGE_IMPLEMENTATION_PLAN.md` for implementation
 
 **Impact**: Medium - affects usability
 ```
@@ -393,16 +387,21 @@ status: open
 ```ctx
 type: question
 id: question-015
-status: open
+status: resolved
 ---
 **Question**: Can approved proposals be rolled back or superseded?
 
-**Context**:
-- What if an approved proposal was wrong?
-- Can you create a new proposal that supersedes an old one?
-- Should old proposals be marked as "superseded"?
-- Rollback workflow - revert to previous state?
-- How do you track proposal history and dependencies?
+**Answer**: Yes - proposals can be superseded, and system tracks proposal history and dependencies.
+
+**Resolution**:
+- **Superseding**: New proposals can explicitly supersede old proposals (via `supersedes` relationship)
+- **Status Tracking**: Old proposals marked as "superseded" status
+- **Proposal History**: Full review history tracked, proposal dependencies tracked
+- **Rollback**: Create new proposal that reverses changes (no direct rollback, use proposal workflow)
+- **Dependencies**: System tracks proposal dependencies and superseding relationships
+- **Workflow**: Create new proposal → Mark as superseding old → Review → Approve → Old marked superseded
+
+**Implementation**: See `decision-014` and Phase 6 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: High - affects change management
 ```
@@ -410,16 +409,22 @@ status: open
 ```ctx
 type: question
 id: question-016
-status: open
+status: resolved
 ---
 **Question**: What validation happens on proposals before they can be created?
 
-**Context**:
-- Should proposals be validated for structure?
-- Content validation (required fields, format)?
-- Reference validation (do referenced nodes exist)?
-- Can invalid proposals be created and fixed later?
-- Validation errors vs warnings?
+**Answer**: Multi-level validation - structure, content, references, with clear error messages.
+
+**Resolution**:
+- **Structure Validation**: Validate proposal structure matches schema
+- **Content Validation**: Required fields, format validation (dates, IDs, etc.)
+- **Reference Validation**: Check referenced nodes exist, validate relationship types
+- **Version Validation**: Check node versions for optimistic locking
+- **Conflict Detection**: Check for conflicts with open proposals
+- **Validation Errors**: Block proposal creation with clear error messages
+- **Warnings**: Non-blocking issues (e.g., referenced node is deprecated)
+
+**Implementation**: Validation in `createProposal()` method, see Phase 6 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: Medium - affects data quality
 ```
@@ -461,17 +466,27 @@ status: open
 ```ctx
 type: question
 id: question-019
-status: open
+status: resolved
 ---
 **Question**: What happens if context store JSON files are corrupted or invalid?
 
-**Context**:
-- JSON files might be corrupted by manual edits
-- Invalid JSON syntax
-- Schema validation failures
-- Recovery strategy?
-- Backup and restore mechanisms?
-- Validation on load vs on write?
+**Answer**: Implement validation, corruption detection, and recovery mechanisms for both storage backends.
+
+**Resolution**:
+- **File-Based Storage**:
+  - JSON schema validation on read/write
+  - Corruption detection (try-catch on parse, validate structure)
+  - Recovery: Restore from Git history, rebuild from index.json
+  - Validation on both load and write
+  - Backup: Git provides version history
+- **MongoDB Storage**:
+  - MongoDB schema validation rules
+  - Corruption detection: Database integrity checks, validation on queries
+  - Recovery: Restore from Git snapshots, MongoDB backup/restore tools
+  - Validation: On write (MongoDB validation), periodic integrity checks
+  - Backup: Git snapshots + MongoDB native backups
+
+**See**: `docs/STORAGE_IMPLEMENTATION_PLAN.md` for implementation details
 
 **Impact**: High - affects data integrity and reliability
 ```
@@ -531,16 +546,22 @@ status: open
 ```ctx
 type: question
 id: question-023
-status: open
+status: resolved
 ---
-**Question**: What's the migration path if the storage format changes?
+**Question**: What's the versioning strategy if the storage format changes?
 
-**Context**:
-- Storage format might evolve
-- Need migration tools for format changes
-- Version compatibility?
-- How to handle breaking changes?
-- Migration validation and rollback?
+**Answer**: Versioned schemas with migration tools and backward compatibility.
+
+**Resolution**:
+- **Schema Versioning**: GraphQL schema versioned in `.context/schema.graphql`
+- **Format Versioning**: Storage format includes version field in index.json/MongoDB metadata
+- **Backward Compatibility**: Support reading older formats, write in current format
+- **Migration Tools**: Scripts to migrate between format versions
+- **Breaking Changes**: Major version bumps, migration required
+- **Validation**: Schema validation on load, version checks
+- **Rollback**: Keep old format readers, can export to old format if needed
+
+**Implementation**: See Phase 2 and Phase 4 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: Medium - affects long-term maintenance
 ```
@@ -548,16 +569,29 @@ status: open
 ```ctx
 type: question
 id: question-024
-status: open
+status: resolved
 ---
 **Question**: How do you export and backup the context store?
 
-**Context**:
-- Need backup strategies
-- Export formats (JSON, YAML, Markdown)?
-- Full export vs incremental?
-- Backup frequency and retention?
-- Disaster recovery procedures?
+**Answer**: Multiple backup strategies - Git (file-based), Git snapshots (MongoDB), and export tools.
+
+**Resolution**:
+- **File-Based Storage**:
+  - Backup: Git provides full version history
+  - Export: JSON format (graph.json + node files)
+  - Full export: Export entire context store
+  - Incremental: Git commits provide incremental history
+- **MongoDB Storage**:
+  - Backup: Git snapshots (periodic) + MongoDB native backups
+  - Export: JSON format (same as file-based)
+  - Full export: Export entire database to JSON
+  - Incremental: Git snapshots provide incremental history
+- **Export Formats**: JSON (primary), YAML (optional), Markdown (projection only)
+- **Backup Frequency**: Configurable (daily, milestone-based, manual)
+- **Retention**: Git history provides long-term retention
+- **Disaster Recovery**: Restore from Git (file-based) or Git snapshots + MongoDB backups
+
+**Implementation**: See Phase 10 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: Medium - affects data safety and portability
 ```
@@ -577,4 +611,30 @@ status: open
 - How to handle orphaned issues?
 
 **Impact**: Medium - affects issue management and traceability
+```
+
+```ctx
+type: question
+id: question-026
+status: resolved
+---
+**Question**: Should we use GraphQL with a self-hosted document database instead of file-based storage?
+
+**Answer**: Yes - MongoDB (self-hosted document database) with GraphQL API is now the primary storage.
+
+**Resolution**:
+- **Both implementations available**: File-based (default) and MongoDB (production)
+- **Storage abstraction layer**: `ContextStore` interface allows multiple implementations
+- **Scaling path**: Start with file-based, scale up to MongoDB via configuration
+- **GraphQL API layer** works with both storage backends
+- **Git integration**: File-based uses Git directly, MongoDB uses periodic Git snapshots
+- Solves concurrency/scalability issues when using MongoDB
+- Maintains zero IP leakage (all infrastructure self-hosted within organization)
+- Constraint-005 allows both file-based (Git) and self-hosted databases
+
+**See**: `docs/STORAGE_ARCHITECTURE.md` for detailed architecture and `decision-005` for full decision rationale
+
+**Impact**: High - fundamental architectural decision affecting concurrency, scalability, and operations
+
+**Decided At**: 2026-01-26
 ```

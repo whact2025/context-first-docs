@@ -30,7 +30,9 @@ jobs:
       run: npm run build
     
     - name: Test
-      run: npm test
+      env:
+        NODE_OPTIONS: --experimental-vm-modules
+      run: npm run test:coverage
     
     - name: Lint
       run: npm run lint

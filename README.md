@@ -7,7 +7,7 @@ It looks like Markdown.
 It feels like Google Docs review mode.  
 It behaves like a structured, auditable **context graph** that **humans and AI agents can safely reason over**.
 
-**🔒 Project context and IP never leak outside your organization** - all data stays in your Git repository, self-hosted, with complete organizational control.
+**🔒 Project context and IP never leak outside your organization** - all data stays in your Git repository (file-based) or self-hosted MongoDB (production), complete organizational control.
 
 Markdown is the interface.  
 Context is the truth.
@@ -40,7 +40,8 @@ GitHub / GitLab solve **code review**, but lose semantic intent and decision pro
 A **context-first collaboration system** with:
 
 - **Graph-based context store**: Nodes with typed relationships (goal → decision → task → risk)
-- **Graph format storage**: JSON Graph format - self-hosted in Git - default storage for all collected data
+- **Dual storage options**: File-based (JSON Graph in Git) for development/small projects, MongoDB (self-hosted) for production/scaling
+- **Storage abstraction**: Both implementations use same `ContextStore` interface - start simple, scale up seamlessly via configuration
 - **UI-only Markdown**: ctx blocks and rendered Markdown exist only in UI (VS Code/Cursor extension, web UI), NOT in Git
 - **Real-time change detection**: Embedded in UI layer - detects changes as you type or on save
 - **Docs-style comments and tracked changes**: Accept/reject proposals with review semantics
@@ -54,14 +55,34 @@ A **context-first collaboration system** with:
 - **Automatic issue creation**: Issues created when proposals are approved
 - **Hybrid conflict reconciliation**: Automatic detection, field-level merging, optimistic locking, manual resolution
 - **🔒 Zero IP Leakage**: All project context and IP stays within your organization
-  - All data stored in self-hosted Git repository (GitLab, Gitea, etc. within organization)
-  - **Self-hosted Git storage**: Context store files in Git, managed through proposals (not manual git commits/merges)
+  - **File-based option**: All data in Git repository (self-hosted GitLab, Gitea, etc.)
+  - **MongoDB option**: All data in self-hosted MongoDB (within organization)
+  - **Self-hosted infrastructure**: All storage options self-hosted, no external cloud services
+  - **Git integration**: File-based uses Git directly, MongoDB uses periodic Git snapshots for backup
   - No external cloud services required
   - No data sent to external APIs
   - Complete organizational control over data location and access
   - Supports air-gapped deployments
 
 This is infrastructure for **long-lived, multi-human, multi-agent systems** where **privacy and IP protection are critical**.
+
+## How this complements Jira (and similar tools)
+
+Jira is excellent at **execution management**: backlogs, boards, workflows, reporting, and cross-team coordination.
+
+Context-First Docs focuses on **durable, agent-safe context** that Jira tickets often fail to preserve:
+
+- **Canonical “why” graph**: Goals/decisions/risks/questions are first-class typed nodes with relationships (goal → decision → task → risk).
+- **Proposals + provenance**: Accepted truth vs proposed changes vs rejected ideas are explicit and reviewable (not buried in comments).
+- **Agent-safe semantics**: Agents can query accepted truth and traverse reasoning chains without guessing what’s current.
+- **Privacy-first storage**: Context stays self-hosted (Git or MongoDB), supporting zero IP leakage and air-gapped use.
+
+### Recommended division of responsibilities
+
+- **Use Jira for**: sprint planning, assignment, SLAs, workflows/automation, time tracking, delivery reporting.
+- **Use Context-First Docs for**: decision records, constraints, rationale, risks/mitigations, long-lived plans, and structured context that links to code and to Jira items.
+
+In practice: a Jira issue can reference a stable node ID (e.g., `decision-015`, `risk-001`), and approved proposals can auto-create issues—letting Jira manage execution while this system manages truth and reasoning.
 
 ---
 
@@ -72,14 +93,15 @@ The system stores **meaning**, not blobs of text.
 
 - Every concept is a typed node with identity and status
 - **Graph model**: Nodes form a graph with typed relationships (parent-child, depends-on, references, implements, blocks, etc.)
-- **Graph format storage**: JSON Graph format - self-hosted in Git - the source of truth
+- **Dual storage options**: File-based (JSON Graph in Git) for development, MongoDB (self-hosted) for production
+- **Storage abstraction**: Both use same `ContextStore` interface - start simple, scale up seamlessly
 - Changes are represented as **proposals**, not diffs
 - Accepting or rejecting a change is a **first-class decision**
 - Rejected ideas are preserved for provenance
-- **🔒 All data in self-hosted Git repository**: Self-hosted within organization, **zero IP leakage**
-  - Stored in self-hosted Git repository (GitLab, Gitea, etc. within organization)
-  - **No manual git commits/merges**: Contexts are NOT manually edited or committed - managed through proposals
-  - **Automatic Git updates**: Approved proposals automatically update Git repository
+- **🔒 All data stays within organization**: Self-hosted, **zero IP leakage**
+  - **File-based**: All data in Git repository (self-hosted GitLab, Gitea, etc.)
+  - **MongoDB**: All data in self-hosted MongoDB (within organization)
+  - **GraphQL API**: Type-safe, self-documenting API (works with both storage backends)
   - All context stays within your organization
   - No cloud services, no external APIs
   - Complete control over data location and access
@@ -139,7 +161,7 @@ This is how Word / Docs behave — but grounded in Git-friendly structures.
 Agents **never read raw Markdown** (which is UI-only anyway).
 
 They consume:
-- accepted truth from context store (graph format)
+- accepted truth from context store (via `ContextStore` interface - file-based or MongoDB)
 - open proposals
 - unresolved questions
 - decision and rejection history
@@ -267,6 +289,44 @@ See [`docs/SELF-REFERENCE.md`](docs/SELF-REFERENCE.md) for details on how this w
 
 ## Getting Started
 
+### Prerequisites
+
+**Node.js and npm are required** (Node.js 18+ recommended). npm comes bundled with Node.js.
+
+- **Don't have Node.js?** See [`INSTALL_NODEJS.md`](INSTALL_NODEJS.md) for installation instructions.
+
+### Quick Install (Recommended)
+
+Once Node.js is installed, use the installation script to automatically set up everything:
+
+```bash
+# Cross-platform (Node.js script - recommended)
+node scripts/install.js
+
+# Or via npm
+npm run install:all
+
+# Windows PowerShell
+.\scripts\install.ps1
+
+# macOS/Linux
+chmod +x scripts/install.sh
+./scripts/install.sh
+```
+
+The install script will:
+- Check Node.js and npm versions
+- Install all dependencies
+- Verify installation
+- Build the project
+- Run tests
+
+See [`scripts/README.md`](scripts/README.md) for more options and troubleshooting.
+
+### Manual Install
+
+If you prefer to install manually:
+
 ```bash
 npm install
 npm run build
@@ -279,11 +339,25 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 
 Key architectural points:
 - **Graph Model**: Nodes with typed relationships (see [`DECISIONS.md`](DECISIONS.md) decision-015)
-- **Graph Format Storage**: JSON Graph format as default storage (see [`DECISIONS.md`](DECISIONS.md) decision-005)
+- **Dual Storage**: File-based (default) and MongoDB (production) via `ContextStore` abstraction (see [`DECISIONS.md`](DECISIONS.md) decision-005)
 - **UI-Only Markdown**: ctx blocks and Markdown are UI-only, not committed to Git (see [`DECISIONS.md`](DECISIONS.md) decision-016)
 - **Change Detection**: Embedded in UI layer (see [`docs/CHANGE_DETECTION.md`](docs/CHANGE_DETECTION.md))
 - **Agent API**: Comprehensive query API with chain-of-thought traversal (see [`docs/AGENT_API.md`](docs/AGENT_API.md))
-- **Security**: All data in Git, self-hosted, no external services (see [`CONTEXT.md`](CONTEXT.md) constraint-005)
+- **Security**: All data self-hosted (Git or MongoDB), no external services (see [`CONTEXT.md`](CONTEXT.md) constraint-005)
+
+## Implementation Status
+
+**Current**: Phase 1 - Core Infrastructure ✅
+- Type system, in-memory store, Markdown projection
+
+**Next**: Phase 2 - Persistence & Storage Implementations
+- Complete InMemoryStore
+- Storage abstraction layer
+- File-based storage (default)
+- MongoDB storage (production)
+- GraphQL API layer
+
+**See**: [`docs/STORAGE_IMPLEMENTATION_PLAN.md`](docs/STORAGE_IMPLEMENTATION_PLAN.md) for comprehensive gap analysis, implementation tasks, and timeline (10 phases, ~25-35 weeks estimated)
 
 ## Examples
 

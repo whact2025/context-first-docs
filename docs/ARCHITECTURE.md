@@ -50,19 +50,23 @@ The canonical source of truth:
 - Handles conflict detection and resolution
 - Creates issues automatically when proposals are approved
 
-**Storage Format**: JSON Graph format - default storage for all collected data (see `decision-005`)
-- Graph structure with nodes and edges
-- Individual node files for granular access
-- **Self-hosted in Git**: Context store files stored in self-hosted Git repository (within organization)
-- **No manual git commits/merges**: Contexts are not manually edited or committed - managed through proposals
-- **Automatic Git updates**: Approved proposals automatically update Git repository
-- All data stays within organization (self-hosted Git repository, no external services - see `constraint-005`)
+**Storage Format**: Dual storage options via `ContextStore` abstraction layer (see `decision-005`)
+- **File-Based Storage**: JSON Graph format in `.context/graph.json` (default for development/small projects)
+- **MongoDB Storage**: Self-hosted document database (for production/large projects)
+- **Storage Abstraction**: Both implementations satisfy `ContextStore` interface
+- **GraphQL API**: Works with both storage backends
+- **Self-hosted**: All storage options run within organization (no external cloud services)
+- **Git Integration**: File-based uses Git directly, MongoDB uses periodic Git snapshots
+- **Proposal-based workflow**: All changes go through proposals/review, then stored via `ContextStore` interface
+- All data stays within organization (Git repository or self-hosted MongoDB, no external services - see `constraint-005`)
 
 Planned implementations:
-- In-memory store (for testing)
-- File-based store in self-hosted Git (JSON Graph format)
-- Storage service that manages Git repository (self-hosted within organization)
-- Optional: Embedded graph databases (Kuzu, SQLite) for performance at scale
+- In-memory store (for testing) ✅
+- File-based store (JSON Graph in Git) - default
+- MongoDB store with GraphQL API (self-hosted within organization) - for scaling
+- Storage abstraction layer (`ContextStore` interface)
+- GraphQL schema definition (`.context/schema.graphql`)
+- Git snapshot/backup system for MongoDB periodic exports
 
 ## Data Flow
 
@@ -78,23 +82,30 @@ Planned implementations:
    - Change detection happens in real-time or on save (UI-dependent)
    - See `docs/CHANGE_DETECTION.md` for detailed process
 3. **Proposal Creation**: Changes imported as proposals (for ctx blocks)
-   - Proposals created immediately in context store (self-hosted Git repository)
-   - Context store files are in Git, but managed through proposals
+   - Proposals created immediately via `ContextStore` interface
+   - Storage backend (file-based or MongoDB) handles persistence
 4. **Conflict Detection**: System checks for conflicts with open proposals
+   - File-based: Optimistic locking via version numbers
+   - MongoDB: ACID transactions with optimistic locking
 5. Non-ctx content changes tracked and synced (UI-only)
 6. Referencing nodes updated if referenced content changed
 7. Proposals are reviewed (by designated approvers) - in UI
-8. Accepted proposals become truth in context store
-9. **Automatic Git Update**: Context store files automatically updated in Git (no manual git commit)
-10. **UI Updates**: All affected Markdown files regenerated from accepted truth in UI
+8. Accepted proposals become truth via `ContextStore` interface
+   - File-based: Atomic file writes
+   - MongoDB: ACID transactions
+9. **Git Integration**: 
+   - File-based: Direct Git commits for version history
+   - MongoDB: Periodic Git snapshots for backup/version history
+10. **UI Updates**: All affected Markdown files regenerated from accepted truth in UI (via storage abstraction)
 
 ### Reading Context
 
-1. **Agents**: Query context store directly (never read raw Markdown)
-   - Agents never see Markdown files - they only interact with context store
-   - Context store is in self-hosted Git repository (accessed via storage service)
+1. **Agents**: Query context store via `ContextStore` interface (never read raw Markdown)
+   - Agents never see Markdown files - they only interact with storage abstraction
+   - Storage backend (file-based or MongoDB) is transparent to agents
+   - GraphQL API provides type-safe, comprehensive query interface (works with both backends)
 2. **Humans**: View Markdown projection in UI (VS Code/Cursor extension, web UI)
-   - Markdown is generated on-demand from context store (in Git)
+   - Markdown is generated on-demand from context store via storage abstraction
    - Markdown files exist only in UI, not in Git
 3. Context store returns accepted nodes + open proposals (default: accepted only for safety)
 4. Agent can distinguish truth from proposals (explicit status indicators)
@@ -245,4 +256,4 @@ The VS Code/Cursor extension is a core component, not optional:
 - Machine learning for semantic similarity detection
 - Cross-reference resolution
 - Validation rules
-- Migration tools
+- Reverse engineering tools for extracting historical context

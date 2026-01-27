@@ -107,24 +107,35 @@ status: accepted
 The system must keep all context data within the organization with no data leak to external services.
 
 **Requirements**:
-- All data stored in Git repository (no external cloud services)
+- All infrastructure self-hosted within organization (no external cloud services)
 - No external APIs or services required for core functionality
-- Can use self-hosted Git (GitLab, Gitea, etc.)
-- Optional graph databases must be file-based and self-hosted
+- Can use self-hosted Git (GitLab, Gitea, etc.) for backup/archive
+- Can use self-hosted databases (MongoDB, CouchDB, ArangoDB) for primary storage
 - No context data sent to external services
 - Full control over data location and access
 - Supports air-gapped deployments
 
 **Storage Options**:
-- Primary: JSON files in Git (fully git-friendly, reviewable)
-- Optional: Text-based graph formats (GraphML, DOT, GEXF, JSON Graph) in Git
-- Optional: Embedded file-based databases (Kuzu, SQLite) - files in Git, no external service
+- **Primary Storage**: Self-hosted document database (MongoDB, CouchDB, ArangoDB) - recommended for production
+  - Provides ACID transactions, concurrency control, scalability
+  - GraphQL API layer for type-safe queries
+  - All infrastructure self-hosted within organization
+- **Backup/Archive**: Git repository (self-hosted GitLab, Gitea, etc.)
+  - Periodic snapshots for version history and disaster recovery
+  - Reviewable changes for compliance/audit
+  - Not primary storage - database is source of truth
+- **Alternative (Simple)**: File-based storage (JSON Graph in Git) - acceptable for small deployments
+  - Fully git-friendly, reviewable
+  - Simpler architecture but limited scalability/concurrency
 
 **Security Benefits**:
-- All data in Git repository (versioned, auditable)
-- Can use self-hosted Git infrastructure
+- All data and infrastructure within organization (self-hosted)
 - No external dependencies for core functionality
 - Full organizational control over data
+- Zero IP leakage - all context stays within organization
+- Air-gapped deployment support
+
+**Note**: See `docs/STORAGE_ARCHITECTURE.md` for detailed comparison of file-based vs GraphQL + document DB approaches.
 ```
 
 ```ctx

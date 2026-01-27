@@ -5,8 +5,11 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
+    "install:all": "node scripts/install.js",
+    "install:deps": "node scripts/install.js --skip-build --skip-tests",
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\""

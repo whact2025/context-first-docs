@@ -6,7 +6,11 @@ dist/
 .env.local
 *.tsbuildinfo
 coverage/
-.vscode/
+
+# IDE settings (exclude most, but keep workspace config)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 
 # Context store (will be populated when file-based persistence is implemented)

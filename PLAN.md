@@ -17,15 +17,19 @@ status: accepted
 7. Define graph model with typed relationships ✅
 8. Design comprehensive Agent API with chain-of-thought traversal ✅
 
-**Phase 2: Persistence & Self-Hosted Git Storage** (Next)
-1. Graph format storage implementation (JSON Graph format) - default storage for all collected data
-2. Self-hosted Git storage service - manage context store in self-hosted Git repository (GitLab, Gitea, etc.)
-3. Automatic Git updates - approved proposals automatically update Git repository (no manual git commits/merges)
-4. File-based store in Git (JSON Graph format) - `.context/graph.json` and individual node files
-5. Ensure context store persistence is independent of git commits - proposals persist immediately
-6. Commit tracking system - link code commits to proposals/nodes (Jira-style checkin semantics)
-7. Git integration for commit message parsing and proposal linking
-8. Migration tools for existing docs
+**Phase 2: Persistence & Storage Implementations** (Next)
+1. Complete InMemoryStore - align strict types, ensure metadata versioning on apply, fix conflict typing, make traversal/stale detection behavior deterministic (see `docs/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
+2. Storage abstraction layer - storage factory, configuration system, backend selection (see Phase 2)
+3. File-based storage implementation - JSON Graph format in `.context/graph.json` (default for development) (see Phase 3)
+4. MongoDB storage implementation - self-hosted MongoDB document database (for production/scaling) (see Phase 4)
+5. GraphQL API layer - schema definition, resolvers, type validation, authentication/authorization (see Phase 5)
+6. Conflict detection and resolution - conflict detection, field-level merging, optimistic locking (see Phase 6)
+7. Chain-of-thought traversal - reasoning chains, context building, decision reasoning (see Phase 7)
+8. Issue creation system - create issues from approved proposals (see Phase 8)
+9. Reference tracking - bidirectional references, automatic updates (see Phase 9)
+10. Git integration - automatic commits (file-based), snapshots (MongoDB), commit tracking (see Phase 10)
+
+**See**: `docs/STORAGE_IMPLEMENTATION_PLAN.md` for detailed gap analysis, implementation tasks, and timeline
 
 **Phase 3: Authoring & Review System**
 1. Implement proposal authoring APIs and helpers
@@ -65,7 +69,7 @@ status: accepted
 **Phase 5: Installation & Integration**
 1. Clean installation system - non-invasive setup for existing repositories
 2. Self-hosted Git storage setup - configure storage service for self-hosted Git repository
-3. Migration tools - convert existing docs to context-first format (optional)
+3. Reverse engineering tools - extract historical context from existing merge requests/PRs
 4. VS Code/Cursor extension - in-editor review, context awareness, real-time change detection (required)
 5. Extension features:
    - Change detection embedded in UI (on save or real-time)
@@ -125,7 +129,7 @@ type: task
 id: task-006
 status: in-progress
 ---
-Create file-based persistence layer for context store (JSON Graph format in self-hosted Git).
+Implement file-based storage layer for context store (JSON Graph format in `.context/graph.json`).
 ```
 
 ```ctx
@@ -213,7 +217,7 @@ type: task
 id: task-017
 status: open
 ---
-Ensure context store persistence is independent of git commits - proposals persist immediately upon creation. Context store files are in self-hosted Git but automatically updated (no manual git commits/merges).
+Ensure context store persistence is independent of git commits - proposals persist immediately in MongoDB upon creation. Git snapshots are periodic backups, not primary storage.
 ```
 
 ```ctx
@@ -237,7 +241,7 @@ type: task
 id: task-020
 status: open
 ---
-Build migration tools - optionally convert existing Markdown docs to use ctx blocks.
+Build reverse engineering tools - extract historical context from existing merge requests/PRs to create initial context nodes.
 ```
 
 ```ctx
@@ -309,7 +313,7 @@ type: task
 id: task-029
 status: open
 ---
-Create migration from PR history - convert historical PRs/MRs into context nodes and proposals.
+Create reverse engineering from PR history - extract historical context from PRs/MRs to create initial context nodes and proposals.
 ```
 
 ```ctx
@@ -443,9 +447,9 @@ Implement graph model with typed relationships - parent-child, depends-on, refer
 ```ctx
 type: task
 id: task-046
-status: open
+status: completed
 ---
-Implement graph format storage (JSON Graph) - default storage for all collected data in self-hosted Git repository.
+Complete InMemoryStore implementation - fix return types, align conflict typing, ensure apply updates node metadata (modifiedAt/modifiedBy/version), and make traversal/stale detection behavior deterministic (tests passing).
 ```
 
 ```ctx
@@ -453,7 +457,7 @@ type: task
 id: task-047
 status: open
 ---
-Build self-hosted Git storage service - manage context store files in self-hosted Git repository (GitLab, Gitea, etc.) with automatic updates.
+Implement storage abstraction layer - storage factory, configuration system, storage backend selection (file-based, MongoDB, memory).
 ```
 
 ```ctx
@@ -461,7 +465,63 @@ type: task
 id: task-048
 status: open
 ---
-Implement automatic Git updates - approved proposals automatically update Git repository (no manual git commits/merges).
+Implement file-based storage - FileBasedStore class, JSON Graph file management, Git integration, file locking/concurrency.
+```
+
+```ctx
+type: task
+id: task-049
+status: open
+---
+Implement MongoDB storage layer - MongoDBStore class, collections setup, indexes, ACID transactions, connection management.
+```
+
+```ctx
+type: task
+id: task-050
+status: open
+---
+Design and implement GraphQL API layer - schema definition (.context/schema.graphql), resolvers, type validation, authentication/authorization (works with both storage backends).
+```
+
+```ctx
+type: task
+id: task-051
+status: open
+---
+Implement conflict detection and resolution - conflict detection algorithm, field-level merging, optimistic locking, proposal superseding.
+```
+
+```ctx
+type: task
+id: task-052
+status: open
+---
+Implement chain-of-thought traversal - reasoning chain traversal, context chain building, decision reasoning following, semantic similarity.
+```
+
+```ctx
+type: task
+id: task-053
+status: open
+---
+Implement issue creation system - create issues from approved proposals, issue templates, issue configuration, issue lifecycle.
+```
+
+```ctx
+type: task
+id: task-054
+status: open
+---
+Implement reference tracking - bidirectional reference tracking, automatic reference updates, reference validation.
+```
+
+```ctx
+type: task
+id: task-055
+status: open
+---
+Implement Git integration - automatic Git commits for file-based storage, Git snapshot system for MongoDB, commit tracking (Jira-style checkin semantics).
 ```
 
 ```ctx
@@ -482,8 +542,16 @@ Ensure UI-only Markdown - ctx blocks and rendered Markdown exist only in UI, NOT
 
 ```ctx
 type: task
-id: task-051
+id: task-056
 status: open
 ---
-Validate security/privacy - ensure zero IP leakage, all data in self-hosted Git repository within organization, no external services.
+Validate security/privacy - ensure zero IP leakage, all data in self-hosted storage (file-based Git or MongoDB) within organization, no external services.
+```
+
+```ctx
+type: task
+id: task-057
+status: open
+---
+Create comprehensive test suite - unit tests for all storage implementations, integration tests, performance tests, >80% coverage.
 ```

@@ -1,0 +1,25 @@
+{
+  "recommendations": [
+    // Testing
+    "orta.vscode-jest",
+    "firsttris.vscode-jest-runner",
+    
+    // Code Quality
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    
+    // Markdown
+    "yzhang.markdown-all-in-one",
+    "bierner.markdown-mermaid",
+    
+    // TypeScript
+    "ms-vscode.vscode-typescript-next",
+    
+    // Git
+    "eamodio.gitlens",
+    
+    // General Development
+    "ms-vscode.vscode-json",
+    "redhat.vscode-yaml"
+  ]
+}

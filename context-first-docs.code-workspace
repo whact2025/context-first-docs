@@ -1,0 +1,85 @@
+{
+  "folders": [
+    {
+      "name": "📦 Context-First Docs",
+      "path": "."
+    },
+    {
+      "name": "📚 Documentation",
+      "path": "./docs"
+    },
+    {
+      "name": "💡 Examples",
+      "path": "./examples"
+    }
+  ],
+  "settings": {
+    // Workspace-specific settings
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/.git": false
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/coverage": true
+    },
+    "files.watcherExclude": {
+      "**/node_modules/**": true,
+      "**/dist/**": true
+    },
+    
+    // Jest settings (inherited from .vscode/settings.json)
+    // Use direct Node invocation (avoids spawning cmd.exe on Windows)
+    "jest.jestCommandLine": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "jest.autoRun": "off",
+    // Use an explicit absolute path to avoid cwd resolution bugs in Test Explorer / vscode-jest
+    "jest.rootPath": "c:\\\\Users\\\\richf\\\\context-first-docs",
+    
+    // TypeScript settings
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    
+    // File associations
+    "files.associations": {
+      "*.md": "markdown",
+      "*.ctx": "markdown"
+    },
+    
+    // Editor settings for this workspace
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    },
+    
+    // Markdown settings
+    "markdown.preview.breaks": true,
+    "markdown.preview.linkify": true
+  },
+  "extensions": {
+    "recommendations": [
+      // Testing
+      "orta.vscode-jest",
+      "firsttris.vscode-jest-runner",
+      
+      // Code Quality
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      
+      // Markdown
+      "yzhang.markdown-all-in-one",
+      "bierner.markdown-mermaid",
+      
+      // TypeScript
+      "ms-vscode.vscode-typescript-next",
+      
+      // Git
+      "eamodio.gitlens",
+      
+      // General Development
+      "ms-vscode.vscode-json",
+      "redhat.vscode-yaml"
+    ]
+  }
+}
