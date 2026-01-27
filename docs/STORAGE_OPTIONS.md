@@ -233,27 +233,58 @@ docs/              # Generated site (GitLab Pages)
 
 ## Recommended Approach
 
-### Primary Storage: JSON Files in Directory Structure
+### Primary Storage: JSON Graph Format (Default)
 
 ```
 .context/
+├── graph.json                 # Primary graph storage (nodes + edges)
 ├── nodes/
-│   ├── {node-id}.json      # One file per node
+│   ├── {node-id}.json         # Individual node files (for granular access)
 ├── proposals/
-│   ├── {proposal-id}.json  # One file per proposal
+│   ├── {proposal-id}.json     # One file per proposal
 ├── reviews/
-│   └── {review-id}.json    # One file per review
-└── index.json              # Metadata and indexes
+│   └── {review-id}.json       # One file per review
+└── index.json                 # Metadata and indexes
+```
+
+**Graph Format Structure**:
+```json
+{
+  "nodes": [
+    {
+      "id": "decision-001",
+      "type": "decision",
+      "status": "accepted",
+      "content": "Use TypeScript",
+      "metadata": {
+        "createdAt": "2026-01-26T10:00:00Z",
+        "createdBy": "user1",
+        "version": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "task-002",
+      "target": "decision-001",
+      "type": "implements",
+      "metadata": {
+        "createdAt": "2026-01-26T10:00:00Z"
+      }
+    }
+  ]
+}
 ```
 
 **Rationale**:
-1. ✅ **Git-friendly**: Excellent diffs, clear history
-2. ✅ **Scalable**: One file per entity, easy to manage
-3. ✅ **Queryable**: JSON is easy to parse and query
+1. ✅ **Graph-native**: Matches graph model (see `decision-015`), enables efficient relationship queries
+2. ✅ **Git-friendly**: Excellent diffs, clear history, reviewable in PRs
+3. ✅ **Queryable**: Native graph structure enables efficient traversal and path finding
 4. ✅ **Versioned**: Git provides full version history
 5. ✅ **Accessible**: GitHub/GitLab web UI can display JSON
-6. ✅ **Merge-friendly**: Conflicts are isolated to individual files
-7. ✅ **Performance**: Only load what you need
+6. ✅ **Merge-friendly**: Conflicts are isolated to graph structure
+7. ✅ **Self-contained**: All data in Git, no external services (see `constraint-005`)
+8. ✅ **Compatible**: Extends current JSON structure, maintains compatibility
 
 ### File Naming Convention
 
@@ -620,27 +651,29 @@ These databases store data in files but may use binary formats:
 
 **Use Case**: Less optimal than dedicated graph databases
 
-### Recommendation: Hybrid Approach for Security
+### Recommendation: Graph Format as Default Storage
 
-**Primary Storage**: JSON files in Git (current approach)
-- ✅ Fully git-friendly
-- ✅ Human-readable and reviewable
-- ✅ No external services
+**Primary Storage**: JSON Graph Format (`.context/graph.json`) - **Default, Required**
+- ✅ Graph-native storage matches graph model (see `decision-015`)
+- ✅ Fully git-friendly, human-readable and reviewable
+- ✅ No external services required
 - ✅ All data in Git repository
-- ✅ Perfect for security/privacy requirements
+- ✅ Perfect for security/privacy requirements (see `constraint-005`)
+- ✅ Enables efficient relationship queries and traversal
+- ✅ Extends current JSON structure, maintains compatibility
 
-**Optional Graph Format**: JSON Graph Format (`.context/graph.json`)
-- ✅ Extends current JSON structure
-- ✅ Can be generated from node files
+**Individual Node Files**: `.context/nodes/{id}.json` (for granular access)
+- ✅ Can be generated from graph.json or maintained separately
 - ✅ Git-friendly and reviewable
 - ✅ Self-contained in Git
-- ✅ No external services required
+- ✅ Useful for granular access and smaller diffs
 
 **Optional Performance Layer**: Embedded database (Kuzu, SQLite)
 - ✅ File-based, can be committed to Git
 - ✅ Self-hosted, no external services
-- ✅ Used only for query performance
-- ✅ Can be rebuilt from JSON files
+- ✅ Used only for query performance optimization
+- ✅ Syncs from JSON Graph (one-way: Graph → DB)
+- ✅ Can be rebuilt from JSON Graph at any time
 - ⚠️ Binary format (less git-friendly, but acceptable for optional layer)
 
 ### Security/Privacy Benefits
@@ -666,19 +699,21 @@ These databases store data in files but may use binary formats:
 
 ## Summary
 
-**Recommended Storage**: **JSON files in `.context/` directory, committed to git**
+**Recommended Storage**: **JSON Graph format in `.context/graph.json`, committed to git**
 
-- One JSON file per node/proposal/review
-- Directory structure organized by type
+- **Primary**: JSON Graph format (`.context/graph.json`) - default storage for all collected data
+- Graph structure with nodes and edges enables efficient relationship queries
+- Individual node files in `.context/nodes/` for granular access
 - Committed to git for versioning and collaboration
 - Excellent git diffs and merge conflict resolution
 - Works with GitHub/GitLab web interfaces
-- Easy to query and process programmatically
+- Easy to query and process programmatically with graph structure
+- All data stays within organization (self-hosted Git, no external services)
 
-**Optional Enhancement**: Graph database backend for performance at scale
-- JSON files remain source of truth
-- Graph DB syncs from JSON files (one-way)
-- Graph DB used for complex queries and traversal
-- Can be enabled/disabled per repository
+**Performance Enhancement** (Optional):
+- Embedded file-based databases (Kuzu, SQLite) can sync from JSON Graph for query performance
+- Graph format remains source of truth in Git
+- Database files stored in `.context/` directory, committed to Git
+- Can be rebuilt from JSON Graph at any time
 
-This approach provides the best balance of git-friendliness, queryability, and collaboration, with optional performance enhancements for scale.
+This approach provides the best balance of git-friendliness, graph-native storage, queryability, and collaboration, with all data staying within the organization.

@@ -89,22 +89,26 @@ type: decision
 id: decision-005
 status: accepted
 ---
-**Decision**: Store context in Git as JSON files, committed to the repository.
+**Decision**: Store context in Git as a graph format (JSON Graph), committed to the repository. Graph format is the default storage for all collected data.
 
 **Rationale**:
-- Git diffs on structured data are more meaningful than Markdown diffs
-- Easier to query and process programmatically
-- Markdown files are generated deterministically from the store
-- Enables advanced features like cross-references and validation
-- JSON provides excellent git diffs and merge conflict resolution
-- One file per node/proposal enables scalable, queryable storage
+- Graph model (see `decision-015`) requires graph-native storage format
+- Graph format enables efficient relationship queries and traversal
+- JSON Graph format extends current JSON structure, maintaining git-friendliness
+- Git diffs on structured graph data are meaningful and reviewable
+- Easier to query and process programmatically with graph structure
+- Markdown files are generated deterministically from the graph store
+- Enables advanced features like relationship traversal, path finding, and graph queries
+- JSON Graph provides excellent git diffs and merge conflict resolution
 - Committed to git provides full version history and collaboration
+- All data stays within organization (see `constraint-005`)
 
 **Storage Structure**:
 ```
 .context/
+├── graph.json                 # Primary graph storage (nodes + edges)
 ├── nodes/
-│   ├── {type}-{id}.json      # One file per node
+│   ├── {type}-{id}.json      # Individual node files (for granular access)
 ├── proposals/
 │   ├── proposal-{id}.json    # One file per proposal
 ├── reviews/
@@ -112,31 +116,60 @@ status: accepted
 └── index.json                # Metadata and indexes
 ```
 
-**Format Choice**: JSON over YAML because:
-- More machine-friendly and deterministic
-- Better tooling support
-- Excellent git diffs
-- Standard format widely supported
+**Graph Format**: JSON Graph structure:
+```json
+{
+  "nodes": [
+    {
+      "id": "decision-001",
+      "type": "decision",
+      "status": "accepted",
+      "content": "Use TypeScript",
+      "metadata": { ... }
+    }
+  ],
+  "edges": [
+    {
+      "source": "task-002",
+      "target": "decision-001",
+      "type": "implements",
+      "metadata": { ... }
+    }
+  ]
+}
+```
+
+**Format Choice**: JSON Graph over other formats because:
+- Extends current JSON structure (compatible with existing approach)
+- More machine-friendly and deterministic than XML-based formats (GraphML, GEXF)
+- Better tooling support than GraphML/GEXF
+- Excellent git diffs (better than binary formats)
+- Standard JSON format, widely supported
+- Native graph structure enables efficient queries
+- Human-readable and reviewable in PRs
+- All data in Git, no external services required
 
 **Git Integration**: Context store is committed to git (not ignored) for:
 - Full version history
 - Collaboration via git workflows
 - Review context changes in PRs
 - Git-based backup and distribution
+- All data stays within organization (self-hosted Git)
 
 **Alternatives Considered**:
+- Individual JSON files only (loses graph structure, harder to query relationships)
+- GraphML/GEXF (XML overhead, less tooling support)
 - YAML (more human-readable but less strict, whitespace-sensitive)
 - Single monolithic file (poor git diffs, merge conflicts)
 - Git-ignored storage (loses version history and collaboration)
-- Database/external service (loses git integration, not suitable for v1)
+- External graph databases (loses git integration, violates security constraint)
 
-**Future Enhancement**: Graph/document databases as optional backend
-- Given the graph model (see `decision-015`), graph databases (Neo4j, ArangoDB) could provide performance benefits for large-scale deployments
-- **Hybrid approach**: JSON files in Git remain source of truth, graph DB syncs from JSON files (one-way) as query/index layer
-- Graph DB used for complex graph queries and traversal, JSON files remain canonical
-- Can be enabled/disabled per repository, no data loss if graph DB unavailable
-- **v1**: JSON files in Git only (meets all requirements: git-friendly, non-invasive, reviewable)
-- **Future**: Optional graph DB backend for performance at scale
+**Performance Enhancement** (Optional):
+- Embedded file-based databases (Kuzu, SQLite) can sync from JSON Graph for query performance
+- Graph format remains source of truth in Git
+- Database files stored in `.context/` directory, committed to Git
+- Can be rebuilt from JSON Graph at any time
+- No data loss if database unavailable
 
 **Decided At**: 2026-01-26
 ```

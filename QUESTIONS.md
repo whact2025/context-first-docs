@@ -99,17 +99,25 @@ status: resolved
 ---
 **Question**: What's the best format for storing context in Git? JSON vs YAML vs custom? Should graph/document databases be considered?
 
-**Answer**: JSON files in `.context/` directory, committed to git, as primary storage. Graph/document databases can be optional enhancement for performance at scale.
+**Answer**: JSON Graph format in `.context/graph.json` is the default storage for all collected data. Graph format is required, not optional.
 
-**Primary Storage: JSON Files in Git**:
-- JSON provides excellent git diffs and merge conflict resolution
+**Primary Storage: JSON Graph Format (Default)**:
+- Graph format matches graph model (see `decision-015`), enables efficient relationship queries
+- JSON Graph extends current JSON structure, maintaining git-friendliness
+- Provides excellent git diffs and merge conflict resolution
 - Machine-friendly and deterministic
-- One file per node/proposal enables scalable storage
+- Native graph structure enables efficient traversal and path finding
 - Committed to git provides full version history
 - Git-friendly (required for non-invasive installation)
 - Reviewable in PRs and GitHub/GitLab web UI
 - No external infrastructure required
+- All data stays within organization (see `constraint-005`)
 - See `docs/STORAGE_OPTIONS.md` for detailed analysis
+
+**Graph Format Structure**:
+- `.context/graph.json` - Primary graph storage (nodes + edges)
+- `.context/nodes/{id}.json` - Individual node files (for granular access)
+- Graph structure enables efficient relationship queries and traversal
 
 **Graph/Document Databases as Optional Enhancement**:
 Given the graph model (see `question-003`) and security requirements (see `constraint-005`), graph/document databases must be Git-hostable and self-hosted:
@@ -159,9 +167,9 @@ Given the graph model (see `question-003`) and security requirements (see `const
 - **Future Enhancement**: Optional graph DB backend for performance (must be file-based and self-hosted)
 
 **Decision**: 
-- **v1**: JSON files in Git only (meets all requirements)
-- **Future**: Optional graph database backend as performance enhancement
-- **Architecture**: Design context store interface to support multiple backends
+- **Default**: JSON Graph format in `.context/graph.json` (required, not optional)
+- **Architecture**: Graph format is the primary storage for all collected data
+- **Performance Enhancement** (Optional): Embedded file-based databases (Kuzu, SQLite) can sync from JSON Graph
 
 **Impact**: Medium - affects developer experience and scalability
 ```
