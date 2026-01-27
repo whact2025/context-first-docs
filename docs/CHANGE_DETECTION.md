@@ -6,14 +6,15 @@ This document explains how the system detects changes made to Markdown files and
 
 **Important**: 
 - ctx blocks and rendered Markdown are **UI-only** and **NOT committed to Git**
-- Context store is **centrally managed** and **NOT subject to git commits/merges**
+- Context store is **self-hosted in Git** - stored in self-hosted Git repository (within organization)
+- Contexts are **NOT subject to manual git commits/merges** - managed through proposals
 - Change detection is **embedded in whatever UI is being used** (VS Code/Cursor extension, web UI, etc.)
 
 The system uses a **bidirectional synchronization** approach:
 - **Markdown → Context Store**: Changes to ctx blocks are detected in UI and imported as proposals
 - **Context Store → Markdown**: Accepted truth is exported back to Markdown deterministically in UI
-- **Central Management**: Context store is centrally managed for organization/project (NOT in Git)
-- **No Git Operations**: Contexts are not subject to git commits, merges, or change tracking through Git
+- **Self-Hosted Git Storage**: Context store files are in self-hosted Git repository (GitLab, Gitea, etc.)
+- **Automatic Git Updates**: Approved proposals automatically update Git repository (no manual git operations)
 
 Only `ctx` blocks are managed by the system; other Markdown content is preserved.
 
