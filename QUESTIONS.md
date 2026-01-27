@@ -638,3 +638,40 @@ status: resolved
 
 **Decided At**: 2026-01-26
 ```
+
+```ctx
+type: question
+id: question-027
+status: resolved
+---
+**Question**: Should we extract reusable store logic from `InMemoryStore` so file-based and MongoDB providers can share the same domain semantics?
+
+**Answer**: Yes. Provider-agnostic behavior (apply/query/traversal/conflicts/stale/merge) should live in a shared core module, with providers focused on persistence/indexing.
+
+**Resolution**:
+- `src/store/core/*` is the canonical implementation for shared semantics (see `decision-017`).
+- Future stores should reuse core functions wherever possible to avoid divergence.
+
+**Impact**: High - affects maintainability and cross-provider correctness
+**Resolved At**: 2026-01-27
+```
+
+```ctx
+type: question
+id: question-028
+status: open
+---
+**Question**: When a ctx block fails validation (invalid `type`/`status`), should the UI fail hard, warn, or auto-fix?
+
+**Context**:
+- Parsing is now strict and invalid values are rejected (fail-closed).
+- Silent drops are confusing; hard failures can block workflows.
+- Auto-fix requires a mapping strategy and could cause unintended changes.
+
+**Options**:
+- Warn inline and keep the block highlighted until fixed
+- Offer quick-fix suggestions (closest valid enum value)
+- Provide a strict-mode toggle (CI vs local authoring)
+
+**Impact**: Medium - affects authoring UX and data integrity
+```

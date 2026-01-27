@@ -710,3 +710,58 @@ status: accepted
 
 **Decided At**: 2026-01-26
 ```
+
+```ctx
+type: decision
+id: decision-017
+status: accepted
+---
+**Decision**: Extract provider-agnostic store logic into `src/store/core/*` and treat it as the canonical implementation for proposal application, querying/traversal, and conflict/stale/merge behavior.
+
+**Rationale**:
+- Avoid duplicating complex business logic across storage providers (in-memory, file-based, MongoDB).
+- Ensure deterministic behavior and consistent semantics across backends.
+- Improve testability: pure functions are easier to cover and reason about.
+- Make future providers mostly responsible for I/O + indexing, not domain logic.
+
+**Scope**:
+- Node keying (`nodeKey`)
+- Proposal application (`applyAcceptedProposalToNodeMap`)
+- Querying/filtering/sorting/pagination + graph traversal (`queryNodesInMemory`, `graph` helpers)
+- Conflict detection + stale checks + merge (`detectConflictsForProposal`, `isProposalStale`, `mergeProposals`)
+
+**Decided At**: 2026-01-27
+```
+
+```ctx
+type: decision
+id: decision-018
+status: accepted
+---
+**Decision**: Centralize runtime type guards and polymorphic cast/assert helpers in `src/utils/type-guards.ts`, and prefer explicit narrowing over broad type assertions.
+
+**Rationale**:
+- Reduce `as any` / `as unknown as` patterns that hide bugs.
+- Make validation reusable across parsing (Markdown ctx blocks), store operations, and future API layers.
+- Improve maintainability: shared guards prevent drift across modules.
+
+**Decided At**: 2026-01-27
+```
+
+```ctx
+type: decision
+id: decision-019
+status: accepted
+---
+**Decision**: Make ctx-block parsing strict for `type` and `status` by using the `NodeType` and `NodeStatus` unions; invalid values cause the block to be rejected (import returns `null` for that block).
+
+**Rationale**:
+- Prevent invalid node types/statuses from entering the system.
+- Align the UI Markdown layer with the canonical type system.
+- Fail closed so that downstream logic can rely on discriminated unions safely.
+
+**Implementation Note**:
+- The UI should surface validation feedback so “dropped blocks” don’t feel silent.
+
+**Decided At**: 2026-01-27
+```

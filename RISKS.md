@@ -84,3 +84,33 @@ likelihood: unlikely
 - Create quick-start guides
 - Ensure basic usage is straightforward
 ```
+
+```ctx
+type: risk
+id: risk-006
+status: accepted
+severity: medium
+likelihood: possible
+---
+**Risk**: Store semantics diverge across providers (in-memory vs file-based vs MongoDB), causing inconsistent query/conflict behavior.
+
+**Mitigation**:
+- Centralize provider-agnostic behavior in `src/store/core/*` (apply/query/traversal/conflicts/stale/merge).
+- Keep providers focused on persistence/indexing and reuse core functions wherever possible.
+- Maintain targeted coverage tests for core behavior to prevent regressions.
+```
+
+```ctx
+type: risk
+id: risk-007
+status: accepted
+severity: low
+likelihood: possible
+---
+**Risk**: Strict ctx-block validation causes “silent drops” of invalid blocks, confusing authors.
+
+**Mitigation**:
+- UI should surface parse/validation errors inline (highlight invalid `type`/`status`).
+- Provide quick fixes / suggestions where safe.
+- Keep a clear audit trail when content is rejected or corrected.
+```

@@ -18,12 +18,12 @@ status: accepted
 8. Design comprehensive Agent API with chain-of-thought traversal ✅
 
 **Phase 2: Persistence & Storage Implementations** (Next)
-1. Complete InMemoryStore - align strict types, ensure metadata versioning on apply, fix conflict typing, make traversal/stale detection behavior deterministic (see `docs/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
+1. ✅ Complete InMemoryStore baseline + extract reusable store core logic (`src/store/core/*`) with coverage tests (see `docs/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
 2. Storage abstraction layer - storage factory, configuration system, backend selection (see Phase 2)
 3. File-based storage implementation - JSON Graph format in `.context/graph.json` (default for development) (see Phase 3)
 4. MongoDB storage implementation - self-hosted MongoDB document database (for production/scaling) (see Phase 4)
 5. GraphQL API layer - schema definition, resolvers, type validation, authentication/authorization (see Phase 5)
-6. Conflict detection and resolution - conflict detection, field-level merging, optimistic locking (see Phase 6)
+6. Conflict detection and resolution - build on the baseline (conflict detection, field-level merge, optimistic locking) with manual resolution + superseding workflow (see Phase 6)
 7. Chain-of-thought traversal - reasoning chains, context building, decision reasoning (see Phase 7)
 8. Issue creation system - create issues from approved proposals (see Phase 8)
 9. Reference tracking - bidirectional references, automatic updates (see Phase 9)
@@ -159,7 +159,7 @@ Create CLI tool for importing/exporting context.
 ```ctx
 type: task
 id: task-010
-status: open
+status: in-progress
 ---
 Write comprehensive tests for all core functionality.
 ```
@@ -454,6 +454,14 @@ Complete InMemoryStore implementation - fix return types, align conflict typing,
 
 ```ctx
 type: task
+id: task-058
+status: completed
+---
+Extract reusable store core logic from InMemoryStore into `src/store/core/*` (query, conflicts/stale/merge, apply-proposal, graph traversal, node keying) and add targeted coverage tests to lock behavior.
+```
+
+```ctx
+type: task
 id: task-047
 status: open
 ---
@@ -526,7 +534,7 @@ Implement Git integration - automatic Git commits for file-based storage, Git sn
 
 ```ctx
 type: task
-id: task-049
+id: task-059
 status: open
 ---
 Implement chain-of-thought traversal APIs - traverseReasoningChain, buildContextChain, followDecisionReasoning, discoverRelatedReasoning, queryWithReasoning.
@@ -534,7 +542,7 @@ Implement chain-of-thought traversal APIs - traverseReasoningChain, buildContext
 
 ```ctx
 type: task
-id: task-050
+id: task-060
 status: open
 ---
 Ensure UI-only Markdown - ctx blocks and rendered Markdown exist only in UI, NOT in Git. Change detection embedded in UI.

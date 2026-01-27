@@ -6,28 +6,26 @@
 
 **What Exists:**
 - ✅ `ContextStore` interface - fully defined with all method signatures
-- ✅ `InMemoryStore` - basic implementation (incomplete, missing many methods)
+- ✅ `InMemoryStore` - feature-complete baseline implementation for development/testing
+- ✅ Reusable store core logic extracted to `src/store/core/*` for reuse by future providers
 - ✅ Type definitions - comprehensive types for queries, reasoning chains, etc.
 - ✅ Project structure - organized codebase with types, store directories
+- ✅ Test coverage work - targeted suites covering core store behavior (apply/query/conflicts) and runtime type guards
 
 **What's Missing:**
 
 #### 1. InMemoryStore Completeness
-- ❌ `queryNodes()` returns wrong type (should return `NodeQueryResult`, not `AnyNode[]`)
-- ❌ Missing: `getReferencingNodes()`
-- ❌ Missing: `updateReferencingNodes()`
-- ❌ Missing: `detectConflicts()`
-- ❌ Missing: `isProposalStale()`
-- ❌ Missing: `mergeProposals()`
-- ❌ Missing: `createIssuesFromProposal()`
-- ❌ Missing: `traverseReasoningChain()`
-- ❌ Missing: `buildContextChain()`
-- ❌ Missing: `followDecisionReasoning()`
-- ❌ Missing: `discoverRelatedReasoning()`
-- ❌ Missing: `queryWithReasoning()`
-- ❌ Missing: Relationship traversal in queries
-- ❌ Missing: Advanced search options support
-- ❌ Missing: Sorting and pagination metadata
+- ✅ `queryNodes()` returns `NodeQueryResult` (with pagination metadata, including `hasMore`)
+- ✅ Relationship traversal in queries (relatedTo/depth/direction, ancestors/descendants, dependencies/dependents, relationship filters)
+- ✅ Advanced search options (fields/operator/fuzzy)
+- ✅ Sorting and pagination metadata
+- ✅ `getReferencingNodes()` implemented
+- ✅ `updateReferencingNodes()` implemented (no-op for in-memory; required by interface for persistent stores)
+- ✅ `detectConflicts()` implemented (proposal overlap classification)
+- ✅ `isProposalStale()` implemented (baseVersions + modifiedAt fallback)
+- ✅ `mergeProposals()` implemented (field-level auto-merge + conflict reporting)
+- ✅ `createIssuesFromProposal()` implemented (basic implementation; will evolve with templates/integrations)
+- ✅ Chain-of-thought traversal methods implemented (baseline behavior suitable for dev/testing; will evolve)
 
 #### 2. File-Based Storage Implementation
 - ❌ No `FileBasedStore` class
@@ -64,9 +62,8 @@
 - ❌ No query/mutation handlers
 
 #### 6. Conflict Detection & Resolution
-- ❌ No conflict detection algorithm
-- ❌ No field-level merging logic
-- ❌ No optimistic locking implementation
+- ✅ Conflict detection + merge logic exists in `src/store/core/conflicts.ts` (baseline, in-memory)
+- ✅ Optimistic locking support exists via `baseVersions` + node metadata version checks (baseline)
 - ❌ No proposal superseding logic
 - ❌ No manual conflict resolution workflow
 
@@ -97,25 +94,23 @@
 
 ## Implementation Plan
 
-### Phase 1: Complete InMemoryStore (Foundation)
+### Phase 1: InMemoryStore + Core Store Extraction (Foundation)
 
-**Priority**: High - Needed for testing and development
+**Priority**: High - Baseline for testing and as reference implementation
 
 **Tasks**:
-1. Fix `queryNodes()` return type to `NodeQueryResult`
-2. Implement relationship traversal in queries
-3. Implement advanced search options
-4. Implement sorting and pagination metadata
-5. Implement `getReferencingNodes()`
-6. Implement `updateReferencingNodes()`
-7. Implement `detectConflicts()` (basic version)
-8. Implement `isProposalStale()`
-9. Implement `mergeProposals()` (basic version)
-10. Implement `createIssuesFromProposal()` (stub)
-11. Implement chain-of-thought traversal methods (basic versions)
-12. Add comprehensive tests
+1. ✅ Complete `InMemoryStore` behavior for all `ContextStore` methods (development/testing baseline)
+2. ✅ Extract reusable, provider-agnostic logic to `src/store/core/*`:
+   - apply proposal operations
+   - query/filter/sort/paginate + traversal helpers
+   - conflict detection / stale checks / merge
+   - canonical node keying
+3. ✅ Add targeted test suites to lock in behavior and maintain coverage
+4. ⏳ Harden and document **issue creation** semantics (currently basic) and how it maps to future templates/integrations
+5. ⏳ Clarify and document **conflict severity semantics** and expected UI workflows (manual resolution / superseding)
+6. ⏳ Add a few more edge-case tests (graph traversal + conflicts) to keep branch coverage healthy as logic evolves
 
-**Estimated Effort**: 2-3 weeks
+**Estimated Effort**: Completed for baseline; remaining hardening items are incremental
 
 ### Phase 2: Storage Abstraction & Configuration
 

@@ -24,36 +24,28 @@ import {
   ReasoningQueryOptions,
   ReasoningQueryResult,
 } from "../types/index.js";
-import {
-  NodeType,
-  PlanStep,
-  RiskNode,
-  TaskNode,
-  TextRange,
-} from "../types/node.js";
-import {
-  Guard,
-  isArrayOf,
-  isNumber,
-  isOptional,
-  isRecord as isRecordGuard,
-  isString,
-  isOneOf,
-} from "../utils/type-guards.js";
-import {
-  Proposal,
-  Review,
-  AnyOperation,
-  UpdateOperation,
-  DeleteTextOperation,
-  DeleteOperation,
-} from "../types/proposal.js";
+import { NodeType } from "../types/node.js";
+import { Proposal, Review } from "../types/proposal.js";
 import {
   ConflictDetectionResult,
   MergeResult,
-  ProposalConflict,
 } from "../types/conflicts.js";
 import { IssueCreationResult } from "../types/issues.js";
+import { nodeKey as coreNodeKey } from "./core/node-key.js";
+import {
+  buildEdgeIndex,
+  getAncestors,
+  getDependencies,
+  getDependents,
+  getDescendants,
+  traverseRelatedKeys,
+} from "./core/graph.js";
+import { applyAcceptedProposalToNodeMap } from "./core/apply-proposal.js";
+import {
+  detectConflictsForProposal,
+  isProposalStale as isProposalStaleCore,
+  mergeProposals as mergeProposalsCore,
+} from "./core/conflicts.js";
 
 export class InMemoryStore implements ContextStore {
   private nodes: Map<string, AnyNode> = new Map();
@@ -61,274 +53,13 @@ export class InMemoryStore implements ContextStore {
   private reviews: Map<string, Review[]> = new Map();
 
   private nodeKey(nodeId: NodeId): string {
-    return nodeId.namespace ? `${nodeId.namespace}:${nodeId.id}` : nodeId.id;
+    return coreNodeKey(nodeId);
   }
 
   private getNodeByKey(key: string): AnyNode | null {
     return this.nodes.get(key) || null;
   }
-
-  private isDeleteTextOperation(op: AnyOperation): op is DeleteTextOperation {
-    return op.type === "delete" && "start" in op && "end" in op;
-  }
-
-  private isDeleteNodeOperation(op: AnyOperation): op is DeleteOperation {
-    return op.type === "delete" && "nodeId" in op;
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return isRecordGuard(value);
-  }
-
-  private isStringArray: Guard<string[]> = isArrayOf(isString);
-
-  private isNodeId(value: unknown): value is NodeId {
-    if (!this.isRecord(value)) return false;
-    const id = value["id"];
-    const namespace = value["namespace"];
-    return (
-      isString(id) &&
-      isOptional(isString)(namespace)
-    );
-  }
-
-  private isNodeIdArray(value: unknown): value is NodeId[] {
-    return Array.isArray(value) && value.every((v) => this.isNodeId(v));
-  }
-
-  private isRelationshipType(value: unknown): value is RelationshipType {
-    return isOneOf(
-      [
-        "parent-child",
-        "depends-on",
-        "references",
-        "supersedes",
-        "related-to",
-        "implements",
-        "blocks",
-        "mitigates",
-      ] as const
-    )(value);
-  }
-
-  private isNodeRelationship(value: unknown): value is NodeRelationship {
-    if (!this.isRecord(value)) return false;
-    return (
-      this.isRelationshipType(value["type"]) &&
-      this.isNodeId(value["target"])
-    );
-  }
-
-  private isNodeRelationshipArray(value: unknown): value is NodeRelationship[] {
-    return Array.isArray(value) && value.every((v) => this.isNodeRelationship(v));
-  }
-
-  private isTextRange(value: unknown): value is TextRange {
-    if (!this.isRecord(value)) return false;
-    const start = value["start"];
-    const end = value["end"];
-    const source = value["source"];
-    return (
-      isNumber(start) &&
-      isNumber(end) &&
-      isOptional(isString)(source)
-    );
-  }
-
-  private isPlanStep(value: unknown): value is PlanStep {
-    if (!this.isRecord(value)) return false;
-    const description = value["description"];
-    const order = value["order"];
-    const references = value["references"];
-    return (
-      isString(description) &&
-      isNumber(order) &&
-      (references === undefined || this.isNodeIdArray(references))
-    );
-  }
-
-  private isPlanStepArray(value: unknown): value is PlanStep[] {
-    return Array.isArray(value) && value.every((v) => this.isPlanStep(v));
-  }
-
-  private isTaskState(value: unknown): value is TaskNode["state"] {
-    return isOneOf(
-      ["open", "in-progress", "blocked", "completed", "cancelled"] as const
-    )(value);
-  }
-
-  private isRiskSeverity(value: unknown): value is RiskNode["severity"] {
-    return isOneOf(["low", "medium", "high", "critical"] as const)(value);
-  }
-
-  private isRiskLikelihood(value: unknown): value is RiskNode["likelihood"] {
-    return isOneOf(["unlikely", "possible", "likely", "certain"] as const)(value);
-  }
-
-  private applyCommonNodeChanges<T extends AnyNode>(
-    node: T,
-    changes: UpdateOperation["changes"]
-  ): T {
-    let next: T = { ...node };
-
-    if (typeof changes.content === "string") {
-      next = { ...next, content: changes.content };
-    }
-    if (changes.status) {
-      next = { ...next, status: changes.status };
-    }
-
-    const relationships = changes["relationships"];
-    if (this.isNodeRelationshipArray(relationships)) {
-      next = { ...next, relationships };
-    }
-
-    const relations = changes["relations"];
-    if (this.isNodeIdArray(relations)) {
-      next = { ...next, relations };
-    }
-
-    const referencedBy = changes["referencedBy"];
-    if (this.isNodeIdArray(referencedBy)) {
-      next = { ...next, referencedBy };
-    }
-
-    const sourceFiles = changes["sourceFiles"];
-    if (this.isStringArray(sourceFiles)) {
-      next = { ...next, sourceFiles };
-    }
-
-    const textRange = changes["textRange"];
-    if (this.isTextRange(textRange)) {
-      next = { ...next, textRange };
-    }
-
-    return next;
-  }
-
-  private applyUnknownChangeFields<T extends AnyNode>(
-    node: T,
-    changes: UpdateOperation["changes"],
-    knownKeys: ReadonlySet<string>
-  ): T {
-    const next: T = { ...node };
-
-    for (const [key, value] of Object.entries(changes)) {
-      if (knownKeys.has(key)) continue;
-      if (key === "id" || key === "type" || key === "metadata") continue;
-      Reflect.set(next, key, value);
-    }
-
-    return next;
-  }
-
-  private applyUpdateChanges(existing: AnyNode, changes: UpdateOperation["changes"]): AnyNode {
-    const commonKeys: readonly string[] = [
-      "content",
-      "status",
-      "relationships",
-      "relations",
-      "referencedBy",
-      "sourceFiles",
-      "textRange",
-    ];
-
-    switch (existing.type) {
-      case "goal": {
-        const typeKeys: readonly string[] = ["criteria"];
-        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
-        const next = this.applyCommonNodeChanges(existing, changes);
-        const criteria = changes["criteria"];
-        if (this.isStringArray(criteria)) Reflect.set(next, "criteria", criteria);
-        return this.applyUnknownChangeFields(next, changes, knownKeys);
-      }
-      case "decision": {
-        const typeKeys: readonly string[] = [
-          "decision",
-          "rationale",
-          "alternatives",
-          "decidedAt",
-        ];
-        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
-        const next = this.applyCommonNodeChanges(existing, changes);
-        const decision = changes["decision"];
-        if (typeof decision === "string") Reflect.set(next, "decision", decision);
-        const rationale = changes["rationale"];
-        if (typeof rationale === "string") Reflect.set(next, "rationale", rationale);
-        const alternatives = changes["alternatives"];
-        if (this.isStringArray(alternatives)) Reflect.set(next, "alternatives", alternatives);
-        const decidedAt = changes["decidedAt"];
-        if (typeof decidedAt === "string") Reflect.set(next, "decidedAt", decidedAt);
-        return this.applyUnknownChangeFields(next, changes, knownKeys);
-      }
-      case "constraint": {
-        const typeKeys: readonly string[] = ["constraint", "reason"];
-        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
-        const next = this.applyCommonNodeChanges(existing, changes);
-        const constraint = changes["constraint"];
-        if (typeof constraint === "string") Reflect.set(next, "constraint", constraint);
-        const reason = changes["reason"];
-        if (typeof reason === "string") Reflect.set(next, "reason", reason);
-        return this.applyUnknownChangeFields(next, changes, knownKeys);
-      }
-      case "task": {
-        const typeKeys: readonly string[] = [
-          "state",
-          "assignee",
-          "dueDate",
-          "dependencies",
-        ];
-        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
-        const next = this.applyCommonNodeChanges(existing, changes);
-        const state = changes["state"];
-        if (this.isTaskState(state)) Reflect.set(next, "state", state);
-        const assignee = changes["assignee"];
-        if (typeof assignee === "string") Reflect.set(next, "assignee", assignee);
-        const dueDate = changes["dueDate"];
-        if (typeof dueDate === "string") Reflect.set(next, "dueDate", dueDate);
-        const dependencies = changes["dependencies"];
-        if (this.isNodeIdArray(dependencies)) Reflect.set(next, "dependencies", dependencies);
-        return this.applyUnknownChangeFields(next, changes, knownKeys);
-      }
-      case "risk": {
-        const typeKeys: readonly string[] = ["severity", "likelihood", "mitigation"];
-        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
-        const next = this.applyCommonNodeChanges(existing, changes);
-        const severity = changes["severity"];
-        if (this.isRiskSeverity(severity)) Reflect.set(next, "severity", severity);
-        const likelihood = changes["likelihood"];
-        if (this.isRiskLikelihood(likelihood)) Reflect.set(next, "likelihood", likelihood);
-        const mitigation = changes["mitigation"];
-        if (typeof mitigation === "string") Reflect.set(next, "mitigation", mitigation);
-        return this.applyUnknownChangeFields(next, changes, knownKeys);
-      }
-      case "question": {
-        const typeKeys: readonly string[] = ["question", "answer", "answeredAt"];
-        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
-        const next = this.applyCommonNodeChanges(existing, changes);
-        const question = changes["question"];
-        if (typeof question === "string") Reflect.set(next, "question", question);
-        const answer = changes["answer"];
-        if (typeof answer === "string") Reflect.set(next, "answer", answer);
-        const answeredAt = changes["answeredAt"];
-        if (typeof answeredAt === "string") Reflect.set(next, "answeredAt", answeredAt);
-        return this.applyUnknownChangeFields(next, changes, knownKeys);
-      }
-      case "plan": {
-        const typeKeys: readonly string[] = ["steps"];
-        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
-        const next = this.applyCommonNodeChanges(existing, changes);
-        const steps = changes["steps"];
-        if (this.isPlanStepArray(steps)) Reflect.set(next, "steps", steps);
-        return this.applyUnknownChangeFields(next, changes, knownKeys);
-      }
-      default: {
-        const knownKeys = new Set<string>(commonKeys);
-        const next = this.applyCommonNodeChanges(existing, changes);
-        return this.applyUnknownChangeFields(next, changes, knownKeys);
-      }
-    }
-  }
+  // Validation + update-application logic is extracted to `src/store/core/updates.ts`.
 
   async getNode(nodeId: NodeId): Promise<AnyNode | null> {
     const key = this.nodeKey(nodeId);
@@ -558,7 +289,9 @@ export class InMemoryStore implements ContextStore {
       (query.relationshipTypes && query.relationshipTypes.length > 0) ||
       Boolean(query.hasRelationship?.direction && query.hasRelationship.direction !== "outgoing");
 
-    const edgeIndex = needsEdgeIndex ? this.buildEdgeIndex() : null;
+    const edgeIndex = needsEdgeIndex
+      ? buildEdgeIndex(this.nodes.values(), (id) => this.nodeKey(id))
+      : null;
 
     if (query.relatedTo) {
       const depth = query.depth ?? 1;
@@ -568,12 +301,13 @@ export class InMemoryStore implements ContextStore {
           ? new Set(query.relationshipTypes)
           : null;
 
-      const relatedKeys = this.traverseRelatedKeys(
+      const relatedKeys = traverseRelatedKeys(
         query.relatedTo,
         depth,
         direction,
         edgeIndex!,
-        allowedTypes
+        allowedTypes,
+        (id) => this.nodeKey(id)
       );
 
       results = results.filter((node) => relatedKeys.has(this.nodeKey(node.id)));
@@ -596,26 +330,44 @@ export class InMemoryStore implements ContextStore {
 
     // Hierarchical queries
     if (query.descendantsOf) {
-      const descendants = this.getDescendants(query.descendantsOf, query.relationshipType || "parent-child");
+      const descendants = getDescendants(
+        (key) => this.getNodeByKey(key),
+        query.descendantsOf,
+        query.relationshipType || "parent-child",
+        (id) => this.nodeKey(id)
+      );
       const descendantKeys = new Set(descendants.map((n) => this.nodeKey(n.id)));
       results = results.filter((node) => descendantKeys.has(this.nodeKey(node.id)));
     }
 
     if (query.ancestorsOf) {
-      const ancestors = this.getAncestors(query.ancestorsOf, query.relationshipType || "parent-child");
+      const ancestors = getAncestors(
+        this.nodes.values(),
+        query.ancestorsOf,
+        query.relationshipType || "parent-child",
+        (id) => this.nodeKey(id)
+      );
       const ancestorKeys = new Set(ancestors.map((n) => this.nodeKey(n.id)));
       results = results.filter((node) => ancestorKeys.has(this.nodeKey(node.id)));
     }
 
     // Dependency queries
     if (query.dependenciesOf) {
-      const dependencies = this.getDependencies(query.dependenciesOf);
+      const dependencies = getDependencies(
+        (key) => this.getNodeByKey(key),
+        query.dependenciesOf,
+        (id) => this.nodeKey(id)
+      );
       const depKeys = new Set(dependencies.map((n) => this.nodeKey(n.id)));
       results = results.filter((node) => depKeys.has(this.nodeKey(node.id)));
     }
 
     if (query.dependentsOf) {
-      const dependents = this.getDependents(query.dependentsOf);
+      const dependents = getDependents(
+        this.nodes.values(),
+        query.dependentsOf,
+        (id) => this.nodeKey(id)
+      );
       const depKeys = new Set(dependents.map((n) => this.nodeKey(n.id)));
       results = results.filter((node) => depKeys.has(this.nodeKey(node.id)));
     }
@@ -806,125 +558,9 @@ export class InMemoryStore implements ContextStore {
     if (proposal.status !== "accepted") {
       throw new Error(`Cannot apply proposal ${proposalId}: not accepted`);
     }
-
-    const touch = (node: AnyNode): AnyNode => {
-      return {
-        ...node,
-        metadata: {
-          ...node.metadata,
-          modifiedAt: proposal.metadata.modifiedAt,
-          modifiedBy: proposal.metadata.modifiedBy,
-          version: (node.metadata.version ?? 0) + 1,
-        },
-      };
-    };
-
-    const setNode = (nodeId: NodeId, updater: (current: AnyNode) => AnyNode) => {
-      const key = this.nodeKey(nodeId);
-      const existing = this.nodes.get(key);
-      if (!existing) {
-        throw new Error(`Node ${key} not found`);
-      }
-      this.nodes.set(key, updater(existing));
-    };
-
-    // Apply operations in order
-    for (const operation of proposal.operations.sort((a, b) => a.order - b.order)) {
-      if (operation.type === "create" && "node" in operation) {
-        const key = this.nodeKey(operation.node.id);
-        this.nodes.set(key, operation.node);
-      } else if (operation.type === "update") {
-        setNode(operation.nodeId, (existing) =>
-          touch(this.applyUpdateChanges(existing, operation.changes))
-        );
-      } else if (this.isDeleteNodeOperation(operation)) {
-        // Mark as rejected, don't remove (provenance)
-        setNode(operation.nodeId, (existing) =>
-          touch({ ...existing, status: "rejected" })
-        );
-      } else if (operation.type === "status-change") {
-        setNode(operation.nodeId, (existing) =>
-          touch({ ...existing, status: operation.newStatus })
-        );
-      } else if (operation.type === "insert") {
-        const nodeId = operation.sourceNodeId;
-        if (!nodeId) {
-          throw new Error(`Insert operation ${operation.id} missing sourceNodeId`);
-        }
-        setNode(nodeId, (existing) => {
-          const content = existing.content ?? "";
-          const pos = operation.position;
-          const text = operation.text;
-          if (pos < 0 || pos > content.length) {
-            throw new Error(`Insert position ${pos} out of bounds for node ${this.nodeKey(nodeId)}`);
-          }
-          return touch({
-            ...existing,
-            content: content.slice(0, pos) + text + content.slice(pos),
-          });
-        });
-      } else if (this.isDeleteTextOperation(operation)) {
-        const nodeId = operation.sourceNodeId;
-        if (!nodeId) {
-          throw new Error(`DeleteText operation ${operation.id} missing sourceNodeId`);
-        }
-        setNode(nodeId, (existing) => {
-          const content = existing.content ?? "";
-          const start = operation.start;
-          const end = operation.end;
-          if (start < 0 || end < start || end > content.length) {
-            throw new Error(
-              `Delete range [${start}, ${end}) out of bounds for node ${this.nodeKey(nodeId)}`
-            );
-          }
-          return touch({
-            ...existing,
-            content: content.slice(0, start) + content.slice(end),
-          });
-        });
-      } else if (operation.type === "move") {
-        const nodeId = operation.nodeId;
-        const target = operation.target;
-        if (target?.parentId) {
-          const newParentId = target.parentId;
-          const newParentKey = this.nodeKey(newParentId);
-          const newParent = this.nodes.get(newParentKey);
-          if (!newParent) {
-            throw new Error(`Parent ${newParentKey} not found for move`);
-          }
-
-          // Remove any existing incoming parent-child edges to this node (single-parent semantics)
-          for (const n of this.nodes.values()) {
-            if (!n.relationships) continue;
-            const nextRels = n.relationships.filter(
-              (r) => !(r.type === "parent-child" && this.nodeKey(r.target) === this.nodeKey(nodeId))
-            );
-            if (nextRels.length !== n.relationships.length) {
-              this.nodes.set(this.nodeKey(n.id), touch({ ...n, relationships: nextRels }));
-            }
-          }
-
-          // Add parent-child edge from new parent to nodeId if missing
-          const existingRels = newParent.relationships || [];
-          const has = existingRels.some(
-            (r) => r.type === "parent-child" && this.nodeKey(r.target) === this.nodeKey(nodeId)
-          );
-          if (!has) {
-            this.nodes.set(
-              newParentKey,
-              touch({
-                ...newParent,
-                relationships: [...existingRels, { type: "parent-child", target: nodeId }],
-              })
-            );
-          }
-        }
-
-        // Position is currently a no-op in memory store (no ordering field in model).
-        // Still bump the moved node's metadata to record the change.
-        setNode(nodeId, (existing) => touch(existing));
-      }
-    }
+    applyAcceptedProposalToNodeMap(this.nodes, proposal, {
+      keyOf: (id) => this.nodeKey(id),
+    });
   }
 
   async getReviewHistory(proposalId: string): Promise<Review[]> {
@@ -977,127 +613,10 @@ export class InMemoryStore implements ContextStore {
         needsResolution: [],
       };
     }
-
-    const conflicts: ProposalConflict[] = [];
-    const mergeable: string[] = [];
-    const needsResolution: string[] = [];
-
-    const summarize = (p: Proposal) => {
-      const map = new Map<
-        string,
-        { nodeId: NodeId; kinds: Set<string>; fields: Set<string> }
-      >();
-
-      for (const op of p.operations) {
-        let nodeId: NodeId | null = null;
-        let kind: string = op.type;
-        let fields: string[] = [];
-
-        if (op.type === "create" && "node" in op) {
-          nodeId = op.node.id;
-        } else if ("nodeId" in op) {
-          // update/status-change/move/delete(node)
-          nodeId = op.nodeId;
-        } else if (op.type === "insert") {
-          nodeId = op.sourceNodeId ?? null;
-        } else if (this.isDeleteTextOperation(op)) {
-          nodeId = op.sourceNodeId ?? null;
-        }
-
-        if (!nodeId) continue;
-
-        if (op.type === "update") {
-          kind = "update";
-          fields = Object.keys(op.changes || {});
-        } else if (op.type === "status-change") {
-          kind = "status-change";
-          fields = ["status"];
-        } else if (op.type === "insert" || this.isDeleteTextOperation(op)) {
-          kind = "content-edit";
-          fields = ["content"];
-        } else if (op.type === "move") {
-          kind = "move";
-          fields = ["relationships"];
-        } else if (this.isDeleteNodeOperation(op)) {
-          kind = "delete";
-        } else if (op.type === "create") {
-          kind = "create";
-        }
-
-        const key = this.nodeKey(nodeId);
-        if (!map.has(key)) {
-          map.set(key, { nodeId, kinds: new Set(), fields: new Set() });
-        }
-        const entry = map.get(key)!;
-        entry.kinds.add(kind);
-        for (const f of fields) entry.fields.add(f);
-      }
-
-      return map;
-    };
-
-    const a = summarize(proposal);
-
-    // Find all open proposals
     const openProposals = await this.getOpenProposals();
-
-    for (const otherProposal of openProposals) {
-      if (otherProposal.id === proposalId) continue;
-
-      const b = summarize(otherProposal);
-      const sharedKeys = Array.from(a.keys()).filter((k) => b.has(k));
-      if (sharedKeys.length === 0) {
-        mergeable.push(otherProposal.id);
-        continue;
-      }
-
-      const conflictingNodes: NodeId[] = [];
-      const conflictingFields: Record<string, string[]> = {};
-
-      let hardNodeConflict = false;
-      let fieldConflict = false;
-
-      for (const key of sharedKeys) {
-        const left = a.get(key)!;
-        const right = b.get(key)!;
-        conflictingNodes.push(left.nodeId);
-
-        const leftNonUpdate = Array.from(left.kinds).some((k) => k !== "update");
-        const rightNonUpdate = Array.from(right.kinds).some((k) => k !== "update");
-        if (leftNonUpdate || rightNonUpdate) {
-          hardNodeConflict = true;
-          continue;
-        }
-
-        // Both are updates: check overlapping fields
-        const overlap = Array.from(left.fields).filter((f) => right.fields.has(f));
-        if (overlap.length > 0) {
-          fieldConflict = true;
-          conflictingFields[key] = overlap;
-        }
-      }
-
-      if (!hardNodeConflict && !fieldConflict) {
-        // Same nodes updated but disjoint fields => safe to merge
-        mergeable.push(otherProposal.id);
-        continue;
-      }
-
-      conflicts.push({
-        proposals: [proposalId, otherProposal.id],
-        conflictingNodes,
-        conflictingFields: Object.keys(conflictingFields).length ? conflictingFields : undefined,
-        severity: hardNodeConflict ? "node" : "field",
-        autoResolvable: false,
-      });
-      needsResolution.push(otherProposal.id);
-    }
-
-    return {
-      conflicts,
-      mergeable,
-      needsResolution,
-    };
+    return detectConflictsForProposal(proposal, openProposals, {
+      keyOf: (id) => this.nodeKey(id),
+    });
   }
 
   async isProposalStale(proposalId: string): Promise<boolean> {
@@ -1105,66 +624,10 @@ export class InMemoryStore implements ContextStore {
     if (!proposal) {
       return true;
     }
-
-    // Prefer optimistic-locking baseVersions if provided
-    if (proposal.metadata.baseVersions) {
-      for (const operation of proposal.operations) {
-        let nodeId: NodeId | null = null;
-
-        if (operation.type === "create" && "node" in operation) {
-          nodeId = operation.node.id;
-        } else if ("nodeId" in operation) {
-          nodeId = operation.nodeId;
-        } else if (operation.type === "insert") {
-          nodeId = operation.sourceNodeId ?? null;
-        } else if (this.isDeleteTextOperation(operation)) {
-          nodeId = operation.sourceNodeId ?? null;
-        }
-
-        if (!nodeId) continue;
-        const key = this.nodeKey(nodeId);
-        const base =
-          proposal.metadata.baseVersions[key] ??
-          proposal.metadata.baseVersions[nodeId.id];
-
-        if (base === undefined) continue;
-
-        const node = await this.getNode(nodeId);
-        if (!node) return true;
-        if (node.metadata.version !== base) return true;
-      }
-      return false;
-    }
-
-    // Check if any nodes referenced in the proposal have been updated
-    for (const operation of proposal.operations) {
-      let nodeId: NodeId | null = null;
-
-      if (operation.type === "create" && "node" in operation) {
-        nodeId = operation.node.id;
-      } else if ("nodeId" in operation) {
-        nodeId = operation.nodeId;
-      } else if (operation.type === "insert") {
-        nodeId = operation.sourceNodeId ?? null;
-      } else if (this.isDeleteTextOperation(operation)) {
-        nodeId = operation.sourceNodeId ?? null;
-      }
-
-      if (nodeId) {
-        const node = await this.getNode(nodeId);
-        if (node) {
-          // Check if node version has changed since proposal was created
-          const proposalCreatedAt = new Date(proposal.metadata.createdAt);
-          const nodeModifiedAt = new Date(node.metadata.modifiedAt);
-
-          if (nodeModifiedAt > proposalCreatedAt) {
-            return true; // Node was modified after proposal was created
-          }
-        }
-      }
-    }
-
-    return false;
+    return isProposalStaleCore(proposal, {
+      keyOf: (id) => this.nodeKey(id),
+      getNode: (id) => this.nodes.get(this.nodeKey(id)) || null,
+    });
   }
 
   async mergeProposals(proposalIds: string[]): Promise<MergeResult> {
@@ -1175,110 +638,10 @@ export class InMemoryStore implements ContextStore {
     const validProposals = proposals.filter(
       (p): p is Proposal => p !== null
     );
-
-    if (validProposals.length === 0) {
-      return {
-        merged: [],
-        conflicts: [],
-        autoMerged: [],
-      };
-    }
-
-    const merged: Array<{
-      nodeId: NodeId;
-      field: string;
-      oldValue: unknown;
-      newValue: unknown;
-    }> = [];
-    const conflicts: Array<{
-      field: string;
-      nodeId: NodeId;
-      proposal1Value: unknown;
-      proposal2Value: unknown;
-    }> = [];
-    const autoMerged: Array<{
-      nodeId: NodeId;
-      field: string;
-      oldValue: unknown;
-      newValue: unknown;
-    }> = [];
-
-    // Field-level merge planning: combine updates and report collisions.
-    const nodeChanges = new Map<
-      string,
-      Map<string, { proposalId: string; value: unknown; nodeId: NodeId }>
-    >();
-
-    for (const proposal of validProposals) {
-      for (const operation of proposal.operations) {
-        if (operation.type === "update") {
-          const nodeId = operation.nodeId;
-          const nodeKey = this.nodeKey(nodeId);
-          const changes = operation.changes;
-
-          if (!nodeChanges.has(nodeKey)) {
-            nodeChanges.set(nodeKey, new Map());
-          }
-
-          const fieldMap = nodeChanges.get(nodeKey)!;
-
-          for (const [field, value] of Object.entries(changes)) {
-            if (fieldMap.has(field)) {
-              // Conflict detected
-              const existing = fieldMap.get(field)!;
-              conflicts.push({
-                field,
-                nodeId,
-                proposal1Value: existing.value,
-                proposal2Value: value,
-              });
-            } else {
-              fieldMap.set(field, { proposalId: proposal.id, value, nodeId });
-            }
-          }
-        } else if (operation.type === "status-change") {
-          const nodeId = operation.nodeId;
-          const nodeKey = this.nodeKey(nodeId);
-          if (!nodeChanges.has(nodeKey)) nodeChanges.set(nodeKey, new Map());
-          const fieldMap = nodeChanges.get(nodeKey)!;
-          const field = "status";
-          const value = operation.newStatus;
-          if (fieldMap.has(field)) {
-            const existing = fieldMap.get(field)!;
-            conflicts.push({
-              field,
-              nodeId,
-              proposal1Value: existing.value,
-              proposal2Value: value,
-            });
-          } else {
-            fieldMap.set(field, { proposalId: proposal.id, value, nodeId });
-          }
-        }
-      }
-    }
-
-    // Materialize non-conflicting field changes
-    for (const [nodeKey, fields] of nodeChanges.entries()) {
-      const baseNode = this.getNodeByKey(nodeKey);
-      for (const [field, change] of fields.entries()) {
-        const oldValue = baseNode ? (Reflect.get(baseNode, field) as unknown) : undefined;
-        const record = {
-          nodeId: change.nodeId,
-          field,
-          oldValue,
-          newValue: change.value,
-        };
-        merged.push(record);
-        autoMerged.push(record);
-      }
-    }
-
-    return {
-      merged,
-      conflicts,
-      autoMerged,
-    };
+    return mergeProposalsCore(validProposals, {
+      keyOf: (id) => this.nodeKey(id),
+      getNodeByKey: (key) => this.getNodeByKey(key),
+    });
   }
 
   async createIssuesFromProposal(
@@ -1767,208 +1130,5 @@ export class InMemoryStore implements ContextStore {
     };
   }
 
-  private buildEdgeIndex(): {
-    outgoing: Map<string, Array<{ type: RelationshipType; toKey: string }>>;
-    incoming: Map<string, Array<{ type: RelationshipType; fromKey: string }>>;
-  } {
-    const outgoing = new Map<string, Array<{ type: RelationshipType; toKey: string }>>();
-    const incoming = new Map<string, Array<{ type: RelationshipType; fromKey: string }>>();
-
-    for (const node of this.nodes.values()) {
-      const fromKey = this.nodeKey(node.id);
-      const rels = node.relationships || [];
-      if (rels.length === 0) continue;
-
-      for (const rel of rels) {
-        const toKey = this.nodeKey(rel.target);
-        if (!outgoing.has(fromKey)) outgoing.set(fromKey, []);
-        outgoing.get(fromKey)!.push({ type: rel.type, toKey });
-
-        if (!incoming.has(toKey)) incoming.set(toKey, []);
-        incoming.get(toKey)!.push({ type: rel.type, fromKey });
-      }
-    }
-
-    return { outgoing, incoming };
-  }
-
-  private traverseRelatedKeys(
-    startNode: NodeId,
-    depth: number,
-    direction: "outgoing" | "incoming" | "both",
-    edgeIndex: {
-      outgoing: Map<string, Array<{ type: RelationshipType; toKey: string }>>;
-      incoming: Map<string, Array<{ type: RelationshipType; fromKey: string }>>;
-    },
-    allowedTypes: Set<RelationshipType> | null
-  ): Set<string> {
-    const startKey = this.nodeKey(startNode);
-    const maxDepth = Math.max(0, depth);
-
-    const visited = new Set<string>([startKey]);
-    const result = new Set<string>();
-    const queue: Array<{ key: string; d: number }> = [{ key: startKey, d: 0 }];
-
-    const allow = (t: RelationshipType) => (allowedTypes ? allowedTypes.has(t) : true);
-
-    while (queue.length > 0) {
-      const { key, d } = queue.shift()!;
-      if (d >= maxDepth) continue;
-
-      if (direction === "outgoing" || direction === "both") {
-        const outs = edgeIndex.outgoing.get(key) || [];
-        for (const e of outs) {
-          if (!allow(e.type)) continue;
-          if (visited.has(e.toKey)) continue;
-          visited.add(e.toKey);
-          result.add(e.toKey);
-          queue.push({ key: e.toKey, d: d + 1 });
-        }
-      }
-
-      if (direction === "incoming" || direction === "both") {
-        const ins = edgeIndex.incoming.get(key) || [];
-        for (const e of ins) {
-          if (!allow(e.type)) continue;
-          if (visited.has(e.fromKey)) continue;
-          visited.add(e.fromKey);
-          result.add(e.fromKey);
-          queue.push({ key: e.fromKey, d: d + 1 });
-        }
-      }
-    }
-
-    return result;
-  }
-
-  // Helper methods for graph traversal
-
-  private getDescendants(
-    nodeId: NodeId,
-    relationshipType: RelationshipType
-  ): AnyNode[] {
-    const descendants: AnyNode[] = [];
-    const visited = new Set<string>();
-    const toVisit: AnyNode[] = [];
-
-    const start = this.getNodeByKey(this.nodeKey(nodeId));
-    if (!start) {
-      return descendants;
-    }
-
-    toVisit.push(start);
-
-    while (toVisit.length > 0) {
-      const current = toVisit.shift()!;
-      const currentKey = this.nodeKey(current.id);
-
-      if (visited.has(currentKey)) {
-        continue;
-      }
-      visited.add(currentKey);
-
-      const children = current.relationships?.filter(
-        (rel) => rel.type === relationshipType
-      );
-
-      if (children) {
-        for (const rel of children) {
-          const child = this.getNodeByKey(this.nodeKey(rel.target));
-          if (child && !visited.has(this.nodeKey(child.id))) {
-            descendants.push(child);
-            toVisit.push(child);
-          }
-        }
-      }
-    }
-
-    return descendants;
-  }
-
-  private getAncestors(
-    nodeId: NodeId,
-    relationshipType: RelationshipType
-  ): AnyNode[] {
-    const ancestors: AnyNode[] = [];
-    const visited = new Set<string>();
-    const toVisit: AnyNode[] = [];
-
-    const start = this.getNodeByKey(this.nodeKey(nodeId));
-    if (!start) {
-      return ancestors;
-    }
-
-    toVisit.push(start);
-
-    while (toVisit.length > 0) {
-      const current = toVisit.shift()!;
-      const currentKey = this.nodeKey(current.id);
-
-      if (visited.has(currentKey)) {
-        continue;
-      }
-      visited.add(currentKey);
-
-      // Find nodes that have this node as a child
-      for (const node of this.nodes.values()) {
-        if (
-          node.relationships?.some(
-            (rel) =>
-              rel.type === relationshipType &&
-              this.nodeKey(rel.target) === currentKey
-          )
-        ) {
-          if (!visited.has(this.nodeKey(node.id))) {
-            ancestors.push(node);
-            toVisit.push(node);
-          }
-        }
-      }
-    }
-
-    return ancestors;
-  }
-
-  private getDependencies(nodeId: NodeId): AnyNode[] {
-    const node = this.getNodeByKey(this.nodeKey(nodeId));
-    if (!node) {
-      return [];
-    }
-
-    const dependencies: AnyNode[] = [];
-
-    const depRels = node.relationships?.filter(
-      (rel) => rel.type === "depends-on"
-    );
-
-    if (depRels) {
-      for (const rel of depRels) {
-        const dep = this.getNodeByKey(this.nodeKey(rel.target));
-        if (dep) {
-          dependencies.push(dep);
-        }
-      }
-    }
-
-    return dependencies;
-  }
-
-  private getDependents(nodeId: NodeId): AnyNode[] {
-    const targetKey = this.nodeKey(nodeId);
-    const dependents: AnyNode[] = [];
-
-    for (const node of this.nodes.values()) {
-      if (
-        node.relationships?.some(
-          (rel) =>
-            rel.type === "depends-on" &&
-            this.nodeKey(rel.target) === targetKey
-        )
-      ) {
-        dependents.push(node);
-      }
-    }
-
-    return dependents;
-  }
+  // graph helpers extracted to `src/store/core/graph.ts`
 }
