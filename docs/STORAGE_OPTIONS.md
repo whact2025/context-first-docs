@@ -606,6 +606,165 @@ digraph context_graph {
 
 **Storage Location**: `.context/graph.json` (committed to Git)
 
+#### 5. GraphQL Schema Definition Language (SDL)
+
+**Format**: GraphQL Schema Definition Language - text-based schema and data format
+
+**Pros**:
+- ✅ **Git-friendly**: Pure text format, excellent diffs
+- ✅ **Human-readable**: Very readable syntax, more readable than JSON
+- ✅ **Type-safe**: Built-in type system with validation
+- ✅ **Self-documenting**: Schema serves as documentation
+- ✅ **Standard**: Widely supported, mature specification
+- ✅ **Self-contained**: All data in Git
+- ✅ **Reviewable**: Can review in PRs
+- ✅ **Query language**: Native GraphQL query support (if using GraphQL runtime)
+- ✅ **Comments**: Supports comments for documentation
+
+**Cons**:
+- ❌ Primarily designed for schema definition, not data storage
+- ❌ Would need custom extensions to represent instance data
+- ❌ Less common as a storage format (typically used for schemas)
+- ❌ Requires GraphQL parser/runtime for full functionality
+
+**Example Structure** (Schema + Data):
+
+```graphql
+# Schema Definition
+type Decision implements Node {
+  id: ID!
+  type: NodeType!
+  status: NodeStatus!
+  content: String!
+  decision: String!
+  rationale: String!
+  alternatives: [String!]
+  decidedAt: String
+  metadata: NodeMetadata!
+  relationships: [Relationship!]!
+}
+
+type Task implements Node {
+  id: ID!
+  type: NodeType!
+  status: NodeStatus!
+  content: String!
+  state: TaskState!
+  assignee: String
+  dueDate: String
+  dependencies: [ID!]!
+  metadata: NodeMetadata!
+  relationships: [Relationship!]!
+}
+
+type Relationship {
+  type: RelationshipType!
+  target: ID!
+  reverseType: RelationshipType
+  metadata: RelationshipMetadata
+}
+
+enum NodeType {
+  GOAL
+  DECISION
+  CONSTRAINT
+  TASK
+  RISK
+  QUESTION
+  CONTEXT
+  PLAN
+  NOTE
+}
+
+enum NodeStatus {
+  ACCEPTED
+  PROPOSED
+  REJECTED
+  SUPERSEDED
+}
+
+enum RelationshipType {
+  PARENT_CHILD
+  DEPENDS_ON
+  REFERENCES
+  SUPERSEDES
+  IMPLEMENTS
+  BLOCKS
+  MITIGATES
+  RELATED_TO
+}
+
+# Instance Data (using GraphQL-like syntax or custom format)
+# Option 1: Using GraphQL queries/mutations format
+mutation CreateDecision {
+  createDecision(input: {
+    id: "decision-001"
+    type: DECISION
+    status: ACCEPTED
+    content: "Use TypeScript"
+    decision: "Use TypeScript for type safety"
+    rationale: "Type safety prevents common errors"
+    metadata: {
+      createdAt: "2026-01-26T10:00:00Z"
+      createdBy: "alice"
+      version: 1
+    }
+    relationships: [{
+      type: IMPLEMENTS
+      target: "goal-001"
+    }]
+  })
+}
+
+# Option 2: Custom SDL-based data format
+type Decision_decision_001 {
+  id: "decision-001"
+  type: DECISION
+  status: ACCEPTED
+  content: "Use TypeScript"
+  decision: "Use TypeScript for type safety"
+  rationale: "Type safety prevents common errors"
+  metadata: {
+    createdAt: "2026-01-26T10:00:00Z"
+    createdBy: "alice"
+    version: 1
+  }
+  relationships: [
+    {
+      type: IMPLEMENTS
+      target: "goal-001"
+    }
+  ]
+}
+```
+
+**Storage Structure**:
+```
+.context/
+├── schema.graphql          # GraphQL schema definition
+├── nodes/
+│   ├── decision-001.graphql  # Individual node files
+│   ├── task-002.graphql
+│   └── goal-001.graphql
+├── proposals/
+│   └── proposal-001.graphql
+└── index.graphql           # Index/metadata
+```
+
+**Alternative: GraphQL SDL for Schema + JSON for Data**
+
+Hybrid approach:
+- **Schema**: GraphQL SDL (`.context/schema.graphql`) - human-readable, versioned
+- **Data**: JSON files (`.context/graph.json`) - efficient, standard
+- **Benefits**: Best of both worlds - schema is readable, data is efficient
+
+**Storage Location**: `.context/schema.graphql` + `.context/nodes/*.graphql` (committed to Git)
+
+**Recommendation**: GraphQL SDL is excellent for **schema definition** but less ideal for **data storage**. Consider:
+- **Option A**: GraphQL SDL for schema + JSON for data (hybrid)
+- **Option B**: Pure JSON Graph format (current approach)
+- **Option C**: Custom GraphQL-based data format (requires custom parser)
+
 ### Embedded Graph Databases (File-Based)
 
 These databases store data in files but may use binary formats:
@@ -697,6 +856,157 @@ These databases store data in files but may use binary formats:
 - ✅ Can be self-hosted entirely
 - ⚠️ Less git-friendly (binary), but acceptable for optional performance layer
 
+## GraphQL SDL as Storage Format
+
+### Overview
+
+GraphQL Schema Definition Language (SDL) is a text-based format that could be used for storing graph data in Git. However, GraphQL SDL is primarily designed for **schema definition**, not **data storage**.
+
+### Two Approaches
+
+#### Approach 1: GraphQL SDL for Schema + JSON for Data (Hybrid)
+
+**Structure**:
+```
+.context/
+├── schema.graphql          # GraphQL schema definition (human-readable)
+├── graph.json              # Graph data in JSON format (efficient)
+├── nodes/
+│   └── {id}.json          # Individual node files
+└── index.json             # Metadata and indexes
+```
+
+**Benefits**:
+- ✅ Schema is human-readable and self-documenting
+- ✅ Data storage is efficient (JSON)
+- ✅ Schema changes are easy to review in PRs
+- ✅ Type safety through schema validation
+- ✅ Best of both worlds
+
+**Example Schema**:
+```graphql
+# .context/schema.graphql
+type Decision implements Node {
+  id: ID!
+  type: NodeType!
+  status: NodeStatus!
+  content: String!
+  decision: String!
+  rationale: String!
+  alternatives: [String!]
+  decidedAt: String
+  metadata: NodeMetadata!
+  relationships: [Relationship!]!
+}
+
+type Relationship {
+  type: RelationshipType!
+  target: ID!
+  reverseType: RelationshipType
+  metadata: RelationshipMetadata
+}
+
+enum NodeType {
+  GOAL
+  DECISION
+  CONSTRAINT
+  TASK
+  RISK
+  QUESTION
+  CONTEXT
+  PLAN
+  NOTE
+}
+
+enum NodeStatus {
+  ACCEPTED
+  PROPOSED
+  REJECTED
+  SUPERSEDED
+}
+
+enum RelationshipType {
+  PARENT_CHILD
+  DEPENDS_ON
+  REFERENCES
+  SUPERSEDES
+  IMPLEMENTS
+  BLOCKS
+  MITIGATES
+  RELATED_TO
+}
+```
+
+**Data remains in JSON** (as per current decision-005), but schema is defined in GraphQL SDL.
+
+#### Approach 2: Pure GraphQL SDL for Data (Custom Format)
+
+**Structure**:
+```
+.context/
+├── schema.graphql          # Schema definition
+├── nodes/
+│   ├── decision-001.graphql # Node instances
+│   └── task-002.graphql
+└── relationships.graphql   # Relationship definitions
+```
+
+**Custom Data Format** (extending GraphQL SDL):
+```graphql
+# .context/nodes/decision-001.graphql
+node Decision_decision_001 {
+  id: "decision-001"
+  type: DECISION
+  status: ACCEPTED
+  content: "Use TypeScript"
+  decision: "Use TypeScript for type safety"
+  rationale: "Type safety prevents common errors"
+  alternatives: ["Use JavaScript", "Use Python"]
+  decidedAt: "2026-01-26T10:00:00Z"
+  metadata: {
+    createdAt: "2026-01-26T10:00:00Z"
+    createdBy: "alice"
+    version: 1
+  }
+  relationships: [
+    {
+      type: IMPLEMENTS
+      target: "goal-001"
+    }
+  ]
+}
+```
+
+**Pros**:
+- ✅ Very human-readable
+- ✅ Self-documenting (schema + data together)
+- ✅ Excellent git diffs
+- ✅ Type validation through schema
+
+**Cons**:
+- ❌ Requires custom parser (not standard GraphQL)
+- ❌ Less efficient than JSON for large datasets
+- ❌ Not a standard use of GraphQL SDL
+- ❌ More complex implementation
+
+### Recommendation
+
+**For Schema Definition**: GraphQL SDL is excellent
+- Use `.context/schema.graphql` to define the schema
+- Human-readable, self-documenting, easy to review
+- Schema changes are clear in PRs
+
+**For Data Storage**: JSON Graph format (current approach)
+- More efficient for data storage
+- Standard format, widely supported
+- Better tooling and ecosystem
+- Easier to query programmatically
+
+**Hybrid Approach** (Recommended if using GraphQL):
+- Schema: GraphQL SDL (`.context/schema.graphql`)
+- Data: JSON Graph format (`.context/graph.json`)
+- Best of both worlds: readable schema, efficient data
+
 ## Summary
 
 **Recommended Storage**: **JSON Graph format in `.context/graph.json`, committed to git**
@@ -709,6 +1019,11 @@ These databases store data in files but may use binary formats:
 - Works with GitHub/GitLab web interfaces
 - Easy to query and process programmatically with graph structure
 - All data stays within organization (self-hosted Git, no external services)
+
+**Optional Enhancement**: GraphQL SDL for Schema
+- Use `.context/schema.graphql` to define schema (human-readable)
+- Data remains in JSON Graph format (efficient)
+- Schema serves as documentation and validation contract
 
 **Performance Enhancement** (Optional):
 - Embedded file-based databases (Kuzu, SQLite) can sync from JSON Graph for query performance
