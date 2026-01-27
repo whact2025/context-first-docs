@@ -53,14 +53,15 @@ The canonical source of truth:
 **Storage Format**: JSON Graph format - default storage for all collected data (see `decision-005`)
 - Graph structure with nodes and edges
 - Individual node files for granular access
-- **Centrally managed**: NOT in Git, centrally managed for organization/project
-- **No git commits/merges**: Contexts are not subject to git operations
-- All data stays within organization (self-hosted central management, no external services - see `constraint-005`)
+- **Self-hosted in Git**: Context store files stored in self-hosted Git repository (within organization)
+- **No manual git commits/merges**: Contexts are not manually edited or committed - managed through proposals
+- **Automatic Git updates**: Approved proposals automatically update Git repository
+- All data stays within organization (self-hosted Git repository, no external services - see `constraint-005`)
 
 Planned implementations:
 - In-memory store (for testing)
-- File-based central store (JSON Graph format)
-- Central management server/service (self-hosted within organization)
+- File-based store in self-hosted Git (JSON Graph format)
+- Storage service that manages Git repository (self-hosted within organization)
 - Optional: Embedded graph databases (Kuzu, SQLite) for performance at scale
 
 ## Data Flow
@@ -77,25 +78,25 @@ Planned implementations:
    - Change detection happens in real-time or on save (UI-dependent)
    - See `docs/CHANGE_DETECTION.md` for detailed process
 3. **Proposal Creation**: Changes imported as proposals (for ctx blocks)
-   - Proposals created immediately in central context store
-   - Context store is centrally managed (NOT in Git)
+   - Proposals created immediately in context store (self-hosted Git repository)
+   - Context store files are in Git, but managed through proposals
 4. **Conflict Detection**: System checks for conflicts with open proposals
 5. Non-ctx content changes tracked and synced (UI-only)
 6. Referencing nodes updated if referenced content changed
 7. Proposals are reviewed (by designated approvers) - in UI
-8. Accepted proposals become truth in central context store
-9. **UI Updates**: All affected Markdown files regenerated from accepted truth in UI
-10. **No Git Operations**: Context store is centrally managed, NOT subject to git commits/merges
+8. Accepted proposals become truth in context store
+9. **Automatic Git Update**: Context store files automatically updated in Git (no manual git commit)
+10. **UI Updates**: All affected Markdown files regenerated from accepted truth in UI
 
 ### Reading Context
 
-1. **Agents**: Query central context store directly (never read raw Markdown)
-   - Agents never see Markdown files - they only interact with central context store
-   - Context store is centrally managed (NOT in Git)
+1. **Agents**: Query context store directly (never read raw Markdown)
+   - Agents never see Markdown files - they only interact with context store
+   - Context store is in self-hosted Git repository (accessed via storage service)
 2. **Humans**: View Markdown projection in UI (VS Code/Cursor extension, web UI)
-   - Markdown is generated on-demand from central context store
+   - Markdown is generated on-demand from context store (in Git)
    - Markdown files exist only in UI, not in Git
-3. Central context store returns accepted nodes + open proposals (default: accepted only for safety)
+3. Context store returns accepted nodes + open proposals (default: accepted only for safety)
 4. Agent can distinguish truth from proposals (explicit status indicators)
 5. Agent can create new proposals (stored in central context store)
 6. **Chain-of-Thought Traversal**: Agents can traverse reasoning chains:

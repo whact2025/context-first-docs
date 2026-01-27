@@ -142,7 +142,7 @@ const proposal = {
 
 ## When Change Detection Runs
 
-**Change detection is embedded in the UI layer** - it does NOT run through Git operations. The UI (VS Code/Cursor extension, web UI, etc.) handles all change detection. Context store is centrally managed, NOT in Git.
+**Change detection is embedded in the UI layer** - it does NOT run through Git operations. The UI (VS Code/Cursor extension, web UI, etc.) handles all change detection. Context store is self-hosted in Git, but managed through proposals (not manual git commits/merges).
 
 ### VS Code/Cursor Extension (Primary)
 
@@ -157,11 +157,11 @@ The extension embeds change detection:
 1. User edits `DECISIONS.md` in editor (file exists only in UI, not in Git)
 2. Extension watches for file changes
 3. On save (or manual trigger), extension calls `importFromMarkdown()`
-4. Proposals are created and stored in central context store (NOT in Git)
-5. Context store is centrally managed (no git commits/merges)
+4. Proposals are created and stored in context store (self-hosted Git repository)
+5. Context store files are in Git, but managed through proposals (not manual git commits)
 6. Proposals are displayed in extension UI
 7. User can review and submit proposals in extension
-8. Approved proposals update central context store (no git operations)
+8. Approved proposals automatically update context store files in Git (no manual git operations)
 
 ### Web UI (Future)
 
@@ -187,18 +187,19 @@ const proposals = await importFromMarkdown(store, markdown, "alice");
 
 **Important**: 
 - Git is NOT used for change detection (handled by UI)
-- Context store is centrally managed, NOT in Git
-- Contexts are NOT subject to git commits/merges
+- Context store is self-hosted in Git repository (within organization)
+- Contexts are NOT subject to manual git commits/merges
 
-**Central Management**:
-- **Central Context Store**: Context store is centrally managed for organization/project
-- **No Git Operations**: Contexts NOT subject to git commits/merges
-- **Collaboration**: Multiple users access central context store (not via git sync)
-- **Proposal-Based**: All changes through proposals/review workflow
+**Self-Hosted Git Storage**:
+- **Storage in Git**: Context store files stored in self-hosted Git repository (GitLab, Gitea, etc.)
+- **No Manual Git Operations**: Contexts NOT manually edited or committed - managed through proposals
+- **Automatic Updates**: Approved proposals automatically update Git repository
+- **Collaboration**: Multiple users sync context store through Git (automatic, not manual)
+- **Proposal-Based**: All changes through proposals/review workflow, then auto-updated in Git
 
 **NOT used**:
-- ❌ Git commits/merges for context store
-- ❌ Git-based change tracking
+- ❌ Manual git commits/merges for context store
+- ❌ Manual git-based change tracking
 - ❌ Storing Markdown files (UI-only)
 - ❌ Storing ctx blocks (UI-only)
 
@@ -468,21 +469,25 @@ Web-based interface:
 - **Proposal Management**: Review and approve proposals
 - **Git Integration**: Commit context store to Git through web UI
 
-### Central Management
+### Self-Hosted Git Storage
 
-**Context store is centrally managed, NOT in Git**:
+**Context store is self-hosted in Git repository**:
 
-- **Central Management**: Context store centrally managed for organization/project
-- **No Git Operations**: Contexts NOT subject to git commits/merges
-- **Self-Hosted**: Central management within organization
-- **Collaboration**: Multiple users access central context store
-- **Proposal-Based**: All changes through proposals/review workflow
+- **Storage in Git**: Context store files stored in self-hosted Git repository (GitLab, Gitea, etc.)
+- **No Manual Git Operations**: Contexts NOT manually edited or committed
+- **Automatic Updates**: Approved proposals automatically update Git repository
+- **Self-Hosted**: Git repository hosted within organization
+- **Collaboration**: Multiple users sync context store through Git (automatic)
+- **Proposal-Based**: All changes through proposals/review workflow, then auto-updated in Git
+
+**In Git** (self-hosted):
+- ✅ Context store files (`.context/graph.json`, etc.) - automatically updated
+- ✅ Proposals and reviews - automatically updated
 
 **NOT in Git**:
-- ❌ Context store (centrally managed)
 - ❌ Markdown files (UI-only)
 - ❌ ctx blocks (UI-only)
-- ❌ Change tracking (managed at higher level)
+- ❌ Manual git commits/merges (managed through proposals)
 
 ### CI/CD
 

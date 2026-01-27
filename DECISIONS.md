@@ -89,25 +89,26 @@ type: decision
 id: decision-005
 status: accepted
 ---
-**Decision**: Store context in a centrally managed graph format (JSON Graph). Contexts are NOT subject to git commits and merges - they are centrally managed for the organization/project.
+**Decision**: Store context in a self-hosted Git repository as graph format (JSON Graph). Contexts are stored in Git but NOT subject to manual git commits and merges - they are managed through proposals at a higher level.
 
 **Rationale**:
 - Graph model (see `decision-015`) requires graph-native storage format
 - Graph format enables efficient relationship queries and traversal
 - JSON Graph format extends current JSON structure, machine-readable and programmatically manageable
-- **Centralized management**: Context store is centrally managed, not distributed via Git
-- **No git commits/merges**: Contexts are not subject to git operations - managed at higher level
-- **Proposal-based workflow**: All changes go through proposals/review workflow
+- **Self-hosted in Git**: Context store files are stored in self-hosted Git repository (within organization)
+- **No manual git commits/merges**: Contexts are not manually edited or committed - managed through proposals
+- **Proposal-based workflow**: All changes go through proposals/review workflow, then automatically updated in Git
+- **Automatic Git updates**: Approved proposals automatically update Git repository (no manual git operations)
 - Easier to query and process programmatically with graph structure
 - Markdown files are generated deterministically from the graph store
 - Enables advanced features like relationship traversal, path finding, and graph queries
-- All data stays within organization (see `constraint-005`) - self-hosted central management
+- All data stays within organization (see `constraint-005`) - self-hosted Git repository
 
-**Workflow**: Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update (centrally managed, no git commit)
+**Workflow**: Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update → Automatic Git Update (no manual git commits/merges)
 
-**Storage Structure** (Centrally Managed):
+**Storage Structure** (Self-Hosted in Git):
 ```
-Central Context Store (self-hosted within organization):
+.context/                      # In self-hosted Git repository (within organization)
 ├── graph.json                 # Primary graph storage (nodes + edges)
 ├── nodes/
 │   ├── {type}-{id}.json      # Individual node files (for granular access)
@@ -118,7 +119,7 @@ Central Context Store (self-hosted within organization):
 └── index.json                # Metadata and indexes
 ```
 
-**NOT in Git**: Context store is centrally managed, NOT committed to Git. No git commits, no merges, no change tracking through Git.
+**Self-Hosted in Git**: Context store files are stored in self-hosted Git repository (GitLab, Gitea, etc. within organization). Files are automatically updated when proposals are approved - no manual git commits/merges required.
 
 **Graph Format**: JSON Graph structure:
 ```json
@@ -150,25 +151,26 @@ Central Context Store (self-hosted within organization):
 - Machine-readable and programmatically manageable (better than binary formats)
 - Standard JSON format, widely supported
 - Native graph structure enables efficient queries
-- All data stays within organization (self-hosted central management)
+- All data stays within organization (self-hosted Git repository)
 
-**Central Management**: Context store is centrally managed (NOT in Git) for:
-- **No git commits/merges**: Contexts are not subject to git operations
-- **Centralized access**: Single source of truth for organization/project
-- **Proposal-based workflow**: All changes go through proposals/review
-- **Self-hosted**: Central management server/service within organization
-- **No change tracking through Git**: Managed at higher level (proposals/reviews)
-- **Collaboration**: Team members access central context store (not via git sync)
+**Self-Hosted Git Storage**: Context store is stored in self-hosted Git repository (within organization) for:
+- **Self-hosted**: Git repository hosted within organization (GitLab, Gitea, etc.)
+- **No manual git commits/merges**: Contexts are not manually edited or committed
+- **Automatic Git updates**: Approved proposals automatically update Git repository
+- **Proposal-based workflow**: All changes go through proposals/review, then auto-updated in Git
+- **No change tracking through manual Git**: Managed at higher level (proposals/reviews)
+- **Collaboration**: Team members sync context store through Git (automatic, not manual)
+- **Version history**: Git provides version history (automatic from proposal approvals)
 
-**Important**: Context store is centrally managed, not distributed via Git. Changes flow through proposals/review workflow, not git commits/merges.
+**Important**: Context store files are in self-hosted Git repository, but managed through proposals/review workflow. No manual git commits/merges - changes are automatically updated when proposals are approved.
 
 **Alternatives Considered**:
 - Individual JSON files only (loses graph structure, harder to query relationships)
 - GraphML/GEXF (XML overhead, less tooling support)
 - YAML (more human-readable but less strict, whitespace-sensitive)
-- Git-based storage (violates requirement - contexts not subject to git commits/merges)
+- Manual git commits/merges (violates requirement - contexts managed through proposals)
 - External cloud databases (violates security constraint - must stay within organization)
-- Distributed storage via Git (violates requirement - must be centrally managed)
+- Central management without Git (loses version history and Git-based collaboration)
 
 **Performance Enhancement** (Optional):
 - Embedded file-based databases (Kuzu, SQLite) can sync from JSON Graph for query performance

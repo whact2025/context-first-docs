@@ -6,16 +6,16 @@ This document outlines storage options for the context store that can be hosted 
 
 **Important**: 
 - Context store files are **NOT manually edited** - all changes go through **proposal/review workflow**
-- Context store is **centrally managed** for organization/project
-- Contexts are **NOT subject to git commits/merges** - managed at higher level
-- **No change tracking through Git** - all managed centrally
+- Context store is **self-hosted in Git** - stored in self-hosted Git repository (within organization)
+- Contexts are **NOT subject to manual git commits/merges** - managed through proposals
+- **Automatic Git updates** - approved proposals automatically update Git repository
 
 The context store needs to be:
-- **Centrally managed**: Self-hosted central management within organization
+- **Self-hosted in Git**: Stored in self-hosted Git repository (GitLab, Gitea, etc. within organization)
 - **Queryable**: Easy to process programmatically
 - **Human-readable**: Developers can inspect and understand (for debugging/review)
-- **Proposal-based**: All changes through proposals/review workflow
-- **Accessible**: Accessible via API/UI (not through Git)
+- **Proposal-based**: All changes through proposals/review workflow, then auto-updated in Git
+- **Accessible**: Accessible via storage service/API that manages Git repository
 
 ## Storage Format Options
 
@@ -40,15 +40,16 @@ The context store needs to be:
 - ✅ **Machine-readable**: Easy to parse and query programmatically
 - ✅ **Standard format**: Widely supported, excellent tooling
 - ✅ **Deterministic**: Same data = same file (critical for proposals)
-- ✅ **Centrally manageable**: Easy to manage in central store (not in Git)
-- ✅ **Programmatic access**: Easy to read/write programmatically via API
-- ✅ **Self-hosted**: Can be stored in central management server/service
+- ✅ **Git-storable**: Can be stored in self-hosted Git repository
+- ✅ **Programmatic access**: Easy to read/write programmatically via storage service
+- ✅ **Self-hosted**: Stored in self-hosted Git repository (GitLab, Gitea, etc. within organization)
+- ✅ **Automatic updates**: Approved proposals automatically update Git repository
 
 **Cons**:
 - ❌ Less human-readable than YAML (but files aren't manually edited anyway)
 - ❌ No comments in JSON (but metadata fields can document)
 
-**Note**: Context store is centrally managed, NOT in Git. All changes go through proposals/review workflow. No git commits, no merges, no change tracking through Git.
+**Note**: Context store files are in self-hosted Git repository, but managed through proposals/review workflow. Approved proposals automatically update Git - no manual git commits/merges.
 
 ### Option 2: YAML Files
 
@@ -263,15 +264,15 @@ docs/              # Generated site (GitLab Pages)
 
 **Rationale**:
 1. ✅ **Graph-native**: Matches graph model (see `decision-015`), enables efficient relationship queries
-2. ✅ **Centrally manageable**: Easy to manage in central store (not in Git)
+2. ✅ **Self-hosted in Git**: Stored in self-hosted Git repository (within organization)
 3. ✅ **Queryable**: Native graph structure enables efficient traversal and path finding
 4. ✅ **Proposal-based**: Changes tracked through proposals/review workflow
-5. ✅ **Programmatic access**: Easy to query and update via API
-6. ✅ **Self-hosted**: Central management within organization (see `constraint-005`)
+5. ✅ **Programmatic access**: Easy to query and update via storage service
+6. ✅ **Self-hosted**: Git repository hosted within organization (see `constraint-005`)
 7. ✅ **Compatible**: Extends current JSON structure, maintains compatibility
-8. ✅ **No Git operations**: Contexts NOT subject to git commits/merges
+8. ✅ **Automatic Git updates**: Approved proposals automatically update Git repository
 
-**Note**: Context store is centrally managed, NOT in Git. Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update (centrally managed). No git commits, no merges, no change tracking through Git.
+**Note**: Context store files are in self-hosted Git repository, but managed through proposals/review workflow. Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update → Automatic Git Update. No manual git commits/merges.
 
 ### File Naming Convention
 
@@ -1006,19 +1007,19 @@ node Decision_decision_001 {
 
 ## Summary
 
-**Recommended Storage**: **JSON Graph format in central context store (NOT in Git)**
+**Recommended Storage**: **JSON Graph format in self-hosted Git repository**
 
-- **Primary**: JSON Graph format - default storage for all collected data
+- **Primary**: JSON Graph format (`.context/graph.json`) - default storage for all collected data
 - Graph structure with nodes and edges enables efficient relationship queries
 - Individual node files for granular access
-- **Centrally managed**: Context store is centrally managed for organization/project
-- **NOT in Git**: Contexts are NOT subject to git commits/merges
-- **Proposal-based workflow**: All changes go through proposals/review, not manual edits
-- **No change tracking through Git**: Managed at higher level (proposals/reviews)
+- **Self-hosted in Git**: Context store files stored in self-hosted Git repository (GitLab, Gitea, etc. within organization)
+- **No manual git commits/merges**: Contexts are not manually edited or committed
+- **Automatic Git updates**: Approved proposals automatically update Git repository
+- **Proposal-based workflow**: All changes go through proposals/review, then auto-updated in Git
 - Easy to query and process programmatically with graph structure
-- All data stays within organization (self-hosted central management, no external services)
+- All data stays within organization (self-hosted Git repository, no external services)
 
-**Workflow**: UI/Agent → Proposal → Review → Approval → Context Store Update (centrally managed, no git commit)
+**Workflow**: UI/Agent → Proposal → Review → Approval → Context Store Update → Automatic Git Update (no manual git commit)
 
 **Optional Enhancement**: GraphQL SDL for Schema
 - Use `.context/schema.graphql` to define schema (human-readable)

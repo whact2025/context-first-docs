@@ -40,7 +40,7 @@ GitHub / GitLab solve **code review**, but lose semantic intent and decision pro
 A **context-first collaboration system** with:
 
 - **Graph-based context store**: Nodes with typed relationships (goal → decision → task → risk)
-- **Graph format storage**: JSON Graph format - centrally managed (NOT in Git) - default storage for all collected data
+- **Graph format storage**: JSON Graph format - self-hosted in Git - default storage for all collected data
 - **UI-only Markdown**: ctx blocks and rendered Markdown exist only in UI (VS Code/Cursor extension, web UI), NOT in Git
 - **Real-time change detection**: Embedded in UI layer - detects changes as you type or on save
 - **Docs-style comments and tracked changes**: Accept/reject proposals with review semantics
@@ -54,8 +54,8 @@ A **context-first collaboration system** with:
 - **Automatic issue creation**: Issues created when proposals are approved
 - **Hybrid conflict reconciliation**: Automatic detection, field-level merging, optimistic locking, manual resolution
 - **🔒 Zero IP Leakage**: All project context and IP stays within your organization
-  - All data stored in central context store (self-hosted within organization)
-  - **NOT in Git**: Contexts are NOT subject to git commits/merges - centrally managed
+  - All data stored in self-hosted Git repository (GitLab, Gitea, etc. within organization)
+  - **Self-hosted Git storage**: Context store files in Git, managed through proposals (not manual git commits/merges)
   - No external cloud services required
   - No data sent to external APIs
   - Complete organizational control over data location and access
@@ -72,13 +72,14 @@ The system stores **meaning**, not blobs of text.
 
 - Every concept is a typed node with identity and status
 - **Graph model**: Nodes form a graph with typed relationships (parent-child, depends-on, references, implements, blocks, etc.)
-- **Graph format storage**: JSON Graph format - centrally managed (NOT in Git) - the source of truth
+- **Graph format storage**: JSON Graph format - self-hosted in Git - the source of truth
 - Changes are represented as **proposals**, not diffs
 - Accepting or rejecting a change is a **first-class decision**
 - Rejected ideas are preserved for provenance
-- **🔒 All data in central context store**: Self-hosted within organization, **zero IP leakage**
-  - Centrally managed for organization/project (NOT in Git)
-  - **No git commits/merges**: Contexts are NOT subject to git operations
+- **🔒 All data in self-hosted Git repository**: Self-hosted within organization, **zero IP leakage**
+  - Stored in self-hosted Git repository (GitLab, Gitea, etc. within organization)
+  - **No manual git commits/merges**: Contexts are NOT manually edited or committed - managed through proposals
+  - **Automatic Git updates**: Approved proposals automatically update Git repository
   - All context stays within your organization
   - No cloud services, no external APIs
   - Complete control over data location and access
@@ -99,7 +100,8 @@ Humans interact through familiar Markdown files **in the UI** (VS Code/Cursor ex
 
 **Important**: 
 - These Markdown files with ctx blocks are **UI-only** and **NOT committed to Git**
-- Context store is **centrally managed** and **NOT in Git** - contexts are NOT subject to git commits/merges
+- Context store is **self-hosted in Git** - stored in self-hosted Git repository (within organization)
+- Contexts are **NOT subject to manual git commits/merges** - managed through proposals
 
 Semantic sections are wrapped in lightweight `ctx` blocks with stable IDs.
 
@@ -112,11 +114,11 @@ Humans can:
 The system (embedded in UI):
 - detects changes to ctx blocks **in real-time** (as you type or on save)
 - imports edits as **proposals** immediately
-- stores proposals in central context store (NOT in Git)
+- stores proposals in context store (self-hosted Git repository)
 - exports accepted truth back to Markdown **deterministically** in UI
 - rewrites only the sections it owns
 
-**Change detection is embedded in the UI** - not through Git operations. **Context store is centrally managed** - contexts are NOT subject to git commits/merges. This enables real-time collaboration without Git conflicts.
+**Change detection is embedded in the UI** - not through Git operations. **Context store is self-hosted in Git** - contexts are NOT subject to manual git commits/merges. Approved proposals automatically update Git repository. This enables real-time collaboration without manual Git operations.
 
 ---
 
@@ -255,7 +257,7 @@ The project's documentation is managed through the context-first system:
 - [`RISKS.md`](RISKS.md) - Project risks and mitigation strategies
 - [`QUESTIONS.md`](QUESTIONS.md) - Open questions needing answers
 
-**Note**: These Markdown files with ctx blocks are committed to Git for this self-referential project, but in normal usage, Markdown files would be UI-only. The context store is centrally managed (NOT in Git) - contexts are NOT subject to git commits/merges.
+**Note**: These Markdown files with ctx blocks are committed to Git for this self-referential project, but in normal usage, Markdown files would be UI-only. The context store is self-hosted in Git - contexts are NOT subject to manual git commits/merges, managed through proposals.
 
 These files use `ctx` blocks to embed semantic nodes. The system imports edits as proposals, manages review, and exports accepted truth back to Markdown.
 
