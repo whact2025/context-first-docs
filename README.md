@@ -7,6 +7,8 @@ It looks like Markdown.
 It feels like Google Docs review mode.  
 It behaves like a structured, auditable **context graph** that **humans and AI agents can safely reason over**.
 
+**🔒 Project context and IP never leak outside your organization** - all data stays in your Git repository, self-hosted, with complete organizational control.
+
 Markdown is the interface.  
 Context is the truth.
 
@@ -23,12 +25,13 @@ Modern development teams suffer from **context collapse**.
   - accepted truth vs proposals
   - rejected ideas vs current constraints
   - open questions vs resolved decisions
+- **Privacy concerns**: Using external AI tools risks leaking sensitive project context and IP
 
-Word / Google Docs solve **human review**, but are opaque, non-deterministic, and hostile to Git and agents.
+Word / Google Docs solve **human review**, but are opaque, non-deterministic, hostile to Git and agents, and often require cloud services.
 
 GitHub / GitLab solve **code review**, but lose semantic intent and decision provenance.
 
-**There is no shared substrate for durable, reviewable, agent-safe context.**
+**There is no shared substrate for durable, reviewable, agent-safe context that keeps your IP secure.**
 
 ---
 
@@ -50,9 +53,14 @@ A **context-first collaboration system** with:
 - **Role-based access control**: Designated contributors and approvers with permissions
 - **Automatic issue creation**: Issues created when proposals are approved
 - **Hybrid conflict reconciliation**: Automatic detection, field-level merging, optimistic locking, manual resolution
-- **Security/privacy**: All data in Git repository, self-hosted, no external services
+- **🔒 Zero IP Leakage**: All project context and IP stays within your organization
+  - All data stored in your Git repository (self-hosted GitLab, Gitea, etc.)
+  - No external cloud services required
+  - No data sent to external APIs
+  - Complete organizational control over data location and access
+  - Supports air-gapped deployments
 
-This is infrastructure for **long-lived, multi-human, multi-agent systems**.
+This is infrastructure for **long-lived, multi-human, multi-agent systems** where **privacy and IP protection are critical**.
 
 ---
 
@@ -67,9 +75,14 @@ The system stores **meaning**, not blobs of text.
 - Changes are represented as **proposals**, not diffs
 - Accepting or rejecting a change is a **first-class decision**
 - Rejected ideas are preserved for provenance
-- **All data in Git**: Self-hosted, no external services, complete organizational control
+- **🔒 All data in your Git repository**: Self-hosted, no external services, **zero IP leakage**
+  - Use your own Git infrastructure (GitLab, Gitea, etc.)
+  - All context stays within your organization
+  - No cloud services, no external APIs
+  - Complete control over data location and access
+  - Air-gapped deployments supported
 
-This is equivalent to Word / Docs tracked changes — but **explicit, structured, queryable, and graph-native**.
+This is equivalent to Word / Docs tracked changes — but **explicit, structured, queryable, graph-native, and privacy-preserving**.
 
 ---
 
@@ -154,8 +167,13 @@ This enables things that are currently fragile or impossible:
 - Agents that understand what is decided vs under discussion
 - Automatic task and plan generation from unresolved context
 - Auditable reasoning: *why* something exists, not just that it does
+- **🔒 Secure agentic development**: Use AI agents without risking IP leakage
+  - Agents query your context store (in your Git repo)
+  - No sensitive context sent to external AI services
+  - Complete control over what agents can access
+  - Chain-of-thought reasoning happens locally
 
-This is a foundation for **trustworthy agentic development**.
+This is a foundation for **trustworthy, privacy-preserving agentic development**.
 
 ---
 
@@ -178,13 +196,17 @@ It is a **semantic context layer** that:
 
 ## Who This Is For
 
+- **Security-conscious teams** who need agentic development without IP leakage
 - Engineers tired of design decisions disappearing
-- Teams building agentic systems
-- Platform and infra teams that care about auditability
+- Teams building agentic systems that must keep context private
+- Platform and infra teams that care about auditability and privacy
+- Organizations with sensitive IP that can't use external AI services
 - Open-source projects with long decision histories
 - Anyone who has said:
 
 > "The README lies, the PR is merged, and nobody remembers why."
+
+> "We can't use AI tools because they'll leak our IP."
 
 ---
 
