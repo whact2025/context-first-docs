@@ -277,6 +277,79 @@ const results = await store.queryNodes({
 });
 ```
 
+### Example 8: Chain-of-Thought Reasoning - Follow Decision Logic
+
+```typescript
+// Agent wants to understand why a decision was made
+// Traverse: goal → decision → task → risk
+const reasoning = await store.traverseReasoningChain(
+  { id: "goal-001" },
+  {
+    path: [
+      { relationshipType: "references", targetType: ["decision"] },
+      { relationshipType: "implements", targetType: ["task"] },
+      { relationshipType: "blocks", targetType: ["risk"] }
+    ],
+    accumulateContext: true,
+    includeRationale: true
+  }
+);
+
+// Agent can now reason:
+// "Goal X led to Decision Y because [rationale]. 
+//  This decision is implemented by Tasks A, B, C.
+//  However, Risk Z blocks Task B, which means..."
+```
+
+### Example 9: Progressive Context Building
+
+```typescript
+// Agent starts with a task and builds full context
+const context = await store.buildContextChain(
+  { id: "task-005" },
+  {
+    relationshipSequence: ["implements", "depends-on", "references"],
+    maxDepth: 2,
+    includeReasoning: true,
+    stopOn: ["risk", "constraint"],
+    accumulate: true
+  }
+);
+
+// Agent accumulates:
+// - What decision this task implements
+// - What goals that decision serves
+// - What other tasks this depends on
+// - What risks or constraints might block it
+// All with reasoning at each step
+```
+
+### Example 10: Query with Chain-of-Thought
+
+```typescript
+// Agent queries for tasks, then follows reasoning chains
+const results = await store.queryWithReasoning({
+  query: {
+    type: ["task"],
+    status: ["accepted"],
+    search: "authentication"
+  },
+  reasoning: {
+    enabled: true,
+    followRelationships: ["implements", "depends-on", "references"],
+    includeRationale: true,
+    buildChain: true,
+    maxDepth: 2
+  }
+});
+
+// Agent gets:
+// - Direct results: tasks matching "authentication"
+// - Reasoning chains: what decisions led to these tasks
+// - Accumulated context: goals, risks, constraints discovered
+// - Reasoning path: step-by-step logic for each chain
+```
+
 ## Agent Safety Features
 
 ### Default Behavior: Accepted Only
@@ -310,6 +383,159 @@ All returned nodes include explicit status:
 ```typescript
 const node = await store.getNode({ id: "decision-001" });
 console.log(node.status);                // "accepted" | "proposed" | "rejected" | "superseded"
+```
+
+## Chain-of-Thought Traversal
+
+Agents can traverse the graph following logical reasoning chains, building up context progressively as they reason about collected contexts.
+
+### Reasoning Path Traversal
+
+Follow logical chains of reasoning through the graph:
+
+```typescript
+// Traverse reasoning chain: goal → decision → task → risk
+const reasoningChain = await store.traverseReasoningChain(
+  { id: "goal-001" },
+  {
+    // Follow logical relationship sequence
+    path: [
+      { relationshipType: "references", targetType: ["decision"] },
+      { relationshipType: "implements", targetType: ["task"] },
+      { relationshipType: "blocks", targetType: ["risk"] }
+    ],
+    // Accumulate context as we traverse
+    accumulateContext: true,
+    // Include reasoning metadata
+    includeRationale: true
+  }
+);
+
+// Result includes:
+// - nodes: Array of nodes in the reasoning chain
+// - path: The actual path taken through the graph
+// - accumulatedContext: Progressive context built up during traversal
+// - reasoningSteps: Step-by-step reasoning with rationale
+```
+
+### Progressive Context Building
+
+Build up context progressively as you traverse:
+
+```typescript
+// Start with a goal and build context chain
+const contextChain = await store.buildContextChain(
+  { id: "goal-001" },
+  {
+    // Follow these relationship types in order
+    relationshipSequence: ["references", "implements", "depends-on"],
+    // Maximum depth for each relationship type
+    maxDepth: 3,
+    // Include rationale and alternatives at each step
+    includeReasoning: true,
+    // Stop if we hit a risk or constraint
+    stopOn: ["risk", "constraint"],
+    // Accumulate context progressively
+    accumulate: true
+  }
+);
+
+// Result structure:
+interface ContextChain {
+  startNode: AnyNode;
+  chains: ReasoningChain[];
+  accumulatedContext: {
+    goals: AnyNode[];
+    decisions: AnyNode[];
+    tasks: AnyNode[];
+    risks: AnyNode[];
+    constraints: AnyNode[];
+  };
+  reasoningPath: ReasoningStep[];
+}
+
+interface ReasoningStep {
+  step: number;
+  node: AnyNode;
+  relationship: NodeRelationship;
+  rationale?: string;        // Why this step is relevant
+  alternatives?: AnyNode[]; // Alternative paths considered
+  context: string;          // Context accumulated so far
+}
+```
+
+### Follow Decision Reasoning
+
+Follow the reasoning behind a decision:
+
+```typescript
+// Follow decision reasoning: what goal led to it, what alternatives were considered, what tasks implement it
+const decisionReasoning = await store.followDecisionReasoning(
+  { id: "decision-001" },
+  {
+    includeGoals: true,           // Include goals that led to this decision
+    includeAlternatives: true,    // Include rejected alternatives
+    includeImplementations: true, // Include tasks that implement it
+    includeRisks: true,          // Include risks that affect it
+    includeConstraints: true,     // Include constraints that apply
+    depth: 2                      // How deep to traverse
+  }
+);
+```
+
+### Discover Related Reasoning
+
+Discover logically related context even if not directly connected:
+
+```typescript
+// Find all context related to a topic through reasoning chains
+const relatedReasoning = await store.discoverRelatedReasoning(
+  { id: "decision-001" },
+  {
+    // Search for related context through multiple hops
+    relationshipTypes: ["references", "depends-on", "implements", "blocks"],
+    // Include nodes that share similar context
+    includeSemanticallySimilar: true,
+    // Build reasoning chain showing how they're related
+    buildReasoningChain: true,
+    // Maximum traversal depth
+    maxDepth: 3
+  }
+);
+```
+
+### Chain-of-Thought Query
+
+Query with chain-of-thought reasoning:
+
+```typescript
+// Query with reasoning chain
+const results = await store.queryWithReasoning({
+  // Start query
+  query: {
+    type: ["task"],
+    status: ["accepted"],
+    search: "authentication"
+  },
+  // Follow reasoning chains from results
+  reasoning: {
+    enabled: true,
+    // Follow these relationship types
+    followRelationships: ["implements", "depends-on", "references"],
+    // Include rationale at each step
+    includeRationale: true,
+    // Build context chain
+    buildChain: true,
+    // Maximum depth
+    maxDepth: 2
+  }
+});
+
+// Result includes:
+// - primaryResults: Direct query results
+// - reasoningChains: Chains of reasoning from each result
+// - accumulatedContext: All context discovered through reasoning
+// - reasoningPath: Step-by-step reasoning for each chain
 ```
 
 ## Graph Query Capabilities
@@ -368,6 +594,74 @@ try {
 }
 ```
 
+## Chain-of-Thought Reasoning Use Cases
+
+### Use Case 1: Understanding Decision Rationale
+
+```typescript
+// Agent needs to understand why a decision was made
+const decisionReasoning = await store.followDecisionReasoning(
+  { id: "decision-001" },
+  {
+    includeGoals: true,        // What goal led to this?
+    includeAlternatives: true,  // What alternatives were rejected?
+    includeImplementations: true, // What tasks implement it?
+    includeRisks: true,        // What risks affect it?
+    includeConstraints: true   // What constraints apply?
+  }
+);
+
+// Agent can now provide comprehensive reasoning:
+// "Decision X was made to achieve Goal Y. 
+//  Alternatives A and B were rejected because [rationale].
+//  It's implemented by Tasks 1, 2, 3.
+//  Risk Z might affect it, and Constraint C applies."
+```
+
+### Use Case 2: Impact Analysis
+
+```typescript
+// Agent needs to understand impact of changing a decision
+const impact = await store.discoverRelatedReasoning(
+  { id: "decision-001" },
+  {
+    relationshipTypes: ["implements", "depends-on", "references"],
+    includeSemanticallySimilar: true,
+    buildReasoningChain: true,
+    maxDepth: 3
+  }
+);
+
+// Agent discovers:
+// - All tasks that implement this decision
+// - All tasks that depend on those tasks
+// - Related decisions that might be affected
+// - Reasoning chains showing how they connect
+```
+
+### Use Case 3: Risk Assessment
+
+```typescript
+// Agent needs to assess risks for a goal
+const riskAssessment = await store.traverseReasoningChain(
+  { id: "goal-001" },
+  {
+    path: [
+      { relationshipType: "references", targetType: ["decision"] },
+      { relationshipType: "implements", targetType: ["task"] },
+      { relationshipType: "blocks", targetType: ["risk"] }
+    ],
+    accumulateContext: true,
+    includeRationale: true
+  }
+);
+
+// Agent builds reasoning:
+// "Goal X requires Decision Y, which is implemented by Tasks A, B, C.
+//  Risk Z blocks Task B, which means Goal X might not be fully achieved.
+//  Mitigation strategy M addresses Risk Z by..."
+```
+
 ## Future Enhancements
 
 - GraphQL API for flexible querying
@@ -375,3 +669,6 @@ try {
 - WebSocket API for real-time updates
 - Query result caching and optimization
 - Advanced graph algorithms (shortest path, centrality, etc.)
+- Machine learning for semantic similarity detection
+- Reasoning path optimization and pruning
+- Context summarization for long reasoning chains
