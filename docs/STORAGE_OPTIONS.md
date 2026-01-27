@@ -421,6 +421,249 @@ Graph Database        # Query/index layer (optional)
 - Sync mechanism: JSON files → Graph DB (one-way)
 - Query layer can choose backend based on query complexity
 
+## Graph Databases That Can Be Stored in Git
+
+**Security/Privacy Requirement**: Keep all context within the organization, no data leak to external services.
+
+### Text-Based Graph Formats (Git-Native)
+
+These formats can be stored directly in Git as text files, providing full version control and reviewability:
+
+#### 1. GraphML (Graph Markup Language)
+
+**Format**: XML-based text format for graphs
+
+**Pros**:
+- ✅ **Git-friendly**: Pure text/XML, excellent diffs
+- ✅ **Human-readable**: Can be viewed and edited
+- ✅ **Comprehensive**: Supports nodes, edges, attributes, hierarchical graphs
+- ✅ **Standard**: Widely supported by graph tools
+- ✅ **Self-contained**: All data in Git, no external services
+- ✅ **Reviewable**: Can review graph changes in PRs
+
+**Cons**:
+- ❌ Verbose (XML overhead)
+- ❌ Requires parsing for queries (no native query language)
+- ❌ Performance: Must load entire graph for queries
+
+**Example Structure**:
+```xml
+<graphml>
+  <graph id="context-graph" edgedefault="directed">
+    <node id="decision-001">
+      <data key="type">decision</data>
+      <data key="status">accepted</data>
+      <data key="content">Use TypeScript</data>
+    </node>
+    <node id="task-002">
+      <data key="type">task</data>
+      <data key="status">accepted</data>
+    </node>
+    <edge id="e1" source="task-002" target="decision-001">
+      <data key="relationship">implements</data>
+    </edge>
+  </graph>
+</graphml>
+```
+
+**Storage Location**: `.context/graph.graphml` (committed to Git)
+
+#### 2. DOT (GraphViz Format)
+
+**Format**: Text-based graph description language
+
+**Pros**:
+- ✅ **Git-friendly**: Pure text, excellent diffs
+- ✅ **Human-readable**: Very readable syntax
+- ✅ **Simple**: Lightweight format
+- ✅ **Self-contained**: All data in Git
+- ✅ **Reviewable**: Can review in PRs
+
+**Cons**:
+- ❌ Limited metadata support
+- ❌ Primarily for visualization, less structured for queries
+- ❌ No native query language
+
+**Example Structure**:
+```
+digraph context_graph {
+  "decision-001" [type=decision, status=accepted];
+  "task-002" [type=task, status=accepted];
+  "task-002" -> "decision-001" [relationship=implements];
+}
+```
+
+**Storage Location**: `.context/graph.dot` (committed to Git)
+
+#### 3. GEXF (Graph Exchange XML Format)
+
+**Format**: XML-based format for network representation
+
+**Pros**:
+- ✅ **Git-friendly**: XML text format, good diffs
+- ✅ **Rich metadata**: Supports attributes, dynamics, hierarchies
+- ✅ **Standard**: Used by Gephi and other tools
+- ✅ **Self-contained**: All data in Git
+- ✅ **Reviewable**: Can review in PRs
+
+**Cons**:
+- ❌ Verbose (XML overhead)
+- ❌ Requires parsing for queries
+- ❌ Performance: Must load entire graph
+
+**Example Structure**:
+```xml
+<gexf>
+  <graph mode="static" defaultedgetype="directed">
+    <nodes>
+      <node id="decision-001" label="Use TypeScript">
+        <attvalues>
+          <attvalue for="type" value="decision"/>
+          <attvalue for="status" value="accepted"/>
+        </attvalues>
+      </node>
+    </nodes>
+    <edges>
+      <edge id="e1" source="task-002" target="decision-001" type="directed">
+        <attvalues>
+          <attvalue for="relationship" value="implements"/>
+        </attvalues>
+      </edge>
+    </edges>
+  </graph>
+</gexf>
+```
+
+**Storage Location**: `.context/graph.gexf` (committed to Git)
+
+#### 4. JSON Graph Format (Custom)
+
+**Format**: Extend current JSON structure to include graph representation
+
+**Pros**:
+- ✅ **Git-friendly**: Already using JSON, excellent diffs
+- ✅ **Consistent**: Same format as node files
+- ✅ **Queryable**: Can use existing JSON parsing
+- ✅ **Self-contained**: All data in Git
+- ✅ **Reviewable**: Can review in PRs
+- ✅ **No format conversion**: Direct mapping from node structure
+
+**Cons**:
+- ❌ Custom format (not standard)
+- ❌ Must implement graph queries ourselves
+
+**Example Structure**:
+```json
+{
+  "nodes": [
+    {
+      "id": "decision-001",
+      "type": "decision",
+      "status": "accepted",
+      "content": "Use TypeScript"
+    }
+  ],
+  "edges": [
+    {
+      "source": "task-002",
+      "target": "decision-001",
+      "type": "implements"
+    }
+  ]
+}
+```
+
+**Storage Location**: `.context/graph.json` (committed to Git)
+
+### Embedded Graph Databases (File-Based)
+
+These databases store data in files but may use binary formats:
+
+#### 1. Kuzu (Embedded Graph Database)
+
+**Format**: Columnar disk-based format (binary, but files can be versioned)
+
+**Pros**:
+- ✅ **Embedded**: In-process, no external service
+- ✅ **File-based**: Stores data in files (can be committed to Git)
+- ✅ **Performance**: Optimized for graph queries
+- ✅ **Cypher support**: Native graph query language
+- ✅ **Self-hosted**: All data stays in organization
+- ✅ **Open source**: MIT licensed
+
+**Cons**:
+- ❌ Binary format (not human-readable, poor git diffs)
+- ❌ Files may be large (less git-friendly)
+- ❌ Requires Kuzu library to query
+
+**Storage Location**: `.context/kuzu/` directory (committed to Git, but binary)
+
+**Use Case**: Optional performance enhancement, JSON remains source of truth
+
+#### 2. SQLite with Graph Extensions
+
+**Format**: SQLite database file (binary, but can be versioned)
+
+**Pros**:
+- ✅ **Embedded**: Single file, no external service
+- ✅ **File-based**: Can be committed to Git
+- ✅ **SQL queries**: Standard SQL for queries
+- ✅ **Self-hosted**: All data stays in organization
+- ✅ **Mature**: Well-established technology
+
+**Cons**:
+- ❌ Binary format (not human-readable, poor git diffs)
+- ❌ Not optimized for graph queries (relational model)
+- ❌ Requires SQLite library
+
+**Storage Location**: `.context/graph.db` (committed to Git, but binary)
+
+**Use Case**: Less optimal than dedicated graph databases
+
+### Recommendation: Hybrid Approach for Security
+
+**Primary Storage**: JSON files in Git (current approach)
+- ✅ Fully git-friendly
+- ✅ Human-readable and reviewable
+- ✅ No external services
+- ✅ All data in Git repository
+- ✅ Perfect for security/privacy requirements
+
+**Optional Graph Format**: JSON Graph Format (`.context/graph.json`)
+- ✅ Extends current JSON structure
+- ✅ Can be generated from node files
+- ✅ Git-friendly and reviewable
+- ✅ Self-contained in Git
+- ✅ No external services required
+
+**Optional Performance Layer**: Embedded database (Kuzu, SQLite)
+- ✅ File-based, can be committed to Git
+- ✅ Self-hosted, no external services
+- ✅ Used only for query performance
+- ✅ Can be rebuilt from JSON files
+- ⚠️ Binary format (less git-friendly, but acceptable for optional layer)
+
+### Security/Privacy Benefits
+
+**All approaches keep data within organization**:
+- ✅ No cloud services required
+- ✅ No external APIs
+- ✅ All data in Git repository
+- ✅ Can use self-hosted Git (GitLab, Gitea, etc.)
+- ✅ Full control over data location and access
+
+**Git-hosted graph formats** (GraphML, DOT, GEXF, JSON Graph):
+- ✅ Fully reviewable in PRs
+- ✅ Excellent git diffs
+- ✅ Human-readable
+- ✅ No binary blobs
+
+**Embedded databases** (Kuzu, SQLite):
+- ✅ Files stored in Git (binary, but versioned)
+- ✅ No external service required
+- ✅ Can be self-hosted entirely
+- ⚠️ Less git-friendly (binary), but acceptable for optional performance layer
+
 ## Summary
 
 **Recommended Storage**: **JSON files in `.context/` directory, committed to git**

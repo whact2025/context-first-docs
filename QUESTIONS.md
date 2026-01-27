@@ -112,34 +112,51 @@ status: resolved
 - See `docs/STORAGE_OPTIONS.md` for detailed analysis
 
 **Graph/Document Databases as Optional Enhancement**:
-Given the graph model (see `question-003`), graph/document databases could be valuable for:
-- **Graph Databases** (Neo4j, ArangoDB, etc.):
-  - Native graph query support (Cypher, AQL)
-  - Optimized graph traversal and path finding
-  - Relationship indexing and querying
-  - Better performance for complex graph queries at scale
-  - **Use Case**: Optional query/index layer for large repositories (thousands of nodes)
-  
-- **Document Databases** (MongoDB, CouchDB, etc.):
-  - Flexible schema for evolving node types
-  - Good for nested document structures
-  - Can store relationships as embedded documents
-  - **Use Case**: Less optimal than graph DBs for graph queries, but viable alternative
+Given the graph model (see `question-003`) and security requirements (see `constraint-005`), graph/document databases must be Git-hostable and self-hosted:
 
-**Hybrid Approach** (Recommended for Scale):
+- **Text-Based Graph Formats** (Git-Native):
+  - **GraphML**: XML-based, git-friendly, human-readable, reviewable in PRs
+  - **DOT**: GraphViz format, very readable, git-friendly
+  - **GEXF**: XML-based network format, git-friendly, rich metadata
+  - **JSON Graph**: Custom format extending current JSON structure
+  - **Storage**: `.context/graph.{format}` files committed to Git
+  - **Benefits**: Fully git-friendly, reviewable, no external services, all data in Git
+  - **Use Case**: Primary graph representation format for Git-hosted storage
+
+- **Embedded Graph Databases** (File-Based):
+  - **Kuzu**: Embedded graph DB, file-based storage, Cypher queries, MIT licensed
+  - **SQLite**: Embedded relational DB, can model graphs, single file
+  - **Storage**: Database files in `.context/` directory, committed to Git
+  - **Benefits**: Self-hosted, no external services, performance optimized
+  - **Tradeoff**: Binary format (less git-friendly, but acceptable for optional layer)
+  - **Use Case**: Optional performance enhancement, JSON/GraphML remains source of truth
+
+- **Traditional Graph Databases** (Not Recommended):
+  - **Neo4j, ArangoDB** (server-based): Require external service, violate security constraint
+  - **MongoDB, CouchDB** (server-based): Require external service, violate security constraint
+  - **Not suitable**: Cannot be stored in Git, require external infrastructure
+
+**Hybrid Approach** (Recommended for Scale and Security):
 - **Primary**: JSON files in Git (source of truth, versioned, reviewable)
-- **Optional**: Graph database as query/index layer
-  - Graph DB syncs from JSON files (one-way sync: Git → DB)
-  - Graph DB used for complex queries and traversal
+- **Optional Graph Format**: Text-based graph format (GraphML, DOT, GEXF, or JSON Graph) in Git
+  - Generated from JSON node files
+  - Fully git-friendly and reviewable
+  - All data in Git, no external services
+- **Optional Performance Layer**: Embedded file-based database (Kuzu, SQLite)
+  - Database files stored in Git (binary, but versioned)
+  - Syncs from JSON files (one-way: Git → DB)
+  - Used for complex queries and traversal
   - JSON files remain canonical source
-  - Graph DB can be rebuilt from JSON files at any time
-  - No data loss if graph DB unavailable
+  - Database can be rebuilt from JSON files at any time
+  - No data loss if database unavailable
+  - Self-hosted, no external services required
 
 **Constraints**:
 - **v1 Requirement**: Must work with Git (non-invasive installation)
 - **v1 Requirement**: Must not require external infrastructure
 - **v1 Requirement**: Must be reviewable in PRs
-- **Future Enhancement**: Optional graph DB backend for performance
+- **Security Requirement**: Must keep all context data within organization (no data leak to external services) - see `constraint-005`
+- **Future Enhancement**: Optional graph DB backend for performance (must be file-based and self-hosted)
 
 **Decision**: 
 - **v1**: JSON files in Git only (meets all requirements)

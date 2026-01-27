@@ -100,6 +100,34 @@ The system must install cleanly into any existing git repository without polluti
 ```
 
 ```ctx
+type: constraint
+id: constraint-005
+status: accepted
+---
+The system must keep all context data within the organization with no data leak to external services.
+
+**Requirements**:
+- All data stored in Git repository (no external cloud services)
+- No external APIs or services required for core functionality
+- Can use self-hosted Git (GitLab, Gitea, etc.)
+- Optional graph databases must be file-based and self-hosted
+- No context data sent to external services
+- Full control over data location and access
+- Supports air-gapped deployments
+
+**Storage Options**:
+- Primary: JSON files in Git (fully git-friendly, reviewable)
+- Optional: Text-based graph formats (GraphML, DOT, GEXF, JSON Graph) in Git
+- Optional: Embedded file-based databases (Kuzu, SQLite) - files in Git, no external service
+
+**Security Benefits**:
+- All data in Git repository (versioned, auditable)
+- Can use self-hosted Git infrastructure
+- No external dependencies for core functionality
+- Full organizational control over data
+```
+
+```ctx
 type: note
 id: note-001
 status: accepted
