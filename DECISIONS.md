@@ -515,3 +515,55 @@ status: accepted
 
 **Decided At**: 2026-01-26
 ```
+
+```ctx
+type: decision
+id: decision-015
+status: accepted
+---
+**Decision**: Use a graph model with typed relationships instead of strict hierarchical nesting.
+
+**Rationale**:
+- More flexible than rigid parent-child hierarchies
+- Can represent multiple relationship types (hierarchical, dependencies, references, etc.)
+- Enables powerful graph queries and traversal
+- Supports complex multi-dimensional relationships
+- Can evolve relationship types without schema changes
+- Better for AI agents to understand context and relationships
+- Hierarchical views can be projected from graph when needed
+
+**Graph Model Structure**:
+- **Nodes**: Vertices in the graph (goals, decisions, tasks, etc.)
+- **Edges**: Typed relationships between nodes
+- **Edge Types**: Support multiple relationship types:
+  - `parent-child`: Hierarchical relationships (sub-decisions, subtasks)
+  - `depends-on`: Dependencies (task dependencies, decision dependencies)
+  - `references`: References (decisions referencing goals, tasks referencing decisions)
+  - `supersedes`: Replacement relationships (new decision supersedes old)
+  - `related-to`: General relationships
+  - `implements`: Implementation relationships (task implements decision)
+  - `blocks`: Blocking relationships (risk blocks task)
+  - `mitigates`: Mitigation relationships (task mitigates risk)
+
+**Implementation Approach**:
+- Replace simple `relations?: NodeId[]` with typed edge structure
+- Store edges as separate entities or embedded in nodes (both approaches viable)
+- Support graph queries: "find all descendants", "find all dependencies", "find path between nodes"
+- Provide hierarchical projection APIs for UI/display purposes
+- Maintain reverse index (`referencedBy`) for efficient traversal
+
+**Benefits Over Strict Nesting**:
+- No rigid parent-child constraints
+- Can represent complex relationships (e.g., task depends on decision AND references goal)
+- Enables relationship analysis and traversal
+- Supports both hierarchical and non-hierarchical structures
+- Extensible - can add new relationship types without breaking changes
+
+**Alternatives Considered**:
+- Strict hierarchical nesting (too rigid, limits flexibility)
+- Simple untyped relations array (loses semantic meaning, harder to query)
+- Separate relationship tables (more complex, but could be considered for very large graphs)
+- Property graph with edge properties (more powerful but more complex, may be overkill)
+
+**Decided At**: 2026-01-26
+```

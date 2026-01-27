@@ -32,6 +32,40 @@ export interface TextRange {
   source?: string;
 }
 
+/**
+ * Types of relationships between nodes in the graph.
+ */
+export type RelationshipType =
+  | "parent-child" // Hierarchical relationships (sub-decisions, subtasks)
+  | "depends-on" // Dependencies (task dependencies, decision dependencies)
+  | "references" // References (decisions referencing goals, tasks referencing decisions)
+  | "supersedes" // Replacement relationships (new decision supersedes old)
+  | "related-to" // General relationships
+  | "implements" // Implementation relationships (task implements decision)
+  | "blocks" // Blocking relationships (risk blocks task)
+  | "mitigates"; // Mitigation relationships (task mitigates risk)
+
+/**
+ * A typed relationship between two nodes.
+ */
+export interface NodeRelationship {
+  /** Type of relationship */
+  type: RelationshipType;
+  /** Target node ID */
+  target: NodeId;
+  /** Optional: reverse relationship type (for bidirectional relationships) */
+  reverseType?: RelationshipType;
+  /** Optional: metadata about this relationship */
+  metadata?: {
+    /** When this relationship was created */
+    createdAt?: string;
+    /** Who created this relationship */
+    createdBy?: string;
+    /** Optional description or context */
+    description?: string;
+  };
+}
+
 export interface NodeMetadata {
   /** When this node was created */
   createdAt: string;
@@ -67,9 +101,11 @@ export interface ContextNode {
   textRange?: TextRange;
   /** Metadata */
   metadata: NodeMetadata;
-  /** Related node IDs */
+  /** Typed relationships to other nodes (graph edges) */
+  relationships?: NodeRelationship[];
+  /** Related node IDs (deprecated: use relationships instead, kept for backward compatibility) */
   relations?: NodeId[];
-  /** Nodes that reference this node (reverse relations) */
+  /** Nodes that reference this node (reverse relations, computed from relationships) */
   referencedBy?: NodeId[];
   /** Markdown files that contain this node */
   sourceFiles?: string[];

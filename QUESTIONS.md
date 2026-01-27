@@ -51,16 +51,45 @@ status: resolved
 ```ctx
 type: question
 id: question-003
-status: open
+status: resolved
 ---
 **Question**: Should we support nested or hierarchical nodes?
 
-**Context**:
-- Some decisions have sub-decisions
-- Tasks may have subtasks
-- Could use relations instead
+**Answer**: Use a graph model with typed relationships instead of strict nesting.
 
-**Impact**: Medium - affects data model complexity
+**Resolution**:
+- **Graph Model**: Nodes are vertices, relationships are typed edges
+- **Typed Relationships**: Support multiple relationship types (parent-child, depends-on, references, supersedes, related-to, etc.)
+- **Flexibility**: Can represent hierarchies, dependencies, references, and other relationships in a unified way
+- **Query Power**: Graph queries enable traversal, path finding, and relationship analysis
+- **Hierarchical Views**: Can project graph into hierarchical views when needed (e.g., "show subtasks", "show sub-decisions")
+- **No Strict Nesting**: Avoids rigid parent-child constraints that limit flexibility
+
+**Relationship Types**:
+- `parent-child`: For hierarchical relationships (sub-decisions, subtasks)
+- `depends-on`: For dependencies (task dependencies, decision dependencies)
+- `references`: For references (decisions referencing goals, tasks referencing decisions)
+- `supersedes`: For replacement relationships (new decision supersedes old)
+- `related-to`: For general relationships
+- `implements`: For implementation relationships (task implements decision)
+- `blocks`: For blocking relationships (risk blocks task)
+- `mitigates`: For mitigation relationships (task mitigates risk)
+
+**Benefits**:
+- More flexible than strict hierarchies
+- Can represent complex multi-dimensional relationships
+- Enables powerful graph queries and traversal
+- Supports both hierarchical and non-hierarchical structures
+- Can evolve relationship types without schema changes
+- Better for AI agents to understand context and relationships
+
+**Implementation**:
+- Replace simple `relations?: NodeId[]` with typed edge structure
+- Store edges separately or embedded in nodes (both approaches viable)
+- Support graph queries: "find all descendants", "find all dependencies", "find path between nodes"
+- Provide hierarchical projection APIs for UI/display purposes
+
+**Impact**: Medium - affects data model complexity, but provides more power and flexibility
 ```
 
 ```ctx
