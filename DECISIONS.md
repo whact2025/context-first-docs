@@ -386,3 +386,54 @@ status: accepted
 
 **Decided At**: 2026-01-26
 ```
+
+```ctx
+type: decision
+id: decision-013
+status: accepted
+---
+**Decision**: Markdown files support both read-only and editable modes based on user role. All Markdown edits must sync back to context store and update referencing nodes.
+
+**Rationale**:
+- Different roles need different access levels
+- Contributors need to edit Markdown files directly
+- Approvers/reviewers may only need read access
+- Ensures context store stays in sync with Markdown
+- Changes must propagate to all nodes that reference edited content
+
+**Role-Based Modes**:
+- **Contributors**: Can edit Markdown files (ctx blocks and other content)
+- **Approvers**: Can edit Markdown files (for review and changes)
+- **Read-only users**: Can view but not edit (if such role exists)
+- **Admins**: Full edit access
+
+**Sync Requirements**:
+- Markdown edits to ctx blocks → Import as proposals → Sync to context store
+- Markdown edits to non-ctx content → Track changes → Update referencing nodes
+- Context store changes → Export to Markdown → Update all affected files
+- Referencing nodes must be updated when referenced content changes
+- Sync must be bidirectional and consistent
+
+**Referencing Context**:
+- When a node references another node (via relations), changes to referenced node must update referencer
+- When Markdown content is referenced by multiple nodes, all must be updated
+- Cross-references between files must be maintained
+- Reference integrity must be preserved during sync
+
+**Workflow**:
+1. User edits Markdown file (based on role permissions)
+2. System detects changes (ctx blocks and other content)
+3. Changes imported as proposals (for ctx blocks)
+4. Non-ctx content changes tracked and synced
+5. Referencing nodes updated if referenced content changed
+6. Context store updated with accepted changes
+7. All affected Markdown files regenerated
+
+**Alternatives Considered**:
+- Read-only only (too restrictive, breaks familiar workflows)
+- Editable only (loses control, harder to prevent drift)
+- No sync back (loses bidirectional consistency)
+- Manual sync only (too much work, error-prone)
+
+**Decided At**: 2026-01-26
+```

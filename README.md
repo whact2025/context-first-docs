@@ -46,6 +46,8 @@ A **context-first collaboration system** with:
 - Reverse engineering of merge requests/PRs to extract historical context
 - Designated contributors and approvers with role-based access control
 - Automatic issue creation when proposals are approved
+- Role-based Markdown editing (read-only vs editable based on permissions)
+- Bidirectional sync - Markdown edits sync back to context store and update referencing nodes
 
 This is infrastructure for **long-lived, multi-human, multi-agent systems**.
 

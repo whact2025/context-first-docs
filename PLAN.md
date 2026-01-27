@@ -21,12 +21,14 @@ status: accepted
 3. Create authoring helpers for all node types (decisions, tasks, questions, etc.)
 4. Implement role and permission system (contributors, approvers, admins)
 5. Add designated contributors and approvers support
-6. Implement proposal review workflow with approval requirements
-7. Add issue creation on approval - automatically create issues when proposals are approved
-8. Add comment threading
-9. Support partial accept/reject
-10. Build review history tracking
-11. Support multi-approval workflows
+6. Implement role-based Markdown editing modes (read-only vs editable)
+7. Implement bidirectional sync - Markdown edits sync back to context store and referencing nodes
+8. Implement proposal review workflow with approval requirements
+9. Add issue creation on approval - automatically create issues when proposals are approved
+10. Add comment threading
+11. Support partial accept/reject
+12. Build review history tracking
+13. Support multi-approval workflows
 
 **Phase 3: Persistence & Git Integration**
 1. File-based store implementation (JSON/YAML) - independent persistence
@@ -343,4 +345,28 @@ id: task-037
 status: open
 ---
 Add issue configuration to proposals - allow proposals to specify what issues should be created on approval.
+```
+
+```ctx
+type: task
+id: task-038
+status: open
+---
+Implement role-based Markdown editing modes - read-only for some roles, editable for others.
+```
+
+```ctx
+type: task
+id: task-039
+status: open
+---
+Build bidirectional sync system - Markdown edits sync back to context store and update referencing nodes.
+```
+
+```ctx
+type: task
+id: task-040
+status: open
+---
+Implement reference tracking - detect and update nodes that reference changed content.
 ```

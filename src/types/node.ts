@@ -67,6 +67,10 @@ export interface ContextNode {
   metadata: NodeMetadata;
   /** Related node IDs */
   relations?: NodeId[];
+  /** Nodes that reference this node (reverse relations) */
+  referencedBy?: NodeId[];
+  /** Markdown files that contain this node */
+  sourceFiles?: string[];
 }
 
 /**

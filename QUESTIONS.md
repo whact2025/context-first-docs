@@ -5,14 +5,18 @@ This document tracks questions that need answers as the project evolves.
 ```ctx
 type: question
 id: question-001
-status: open
+status: resolved
 ---
 **Question**: Should Markdown files be read-only (generated only) or editable?
 
-**Context**: 
-- Read-only ensures no drift between store and Markdown
-- Editable allows familiar Git workflows
-- Could support both modes
+**Answer**: Both modes should be supported based on role. Markdown editing must sync back to any referencing context.
+
+**Resolution**:
+- **Read-only mode**: For contributors/approvers who should only review, not edit
+- **Editable mode**: For contributors/approvers with edit permissions
+- **Role-based**: Mode determined by user role and permissions
+- **Sync requirement**: All Markdown edits must sync back to context store and update any referencing nodes
+- **Bidirectional**: Changes flow both ways - store → Markdown and Markdown → store
 
 **Impact**: High - affects core workflow design
 ```

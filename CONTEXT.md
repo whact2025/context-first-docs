@@ -31,6 +31,8 @@ Create a context-first collaboration system that enables:
 - Pre-baked Cursor rules for AI-assisted proposal and risk authoring
 - Designated contributors and approvers with role-based access control
 - Automatic issue creation on proposal approval
+- Role-based Markdown editing (read-only vs editable)
+- Bidirectional sync - Markdown edits sync back to context store and referencing nodes
 ```
 
 ```ctx

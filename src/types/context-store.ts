@@ -81,6 +81,16 @@ export interface ContextStore {
    * Get all rejected proposals (for provenance).
    */
   getRejectedProposals(): Promise<Proposal[]>;
+
+  /**
+   * Get nodes that reference a given node.
+   */
+  getReferencingNodes(nodeId: NodeId): Promise<AnyNode[]>;
+
+  /**
+   * Update referencing nodes when a node changes.
+   */
+  updateReferencingNodes(nodeId: NodeId): Promise<void>;
 }
 
 /**

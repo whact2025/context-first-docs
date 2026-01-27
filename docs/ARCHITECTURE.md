@@ -45,12 +45,14 @@ Planned implementations:
 
 ### Writing Context
 
-1. Human edits Markdown file (e.g., `DECISIONS.md`)
-2. System detects changes to ctx blocks
-3. Changes are imported as proposals
-4. Proposals are reviewed
-5. Accepted proposals become truth in context store
-6. Markdown is regenerated from accepted truth
+1. Human edits Markdown file (e.g., `DECISIONS.md`) - based on role permissions (read-only or editable)
+2. System detects changes to ctx blocks and other content
+3. Changes imported as proposals (for ctx blocks)
+4. Non-ctx content changes tracked and synced
+5. Referencing nodes updated if referenced content changed
+6. Proposals are reviewed
+7. Accepted proposals become truth in context store
+8. All affected Markdown files regenerated from accepted truth
 
 ### Reading Context
 
