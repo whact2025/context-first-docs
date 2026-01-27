@@ -17,7 +17,17 @@ status: accepted
 7. Define graph model with typed relationships ✅
 8. Design comprehensive Agent API with chain-of-thought traversal ✅
 
-**Phase 2: Authoring & Review System** (Next)
+**Phase 2: Persistence & Self-Hosted Git Storage** (Next)
+1. Graph format storage implementation (JSON Graph format) - default storage for all collected data
+2. Self-hosted Git storage service - manage context store in self-hosted Git repository (GitLab, Gitea, etc.)
+3. Automatic Git updates - approved proposals automatically update Git repository (no manual git commits/merges)
+4. File-based store in Git (JSON Graph format) - `.context/graph.json` and individual node files
+5. Ensure context store persistence is independent of git commits - proposals persist immediately
+6. Commit tracking system - link code commits to proposals/nodes (Jira-style checkin semantics)
+7. Git integration for commit message parsing and proposal linking
+8. Migration tools for existing docs
+
+**Phase 3: Authoring & Review System**
 1. Implement proposal authoring APIs and helpers
 2. Add risk authoring tools and validation
 3. Create authoring helpers for all node types (decisions, tasks, questions, etc.)
@@ -38,16 +48,6 @@ status: accepted
 13. Support partial accept/reject
 14. Build review history tracking
 15. Support multi-approval workflows
-
-**Phase 3: Persistence & Self-Hosted Git Storage**
-1. Graph format storage implementation (JSON Graph format) - default storage for all collected data
-2. Self-hosted Git storage service - manage context store in self-hosted Git repository (GitLab, Gitea, etc.)
-3. Automatic Git updates - approved proposals automatically update Git repository (no manual git commits/merges)
-4. File-based store in Git (JSON Graph format) - `.context/graph.json` and individual node files
-5. Commit tracking system - link code commits to proposals/nodes (Jira-style checkin semantics)
-6. Git integration for commit message parsing and proposal linking
-7. Migration tools for existing docs
-8. Ensure context store persistence is independent of git commits - proposals persist immediately
 
 **Phase 4: Agent APIs**
 1. Implement comprehensive query API (type, status, keyword, relationships, pagination, sorting)
