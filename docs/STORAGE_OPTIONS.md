@@ -333,6 +333,94 @@ docs/              # Generated site (GitLab Pages)
 3. **Phase 3**: Commit context store to git
 4. **Phase 4**: Update workflows to handle context in git
 
+## Graph/Document Databases as Optional Enhancement
+
+Given the graph model with typed relationships (see `decision-015`), graph/document databases could provide performance benefits for large-scale deployments.
+
+### Graph Databases (Neo4j, ArangoDB, etc.)
+
+**When to consider**:
+- Very large repositories (thousands of nodes)
+- Complex graph queries and traversal needs
+- Performance requirements for relationship queries
+- Need for advanced graph algorithms (shortest path, centrality, etc.)
+
+**Pros**:
+- ✅ Native graph query support (Cypher, AQL, Gremlin)
+- ✅ Optimized graph traversal and path finding
+- ✅ Relationship indexing and querying
+- ✅ Better performance for complex graph queries
+- ✅ Built-in graph algorithms
+
+**Cons**:
+- ❌ Requires external infrastructure
+- ❌ Not git-friendly (binary or complex formats)
+- ❌ Loses git integration and PR reviewability
+- ❌ Additional operational complexity
+- ❌ Not suitable for v1 (violates non-invasive installation requirement)
+
+**Hybrid Approach**:
+- JSON files in Git remain source of truth
+- Graph DB syncs from JSON files (one-way: Git → DB)
+- Graph DB used for complex queries and traversal
+- Graph DB can be rebuilt from JSON files at any time
+- No data loss if graph DB unavailable
+
+**Example Architecture**:
+```
+.context/              # Source of truth (JSON files in Git)
+├── nodes/
+│   └── decision-001.json
+└── index.json
+
+[Optional Sync Layer]
+    ↓
+Graph Database        # Query/index layer (optional)
+├── Nodes (vertices)
+├── Relationships (edges)
+└── Indexes
+```
+
+### Document Databases (MongoDB, CouchDB, etc.)
+
+**When to consider**:
+- Need flexible schema for evolving node types
+- Prefer document-based storage over graph
+- Already using document DB in infrastructure
+
+**Pros**:
+- ✅ Flexible schema
+- ✅ Good for nested document structures
+- ✅ Can store relationships as embedded documents
+- ✅ Good query capabilities
+
+**Cons**:
+- ❌ Less optimal than graph DBs for graph queries
+- ❌ Requires external infrastructure
+- ❌ Not git-friendly
+- ❌ Loses git integration
+- ❌ Not suitable for v1
+
+**Recommendation**: Graph databases are better suited than document databases for the graph model, but both are optional enhancements for scale.
+
+### Implementation Strategy
+
+**Phase 1 (v1)**: JSON files in Git only
+- Meets all requirements (git-friendly, non-invasive, reviewable)
+- Sufficient for most use cases
+
+**Phase 2 (Future Enhancement)**: Optional graph database backend
+- Design context store interface to support multiple backends
+- Implement graph DB adapter that syncs from JSON files
+- Graph DB used for complex queries, JSON files remain source of truth
+- Can be enabled/disabled per repository
+
+**Architecture Considerations**:
+- Context store interface should abstract storage backend
+- Graph DB adapter implements same interface
+- Sync mechanism: JSON files → Graph DB (one-way)
+- Query layer can choose backend based on query complexity
+
 ## Summary
 
 **Recommended Storage**: **JSON files in `.context/` directory, committed to git**
@@ -344,4 +432,10 @@ docs/              # Generated site (GitLab Pages)
 - Works with GitHub/GitLab web interfaces
 - Easy to query and process programmatically
 
-This approach provides the best balance of git-friendliness, queryability, and collaboration.
+**Optional Enhancement**: Graph database backend for performance at scale
+- JSON files remain source of truth
+- Graph DB syncs from JSON files (one-way)
+- Graph DB used for complex queries and traversal
+- Can be enabled/disabled per repository
+
+This approach provides the best balance of git-friendliness, queryability, and collaboration, with optional performance enhancements for scale.

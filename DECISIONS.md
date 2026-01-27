@@ -128,7 +128,15 @@ status: accepted
 - YAML (more human-readable but less strict, whitespace-sensitive)
 - Single monolithic file (poor git diffs, merge conflicts)
 - Git-ignored storage (loses version history and collaboration)
-- Database/external service (loses git integration)
+- Database/external service (loses git integration, not suitable for v1)
+
+**Future Enhancement**: Graph/document databases as optional backend
+- Given the graph model (see `decision-015`), graph databases (Neo4j, ArangoDB) could provide performance benefits for large-scale deployments
+- **Hybrid approach**: JSON files in Git remain source of truth, graph DB syncs from JSON files (one-way) as query/index layer
+- Graph DB used for complex graph queries and traversal, JSON files remain canonical
+- Can be enabled/disabled per repository, no data loss if graph DB unavailable
+- **v1**: JSON files in Git only (meets all requirements: git-friendly, non-invasive, reviewable)
+- **Future**: Optional graph DB backend for performance at scale
 
 **Decided At**: 2026-01-26
 ```

@@ -97,18 +97,56 @@ type: question
 id: question-004
 status: resolved
 ---
-**Question**: What's the best format for storing context in Git? JSON vs YAML vs custom?
+**Question**: What's the best format for storing context in Git? JSON vs YAML vs custom? Should graph/document databases be considered?
 
-**Answer**: JSON files in `.context/` directory, committed to git.
+**Answer**: JSON files in `.context/` directory, committed to git, as primary storage. Graph/document databases can be optional enhancement for performance at scale.
 
-**Rationale**:
+**Primary Storage: JSON Files in Git**:
 - JSON provides excellent git diffs and merge conflict resolution
 - Machine-friendly and deterministic
 - One file per node/proposal enables scalable storage
 - Committed to git provides full version history
+- Git-friendly (required for non-invasive installation)
+- Reviewable in PRs and GitHub/GitLab web UI
+- No external infrastructure required
 - See `docs/STORAGE_OPTIONS.md` for detailed analysis
 
-**Impact**: Medium - affects developer experience
+**Graph/Document Databases as Optional Enhancement**:
+Given the graph model (see `question-003`), graph/document databases could be valuable for:
+- **Graph Databases** (Neo4j, ArangoDB, etc.):
+  - Native graph query support (Cypher, AQL)
+  - Optimized graph traversal and path finding
+  - Relationship indexing and querying
+  - Better performance for complex graph queries at scale
+  - **Use Case**: Optional query/index layer for large repositories (thousands of nodes)
+  
+- **Document Databases** (MongoDB, CouchDB, etc.):
+  - Flexible schema for evolving node types
+  - Good for nested document structures
+  - Can store relationships as embedded documents
+  - **Use Case**: Less optimal than graph DBs for graph queries, but viable alternative
+
+**Hybrid Approach** (Recommended for Scale):
+- **Primary**: JSON files in Git (source of truth, versioned, reviewable)
+- **Optional**: Graph database as query/index layer
+  - Graph DB syncs from JSON files (one-way sync: Git → DB)
+  - Graph DB used for complex queries and traversal
+  - JSON files remain canonical source
+  - Graph DB can be rebuilt from JSON files at any time
+  - No data loss if graph DB unavailable
+
+**Constraints**:
+- **v1 Requirement**: Must work with Git (non-invasive installation)
+- **v1 Requirement**: Must not require external infrastructure
+- **v1 Requirement**: Must be reviewable in PRs
+- **Future Enhancement**: Optional graph DB backend for performance
+
+**Decision**: 
+- **v1**: JSON files in Git only (meets all requirements)
+- **Future**: Optional graph database backend as performance enhancement
+- **Architecture**: Design context store interface to support multiple backends
+
+**Impact**: Medium - affects developer experience and scalability
 ```
 
 ```ctx
