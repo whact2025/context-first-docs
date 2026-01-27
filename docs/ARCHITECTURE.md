@@ -22,16 +22,20 @@ Key principles:
 - Status is explicit (accepted, proposed, rejected, superseded)
 - Graph format enables efficient relationship queries and chain-of-thought reasoning
 
-### 2. Markdown Projection (`src/markdown/`)
+### 2. Markdown Projection (`src/markdown/`) - UI Layer Only
 
 Bidirectional synchronization between Markdown and the context store:
 
-- **ctx Blocks**: Lightweight syntax for embedding semantic nodes
-- **Import**: Converts Markdown edits to proposals
-- **Export**: Projects accepted nodes to Markdown deterministically
+- **ctx Blocks**: Lightweight syntax for embedding semantic nodes (UI-only, not committed to Git)
+- **Rendered Markdown**: Human-readable projection of context store (UI-only, not committed to Git)
+- **Import**: Converts Markdown edits to proposals (happens in UI layer)
+- **Export**: Projects accepted nodes to Markdown deterministically (happens in UI layer)
 
 Key principles:
-- Markdown is a projection, not the source of truth
+- **Markdown is UI-only**: ctx blocks and rendered Markdown are NOT committed to Git
+- **Context Store is Source of Truth**: Only `.context/graph.json` and related files are committed to Git
+- **Change Detection in UI**: Change detection is embedded in whatever UI is being used (VS Code/Cursor extension, web UI, etc.)
+- **Real-time Sync**: Changes detected in UI are immediately synced to context store as proposals
 - Only ctx blocks are managed by the system
 - Other Markdown content is preserved
 
@@ -60,36 +64,46 @@ Planned implementations:
 
 ## Data Flow
 
-### Writing Context
+### Writing Context (UI-Based)
 
-1. Human edits Markdown file (e.g., `DECISIONS.md`) - based on role permissions (read-only or editable)
-2. **Change Detection**: System extracts ctx blocks and compares with context store
+1. **UI Layer**: Human edits Markdown file in UI (VS Code/Cursor extension, web UI, etc.)
+   - Markdown file with ctx blocks exists only in UI, NOT in Git
+   - Based on role permissions (read-only or editable)
+2. **Change Detection (Embedded in UI)**: UI extracts ctx blocks and compares with context store
    - New ctx blocks → create proposals
    - Modified ctx blocks → create update proposals
    - Removed ctx blocks → create delete proposals
+   - Change detection happens in real-time or on save (UI-dependent)
    - See `docs/CHANGE_DETECTION.md` for detailed process
-3. Changes imported as proposals (for ctx blocks)
+3. **Proposal Creation**: Changes imported as proposals (for ctx blocks)
+   - Proposals created immediately in context store
+   - Context store is committed to Git (`.context/graph.json`)
 4. **Conflict Detection**: System checks for conflicts with open proposals
-5. Non-ctx content changes tracked and synced
+5. Non-ctx content changes tracked and synced (UI-only)
 6. Referencing nodes updated if referenced content changed
-7. Proposals are reviewed (by designated approvers)
+7. Proposals are reviewed (by designated approvers) - in UI
 8. Accepted proposals become truth in context store
-9. All affected Markdown files regenerated from accepted truth
+9. **UI Updates**: All affected Markdown files regenerated from accepted truth in UI
+10. **Git Commit**: Only context store changes are committed to Git (not Markdown files)
 
 ### Reading Context
 
-1. Agent queries context store (never reads raw Markdown)
-2. Store returns accepted nodes + open proposals (default: accepted only for safety)
-3. Agent can distinguish truth from proposals (explicit status indicators)
-4. Agent can create new proposals
-5. **Chain-of-Thought Traversal**: Agents can traverse reasoning chains:
+1. **Agents**: Query context store directly (never read raw Markdown)
+   - Agents never see Markdown files - they only interact with context store
+2. **Humans**: View Markdown projection in UI (VS Code/Cursor extension, web UI)
+   - Markdown is generated on-demand from context store
+   - Markdown files exist only in UI, not in Git
+3. Store returns accepted nodes + open proposals (default: accepted only for safety)
+4. Agent can distinguish truth from proposals (explicit status indicators)
+5. Agent can create new proposals
+6. **Chain-of-Thought Traversal**: Agents can traverse reasoning chains:
    - Follow logical paths: goal → decision → task → risk
    - Build context progressively as they reason
    - Understand decision rationale (goals, alternatives, implementations, risks, constraints)
    - Discover related context through multiple hops
    - Query with automatic reasoning chain traversal
-6. **Comprehensive Query API**: Query by type, status, keyword, relationships, with pagination and sorting
-7. See `docs/AGENT_API.md` for full API documentation
+7. **Comprehensive Query API**: Query by type, status, keyword, relationships, with pagination and sorting
+8. See `docs/AGENT_API.md` for full API documentation
 
 ### Review Workflow
 

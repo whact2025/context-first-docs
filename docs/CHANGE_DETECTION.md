@@ -4,9 +4,12 @@ This document explains how the system detects changes made to Markdown files and
 
 ## Overview
 
+**Important**: ctx blocks and rendered Markdown are **UI-only** and **NOT committed to Git**. Change detection is **embedded in whatever UI is being used** (VS Code/Cursor extension, web UI, etc.).
+
 The system uses a **bidirectional synchronization** approach:
-- **Markdown → Context Store**: Changes to ctx blocks are detected and imported as proposals
-- **Context Store → Markdown**: Accepted truth is exported back to Markdown deterministically
+- **Markdown → Context Store**: Changes to ctx blocks are detected in UI and imported as proposals
+- **Context Store → Markdown**: Accepted truth is exported back to Markdown deterministically in UI
+- **Git**: Only context store (`.context/graph.json`) is committed to Git, NOT Markdown files
 
 Only `ctx` blocks are managed by the system; other Markdown content is preserved.
 
@@ -135,45 +138,57 @@ const proposal = {
 
 ## When Change Detection Runs
 
-### Manual Import
+**Change detection is embedded in the UI layer** - it does NOT run through Git operations. The UI (VS Code/Cursor extension, web UI, etc.) handles all change detection.
 
-Users explicitly trigger import:
+### VS Code/Cursor Extension (Primary)
+
+The extension embeds change detection:
+
+- **On Save**: Automatically detect changes when Markdown files are saved
+- **On Edit**: Detect changes in real-time as user types (optional, debounced)
+- **Manual Sync**: Provide command to sync changes manually
+- **File Watcher**: Monitor Markdown files for changes (even if not saved)
+
+**Extension Workflow**:
+1. User edits `DECISIONS.md` in editor (file exists only in UI, not in Git)
+2. Extension watches for file changes
+3. On save (or manual trigger), extension calls `importFromMarkdown()`
+4. Proposals are created and stored in context store (`.context/graph.json`)
+5. Context store changes are committed to Git (NOT the Markdown file)
+6. Proposals are displayed in extension UI
+7. User can review and submit proposals in extension
+
+### Web UI (Future)
+
+Web-based interface can:
+- **Real-time Detection**: Detect changes as user types in web editor
+- **Auto-save**: Automatically sync changes to context store
+- **Visual Diff**: Show differences between Markdown and context store
+- **Proposal Management**: Review and approve proposals in web UI
+
+### Manual Import (Programmatic)
+
+For programmatic access or testing:
 
 ```typescript
 import { importFromMarkdown } from "context-first-docs";
-import { readFileSync } from "fs";
 
-const markdown = readFileSync("DECISIONS.md", "utf-8");
+// Markdown content from UI (not from Git)
+const markdown = getMarkdownFromUI(); // e.g., from editor buffer
 const proposals = await importFromMarkdown(store, markdown, "alice");
 ```
 
-### VS Code/Cursor Extension
+### Git Integration
 
-The extension can:
-- **On Save**: Automatically detect changes when Markdown files are saved
-- **On Edit**: Detect changes in real-time as user types (optional)
-- **Manual Sync**: Provide command to sync changes manually
+**Important**: Git is NOT used for change detection. Git is only used for:
+- **Versioning Context Store**: `.context/graph.json` is committed to Git
+- **Collaboration**: Multiple users sync context store through Git
+- **History**: Git provides version history for context store
 
-**Extension Workflow**:
-1. User edits `DECISIONS.md` in editor
-2. Extension watches for file changes
-3. On save (or manual trigger), extension calls `importFromMarkdown()`
-4. Proposals are created and displayed in extension UI
-5. User can review and submit proposals
-
-### Git Hooks (Future)
-
-Pre-commit or post-merge hooks can:
-- Detect changes to ctx blocks in staged files
-- Automatically create proposals
-- Prevent commits if proposals are pending (optional)
-
-### CI/CD Integration (Future)
-
-CI pipelines can:
-- Detect changes in PRs/MRs
-- Create proposals automatically
-- Validate proposals before merge
+**NOT used for**:
+- ❌ Detecting Markdown changes (handled by UI)
+- ❌ Storing Markdown files (UI-only)
+- ❌ Storing ctx blocks (UI-only)
 
 ## Handling Different Change Scenarios
 
@@ -420,24 +435,46 @@ Track change history:
 
 ## Integration Points
 
-### VS Code/Cursor Extension
+### VS Code/Cursor Extension (Required)
 
-- **File Watcher**: Monitor Markdown files for changes
+The extension embeds change detection:
+
+- **File Watcher**: Monitor Markdown files for changes (UI files, not Git)
 - **On Save Hook**: Trigger import on save
+- **Real-time Detection**: Detect changes as user types (optional)
 - **Status Bar**: Show sync status and pending proposals
-- **Diff View**: Show differences between Markdown and context store
+- **Diff View**: Show differences between Markdown (UI) and context store (Git)
+- **Proposal UI**: Display proposals, allow review and approval
+- **Context Store Sync**: Commit context store changes to Git (not Markdown)
+
+### Web UI (Future)
+
+Web-based interface:
+
+- **Editor**: Web-based Markdown editor with ctx block support
+- **Real-time Sync**: Auto-sync changes to context store
+- **Proposal Management**: Review and approve proposals
+- **Git Integration**: Commit context store to Git through web UI
 
 ### Git Integration
 
-- **Pre-commit Hook**: Validate ctx blocks before commit
-- **Post-merge Hook**: Sync changes after merge
-- **Diff View**: Show ctx block changes in Git diff
+**Git is used ONLY for context store**:
+
+- **Context Store Versioning**: `.context/graph.json` committed to Git
+- **Collaboration**: Multiple users sync context store through Git
+- **History**: Git provides version history for context store
+- **PR/MR Review**: Review context store changes in pull/merge requests
+
+**Git is NOT used for**:
+- ❌ Markdown file versioning (UI-only)
+- ❌ Change detection (handled by UI)
+- ❌ ctx block storage (UI-only)
 
 ### CI/CD
 
-- **PR Validation**: Validate ctx blocks in pull requests
-- **Auto-proposals**: Create proposals from PR changes
-- **Conflict Detection**: Check for conflicts before merge
+- **Context Store Validation**: Validate context store structure in PRs
+- **Proposal Validation**: Validate proposals before merge
+- **Conflict Detection**: Check for conflicts in context store
 
 ## Example Workflow
 

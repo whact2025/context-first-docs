@@ -204,6 +204,46 @@ status: accepted
 
 ```ctx
 type: decision
+id: decision-016
+status: accepted
+---
+**Decision**: ctx blocks and rendered Markdown are UI-only and NOT committed to Git. Change detection is embedded in whatever UI is being used.
+
+**Rationale**:
+- Context store (`.context/graph.json`) is the source of truth committed to Git
+- Markdown files with ctx blocks are UI projections for human editing
+- Change detection must happen in real-time in the UI layer, not through Git operations
+- Keeps Git repository clean - only structured data (context store) is versioned
+- Enables real-time collaboration without Git conflicts on Markdown files
+- UI can detect changes immediately as user types, not just on commit
+
+**Implementation**:
+- **Context Store**: `.context/graph.json` and related files are committed to Git
+- **Markdown Files**: Exist only in UI (VS Code/Cursor extension, web UI, etc.), NOT in Git
+- **Change Detection**: Embedded in UI layer (extension, web UI, etc.)
+  - VS Code/Cursor extension detects changes on save or in real-time
+  - Web UI detects changes as user types
+  - Changes immediately synced to context store as proposals
+- **Git Workflow**: Only context store changes are committed to Git
+- **UI Updates**: Markdown files regenerated from context store in UI
+
+**Benefits**:
+- Clean Git repository (only structured data)
+- Real-time change detection (not dependent on Git operations)
+- No Git conflicts on Markdown files
+- Faster iteration (changes detected immediately)
+- Better UX (changes visible immediately in UI)
+
+**Alternatives Considered**:
+- Committing Markdown files to Git (pollutes repository, Git conflicts, slower)
+- Git-based change detection (too slow, requires commits, breaks real-time workflow)
+- Separate Markdown storage (adds complexity, loses UI integration)
+
+**Decided At**: 2026-01-26
+```
+
+```ctx
+type: decision
 id: decision-007
 status: accepted
 ---
