@@ -7,9 +7,9 @@
  * - rewrites only the sections it owns
  */
 
-import { AnyNode, NodeId } from "../types/node.js";
+import { AnyNode, NodeId, NodeStatus } from "../types/node.js";
 import { Proposal, CreateOperation, UpdateOperation } from "../types/proposal.js";
-import { ContextStore } from "../types/context-store.js";
+import { ContextStore, NodeQuery } from "../types/context-store.js";
 import { extractCtxBlocks, generateCtxBlock, replaceCtxBlock, CtxBlock } from "./ctx-block.js";
 
 export interface ProjectionOptions {
@@ -29,19 +29,21 @@ export async function projectToMarkdown(
   store: ContextStore,
   options: ProjectionOptions = {}
 ): Promise<string> {
-  const query: any = {
-    status: options.includeProposed ? ["accepted", "proposed"] : ["accepted"],
-  };
+  const status: NodeStatus[] = ["accepted"];
+  if (options.includeProposed) status.push("proposed");
+  if (options.includeRejected) status.push("rejected");
+
+  const query: NodeQuery = { status };
 
   if (options.namespace) {
     query.namespace = options.namespace;
   }
 
-  const nodes = await store.queryNodes(query);
+  const result = await store.queryNodes(query);
 
   // Group nodes by type for organization
   const nodesByType = new Map<string, AnyNode[]>();
-  for (const node of nodes) {
+  for (const node of result.nodes) {
     const type = node.type;
     if (!nodesByType.has(type)) {
       nodesByType.set(type, []);

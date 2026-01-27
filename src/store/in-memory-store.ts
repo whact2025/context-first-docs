@@ -56,6 +56,7 @@ export class InMemoryStore implements ContextStore {
 
     // Default to accepted nodes only (for agent safety)
     const statusFilter = query.status || ["accepted"];
+    const relevanceScores = new Map<string, number>();
 
     // Type filtering
     if (query.type && query.type.length > 0) {
@@ -126,39 +127,171 @@ export class InMemoryStore implements ContextStore {
       );
     }
 
-    // Search filtering
+    // Search filtering (+ relevance scoring)
     if (query.search) {
-      if (typeof query.search === "string") {
-        const searchLower = query.search.toLowerCase();
-        results = results.filter(
-          (node) =>
-            node.content.toLowerCase().includes(searchLower) ||
-            (node.type === "decision" &&
-              "decision" in node &&
-              (node as any).decision?.toLowerCase().includes(searchLower))
-        );
-      } else {
-        // Advanced search options
-        const searchOpts = query.search;
-        const searchLower = searchOpts.query.toLowerCase();
-        const caseSensitive = searchOpts.caseSensitive || false;
-        const searchText = caseSensitive ? searchOpts.query : searchLower;
+      const searchOpts =
+        typeof query.search === "string"
+          ? { query: query.search }
+          : query.search;
 
-        results = results.filter((node) => {
-          const content = caseSensitive ? node.content : node.content.toLowerCase();
-          return content.includes(searchText);
+      const caseSensitive = searchOpts.caseSensitive || false;
+      const operator = searchOpts.operator || "AND";
+      const fuzzy = searchOpts.fuzzy || false;
+      const rawQuery = searchOpts.query.trim();
+
+      const normalize = (s: string) => (caseSensitive ? s : s.toLowerCase());
+      const needle = normalize(rawQuery);
+      const terms =
+        rawQuery.includes(" ") || rawQuery.includes("\t")
+          ? rawQuery.split(/\s+/).filter(Boolean).map(normalize)
+          : [needle];
+
+      const levenshtein = (a: string, b: string): number => {
+        if (a === b) return 0;
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+        const dp: number[] = new Array(b.length + 1);
+        for (let j = 0; j <= b.length; j++) dp[j] = j;
+        for (let i = 1; i <= a.length; i++) {
+          let prev = dp[0];
+          dp[0] = i;
+          for (let j = 1; j <= b.length; j++) {
+            const tmp = dp[j];
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + cost);
+            prev = tmp;
+          }
+        }
+        return dp[b.length];
+      };
+
+      const getSearchTexts = (node: AnyNode): Array<{ field: string; text: string }> => {
+        const all: Array<{ field: string; text: string }> = [
+          { field: "content", text: node.content },
+        ];
+
+        if (node.type === "decision") {
+          const d = node as any;
+          if (typeof d.decision === "string") all.push({ field: "decision", text: d.decision });
+          if (typeof d.rationale === "string") all.push({ field: "rationale", text: d.rationale });
+          if (Array.isArray(d.alternatives)) all.push({ field: "alternatives", text: d.alternatives.join(" ") });
+        }
+        if (node.type === "constraint") {
+          const c = node as any;
+          if (typeof c.constraint === "string") all.push({ field: "constraint", text: c.constraint });
+          if (typeof c.reason === "string") all.push({ field: "reason", text: c.reason });
+        }
+        if (node.type === "question") {
+          const q = node as any;
+          if (typeof q.question === "string") all.push({ field: "question", text: q.question });
+          if (typeof q.answer === "string") all.push({ field: "answer", text: q.answer });
+        }
+
+        // Field filter (if specified)
+        if (Array.isArray(searchOpts.fields) && searchOpts.fields.length > 0) {
+          const allowed = new Set(searchOpts.fields);
+          return all.filter((f) => allowed.has(f.field));
+        }
+
+        return all;
+      };
+
+      const matchTerm = (hay: string, term: string): { matched: boolean; score: number } => {
+        if (!term) return { matched: true, score: 0 };
+        const idx = hay.indexOf(term);
+        if (idx >= 0) {
+          // Score: count of occurrences
+          let count = 0;
+          let from = 0;
+          while (true) {
+            const at = hay.indexOf(term, from);
+            if (at === -1) break;
+            count++;
+            from = at + Math.max(1, term.length);
+          }
+          return { matched: true, score: count };
+        }
+        if (!fuzzy) return { matched: false, score: 0 };
+
+        // Very small fuzzy: allow <=1 edit distance against tokens
+        const tokens = hay.split(/\s+/).filter(Boolean);
+        for (const t of tokens) {
+          if (levenshtein(t, term) <= 1) {
+            return { matched: true, score: 0.5 };
+          }
+        }
+        return { matched: false, score: 0 };
+      };
+
+      results = results.filter((node) => {
+        const texts = getSearchTexts(node).map((f) => ({
+          field: f.field,
+          text: normalize(f.text),
+        }));
+
+        const termMatches = terms.map((term) => {
+          let best: { matched: boolean; score: number } = { matched: false, score: 0 };
+          for (const t of texts) {
+            const r = matchTerm(t.text, term);
+            if (r.matched && r.score > best.score) best = r;
+            if (best.matched && best.score >= 1) break;
+          }
+          return best;
         });
-      }
+
+        const matched =
+          operator === "OR"
+            ? termMatches.some((m) => m.matched)
+            : termMatches.every((m) => m.matched);
+
+        if (!matched) return false;
+
+        const score = termMatches.reduce((sum, m) => sum + (m.matched ? m.score : 0), 0);
+        relevanceScores.set(this.nodeKey(node.id), score);
+        return true;
+      });
     }
 
-    // Relationship filtering
+    // Relationship filtering (relatedTo + relationshipTypes + depth + direction)
+    const needsEdgeIndex =
+      Boolean(query.relatedTo) ||
+      (query.relationshipTypes && query.relationshipTypes.length > 0) ||
+      Boolean(query.hasRelationship?.direction && query.hasRelationship.direction !== "outgoing");
+
+    const edgeIndex = needsEdgeIndex ? this.buildEdgeIndex() : null;
+
     if (query.relatedTo) {
-      const targetKey = this.nodeKey(query.relatedTo);
-      results = results.filter((node) =>
-        node.relationships?.some(
-          (rel) => this.nodeKey(rel.target) === targetKey
-        )
+      const depth = query.depth ?? 1;
+      const direction = query.direction ?? "both";
+      const allowedTypes =
+        query.relationshipTypes && query.relationshipTypes.length > 0
+          ? new Set(query.relationshipTypes)
+          : null;
+
+      const relatedKeys = this.traverseRelatedKeys(
+        query.relatedTo,
+        depth,
+        direction,
+        edgeIndex!,
+        allowedTypes
       );
+
+      results = results.filter((node) => relatedKeys.has(this.nodeKey(node.id)));
+    } else if (query.relationshipTypes && query.relationshipTypes.length > 0) {
+      const direction = query.direction ?? "outgoing";
+      const allowedTypes = new Set(query.relationshipTypes);
+      results = results.filter((node) => {
+        const key = this.nodeKey(node.id);
+        const outHas = (edgeIndex!.outgoing.get(key) || []).some((e) =>
+          allowedTypes.has(e.type)
+        );
+        const inHas = (edgeIndex!.incoming.get(key) || []).some((e) =>
+          allowedTypes.has(e.type)
+        );
+        if (direction === "incoming") return inHas;
+        if (direction === "both") return inHas || outHas;
+        return outHas;
+      });
     }
 
     // Hierarchical queries
@@ -187,25 +320,44 @@ export class InMemoryStore implements ContextStore {
       results = results.filter((node) => depKeys.has(this.nodeKey(node.id)));
     }
 
-    // Relationship existence filtering
+    // Relationship existence filtering (supports direction)
     if (query.hasRelationship) {
       const relFilter = query.hasRelationship;
+      const direction = relFilter.direction ?? "outgoing";
+      const typeFilter = relFilter.type ? new Set([relFilter.type]) : null;
+
       results = results.filter((node) => {
-        if (!node.relationships || node.relationships.length === 0) {
-          return false;
-        }
-        return node.relationships.some((rel) => {
-          if (relFilter.type && rel.type !== relFilter.type) {
-            return false;
-          }
-          if (relFilter.targetType) {
-            const targetNode = this.getNodeByKey(this.nodeKey(rel.target));
-            if (!targetNode || !relFilter.targetType.includes(targetNode.type)) {
-              return false;
+        const key = this.nodeKey(node.id);
+
+        const matchesOutgoing = (): boolean => {
+          if (!node.relationships || node.relationships.length === 0) return false;
+          return node.relationships.some((rel) => {
+            if (typeFilter && !typeFilter.has(rel.type)) return false;
+            if (relFilter.targetType) {
+              const targetNode = this.getNodeByKey(this.nodeKey(rel.target));
+              return Boolean(targetNode && relFilter.targetType!.includes(targetNode.type));
             }
-          }
-          return true;
-        });
+            return true;
+          });
+        };
+
+        const matchesIncoming = (): boolean => {
+          if (!edgeIndex) return false;
+          const incoming = edgeIndex.incoming.get(key) || [];
+          if (incoming.length === 0) return false;
+          return incoming.some((rel) => {
+            if (typeFilter && !typeFilter.has(rel.type)) return false;
+            if (relFilter.targetType) {
+              const sourceNode = this.getNodeByKey(rel.fromKey);
+              return Boolean(sourceNode && relFilter.targetType!.includes(sourceNode.type));
+            }
+            return true;
+          });
+        };
+
+        if (direction === "incoming") return matchesIncoming();
+        if (direction === "both") return matchesOutgoing() || matchesIncoming();
+        return matchesOutgoing();
       });
     }
 
@@ -215,6 +367,17 @@ export class InMemoryStore implements ContextStore {
     results.sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
+        case "relevance": {
+          const aScore = relevanceScores.get(this.nodeKey(a.id)) || 0;
+          const bScore = relevanceScores.get(this.nodeKey(b.id)) || 0;
+          comparison = aScore - bScore;
+          if (comparison === 0) {
+            comparison =
+              new Date(a.metadata.createdAt).getTime() -
+              new Date(b.metadata.createdAt).getTime();
+          }
+          break;
+        }
         case "createdAt":
           comparison =
             new Date(a.metadata.createdAt).getTime() -
@@ -344,61 +507,128 @@ export class InMemoryStore implements ContextStore {
       throw new Error(`Cannot apply proposal ${proposalId}: not accepted`);
     }
 
+    const touch = (node: AnyNode): AnyNode => {
+      return {
+        ...node,
+        metadata: {
+          ...node.metadata,
+          modifiedAt: proposal.metadata.modifiedAt,
+          modifiedBy: proposal.metadata.modifiedBy,
+          version: (node.metadata.version ?? 0) + 1,
+        },
+      } as AnyNode;
+    };
+
+    const setNode = (nodeId: NodeId, updater: (current: AnyNode) => AnyNode) => {
+      const key = this.nodeKey(nodeId);
+      const existing = this.nodes.get(key);
+      if (!existing) {
+        throw new Error(`Node ${key} not found`);
+      }
+      this.nodes.set(key, updater(existing));
+    };
+
     // Apply operations in order
     for (const operation of proposal.operations.sort((a, b) => a.order - b.order)) {
       if (operation.type === "create" && "node" in operation) {
         const key = this.nodeKey(operation.node.id);
         this.nodes.set(key, operation.node);
       } else if (operation.type === "update" && "nodeId" in operation) {
-        const key = this.nodeKey(operation.nodeId);
-        const existing = this.nodes.get(key);
-        if (!existing) {
-          throw new Error(`Node ${key} not found for update`);
-        }
-        const next = {
-          ...existing,
-          ...operation.changes,
-          metadata: {
-            ...existing.metadata,
-            // Ensure we always track mutations for stale-detection/provenance
-            modifiedAt: proposal.metadata.modifiedAt,
-            modifiedBy: proposal.metadata.modifiedBy,
-            version: (existing.metadata.version ?? 0) + 1,
-          },
-        } as AnyNode;
-        this.nodes.set(key, next);
+        setNode(operation.nodeId, (existing) =>
+          touch({ ...existing, ...operation.changes } as AnyNode)
+        );
       } else if (operation.type === "delete" && "nodeId" in operation) {
-        const key = this.nodeKey(operation.nodeId);
-        const existing = this.nodes.get(key);
-        if (existing) {
-          // Mark as deleted, don't remove (for provenance)
-          this.nodes.set(key, {
-            ...existing,
-            status: "rejected",
-            metadata: {
-              ...existing.metadata,
-              modifiedAt: proposal.metadata.modifiedAt,
-              modifiedBy: proposal.metadata.modifiedBy,
-              version: (existing.metadata.version ?? 0) + 1,
-            },
-          } as AnyNode);
-        }
+        // Mark as rejected, don't remove (provenance)
+        setNode(operation.nodeId, (existing) =>
+          touch({ ...existing, status: "rejected" } as AnyNode)
+        );
       } else if (operation.type === "status-change" && "nodeId" in operation) {
-        const key = this.nodeKey(operation.nodeId);
-        const existing = this.nodes.get(key);
-        if (!existing) {
-          throw new Error(`Node ${key} not found for status change`);
+        setNode(operation.nodeId, (existing) =>
+          touch({ ...existing, status: operation.newStatus } as AnyNode)
+        );
+      } else if (operation.type === "insert") {
+        const nodeId = (operation as any).sourceNodeId as NodeId | undefined;
+        if (!nodeId) {
+          throw new Error(`Insert operation ${operation.id} missing sourceNodeId`);
         }
-        this.nodes.set(key, {
-          ...existing,
-          status: operation.newStatus,
-          metadata: {
-            ...existing.metadata,
-            modifiedAt: proposal.metadata.modifiedAt,
-            modifiedBy: proposal.metadata.modifiedBy,
-            version: (existing.metadata.version ?? 0) + 1,
-          },
-        } as AnyNode);
+        setNode(nodeId, (existing) => {
+          const content = existing.content ?? "";
+          const pos = (operation as any).position as number;
+          const text = (operation as any).text as string;
+          if (pos < 0 || pos > content.length) {
+            throw new Error(`Insert position ${pos} out of bounds for node ${this.nodeKey(nodeId)}`);
+          }
+          return touch({
+            ...existing,
+            content: content.slice(0, pos) + text + content.slice(pos),
+          } as AnyNode);
+        });
+      } else if (operation.type === "delete") {
+        // Note: proposal operation type "delete" is overloaded (node delete vs text delete).
+        // The node delete case is handled above via "nodeId" in operation.
+        const nodeId = (operation as any).sourceNodeId as NodeId | undefined;
+        if (!nodeId) {
+          // If neither nodeId nor sourceNodeId exists, this is invalid.
+          if (!("nodeId" in (operation as any))) {
+            throw new Error(`Delete operation ${operation.id} missing nodeId/sourceNodeId`);
+          }
+          continue;
+        }
+        setNode(nodeId, (existing) => {
+          const content = existing.content ?? "";
+          const start = (operation as any).start as number;
+          const end = (operation as any).end as number;
+          if (start < 0 || end < start || end > content.length) {
+            throw new Error(
+              `Delete range [${start}, ${end}) out of bounds for node ${this.nodeKey(nodeId)}`
+            );
+          }
+          return touch({
+            ...existing,
+            content: content.slice(0, start) + content.slice(end),
+          } as AnyNode);
+        });
+      } else if (operation.type === "move") {
+        const nodeId = (operation as any).nodeId as NodeId;
+        const target = (operation as any).target as { position?: number; parentId?: NodeId };
+        if (target?.parentId) {
+          const newParentId = target.parentId;
+          const newParentKey = this.nodeKey(newParentId);
+          const newParent = this.nodes.get(newParentKey);
+          if (!newParent) {
+            throw new Error(`Parent ${newParentKey} not found for move`);
+          }
+
+          // Remove any existing incoming parent-child edges to this node (single-parent semantics)
+          for (const n of this.nodes.values()) {
+            if (!n.relationships) continue;
+            const nextRels = n.relationships.filter(
+              (r) => !(r.type === "parent-child" && this.nodeKey(r.target) === this.nodeKey(nodeId))
+            );
+            if (nextRels.length !== n.relationships.length) {
+              this.nodes.set(this.nodeKey(n.id), touch({ ...n, relationships: nextRels } as AnyNode));
+            }
+          }
+
+          // Add parent-child edge from new parent to nodeId if missing
+          const existingRels = newParent.relationships || [];
+          const has = existingRels.some(
+            (r) => r.type === "parent-child" && this.nodeKey(r.target) === this.nodeKey(nodeId)
+          );
+          if (!has) {
+            this.nodes.set(
+              newParentKey,
+              touch({
+                ...newParent,
+                relationships: [...existingRels, { type: "parent-child", target: nodeId }],
+              } as AnyNode)
+            );
+          }
+        }
+
+        // Position is currently a no-op in memory store (no ordering field in model).
+        // Still bump the moved node's metadata to record the change.
+        setNode(nodeId, (existing) => touch(existing));
       }
     }
   }
@@ -457,63 +687,104 @@ export class InMemoryStore implements ContextStore {
     const mergeable: string[] = [];
     const needsResolution: string[] = [];
 
+    const summarize = (p: Proposal) => {
+      const map = new Map<
+        string,
+        { nodeId: NodeId; kinds: Set<string>; fields: Set<string> }
+      >();
+
+      for (const op of p.operations) {
+        let nodeId: NodeId | null = null;
+        let kind = op.type;
+        let fields: string[] = [];
+
+        if (op.type === "create" && "node" in op) {
+          nodeId = op.node.id;
+        } else if ("nodeId" in op) {
+          nodeId = (op as any).nodeId as NodeId;
+        }
+
+        if (!nodeId) continue;
+
+        if (op.type === "update" && "changes" in op) {
+          kind = "update";
+          fields = Object.keys((op as any).changes || {});
+        } else if (op.type === "status-change" && "newStatus" in op) {
+          kind = "status-change";
+          fields = ["status"];
+        } else if (op.type === "delete") {
+          kind = "delete";
+        } else if (op.type === "create") {
+          kind = "create";
+        }
+
+        const key = this.nodeKey(nodeId);
+        if (!map.has(key)) {
+          map.set(key, { nodeId, kinds: new Set(), fields: new Set() });
+        }
+        const entry = map.get(key)!;
+        entry.kinds.add(kind);
+        for (const f of fields) entry.fields.add(f);
+      }
+
+      return map;
+    };
+
+    const a = summarize(proposal);
+
     // Find all open proposals
     const openProposals = await this.getOpenProposals();
 
-    // Check for conflicts with other open proposals
     for (const otherProposal of openProposals) {
-      if (otherProposal.id === proposalId) {
+      if (otherProposal.id === proposalId) continue;
+
+      const b = summarize(otherProposal);
+      const sharedKeys = Array.from(a.keys()).filter((k) => b.has(k));
+      if (sharedKeys.length === 0) {
+        mergeable.push(otherProposal.id);
         continue;
       }
 
       const conflictingNodes: NodeId[] = [];
+      const conflictingFields: Record<string, string[]> = {};
 
-      // Check if proposals modify the same nodes
-      for (const op1 of proposal.operations) {
-        for (const op2 of otherProposal.operations) {
-          let nodeId1: NodeId | null = null;
-          let nodeId2: NodeId | null = null;
+      let hardNodeConflict = false;
+      let fieldConflict = false;
 
-          if (op1.type === "create" && "node" in op1) {
-            nodeId1 = op1.node.id;
-          } else if ("nodeId" in op1) {
-            nodeId1 = op1.nodeId;
-          }
+      for (const key of sharedKeys) {
+        const left = a.get(key)!;
+        const right = b.get(key)!;
+        conflictingNodes.push(left.nodeId);
 
-          if (op2.type === "create" && "node" in op2) {
-            nodeId2 = op2.node.id;
-          } else if ("nodeId" in op2) {
-            nodeId2 = op2.nodeId;
-          }
+        const leftNonUpdate = Array.from(left.kinds).some((k) => k !== "update");
+        const rightNonUpdate = Array.from(right.kinds).some((k) => k !== "update");
+        if (leftNonUpdate || rightNonUpdate) {
+          hardNodeConflict = true;
+          continue;
+        }
 
-          if (
-            nodeId1 &&
-            nodeId2 &&
-            this.nodeKey(nodeId1) === this.nodeKey(nodeId2)
-          ) {
-            if (
-              !conflictingNodes.some(
-                (n) => this.nodeKey(n) === this.nodeKey(nodeId1!)
-              )
-            ) {
-              conflictingNodes.push(nodeId1);
-            }
-          }
+        // Both are updates: check overlapping fields
+        const overlap = Array.from(left.fields).filter((f) => right.fields.has(f));
+        if (overlap.length > 0) {
+          fieldConflict = true;
+          conflictingFields[key] = overlap;
         }
       }
 
-      if (conflictingNodes.length > 0) {
-        conflicts.push({
-          proposals: [proposalId, otherProposal.id],
-          conflictingNodes,
-          conflictingFields: {},
-          severity: "node",
-          autoResolvable: false,
-        });
-        needsResolution.push(otherProposal.id);
-      } else {
+      if (!hardNodeConflict && !fieldConflict) {
+        // Same nodes updated but disjoint fields => safe to merge
         mergeable.push(otherProposal.id);
+        continue;
       }
+
+      conflicts.push({
+        proposals: [proposalId, otherProposal.id],
+        conflictingNodes,
+        conflictingFields: Object.keys(conflictingFields).length ? conflictingFields : undefined,
+        severity: hardNodeConflict ? "node" : "field",
+        autoResolvable: false,
+      });
+      needsResolution.push(otherProposal.id);
     }
 
     return {
@@ -529,6 +800,32 @@ export class InMemoryStore implements ContextStore {
       return true;
     }
 
+    // Prefer optimistic-locking baseVersions if provided
+    if (proposal.metadata.baseVersions) {
+      for (const operation of proposal.operations) {
+        let nodeId: NodeId | null = null;
+
+        if (operation.type === "create" && "node" in operation) {
+          nodeId = operation.node.id;
+        } else if ("nodeId" in operation) {
+          nodeId = (operation as any).nodeId as NodeId;
+        }
+
+        if (!nodeId) continue;
+        const key = this.nodeKey(nodeId);
+        const base =
+          proposal.metadata.baseVersions[key] ??
+          proposal.metadata.baseVersions[nodeId.id];
+
+        if (base === undefined) continue;
+
+        const node = await this.getNode(nodeId);
+        if (!node) return true;
+        if (node.metadata.version !== base) return true;
+      }
+      return false;
+    }
+
     // Check if any nodes referenced in the proposal have been updated
     for (const operation of proposal.operations) {
       let nodeId: NodeId | null = null;
@@ -536,7 +833,7 @@ export class InMemoryStore implements ContextStore {
       if (operation.type === "create" && "node" in operation) {
         nodeId = operation.node.id;
       } else if ("nodeId" in operation) {
-        nodeId = operation.nodeId;
+        nodeId = (operation as any).nodeId as NodeId;
       }
 
       if (nodeId) {
@@ -592,18 +889,18 @@ export class InMemoryStore implements ContextStore {
       newValue: unknown;
     }> = [];
 
-    // Simple merge: combine all operations, detect conflicts
-    // This is a basic implementation - full field-level merging would be more complex
+    // Field-level merge planning: combine updates and report collisions.
     const nodeChanges = new Map<
       string,
-      Map<string, { proposalId: string; value: unknown }>
+      Map<string, { proposalId: string; value: unknown; nodeId: NodeId }>
     >();
 
     for (const proposal of validProposals) {
       for (const operation of proposal.operations) {
         if (operation.type === "update" && "nodeId" in operation) {
-          const nodeKey = this.nodeKey(operation.nodeId);
-          const changes = operation.changes as Record<string, unknown>;
+          const nodeId = (operation as any).nodeId as NodeId;
+          const nodeKey = this.nodeKey(nodeId);
+          const changes = (operation as any).changes as Record<string, unknown>;
 
           if (!nodeChanges.has(nodeKey)) {
             nodeChanges.set(nodeKey, new Map());
@@ -617,22 +914,50 @@ export class InMemoryStore implements ContextStore {
               const existing = fieldMap.get(field)!;
               conflicts.push({
                 field,
-                nodeId: operation.nodeId,
+                nodeId,
                 proposal1Value: existing.value,
                 proposal2Value: value,
               });
             } else {
-              // No conflict, can merge
-              fieldMap.set(field, { proposalId: proposal.id, value });
-              autoMerged.push({
-                nodeId: operation.nodeId,
-                field,
-                oldValue: undefined,
-                newValue: value,
-              });
+              fieldMap.set(field, { proposalId: proposal.id, value, nodeId });
             }
           }
+        } else if (operation.type === "status-change" && "nodeId" in operation) {
+          const nodeId = (operation as any).nodeId as NodeId;
+          const nodeKey = this.nodeKey(nodeId);
+          if (!nodeChanges.has(nodeKey)) nodeChanges.set(nodeKey, new Map());
+          const fieldMap = nodeChanges.get(nodeKey)!;
+          const field = "status";
+          const value = (operation as any).newStatus;
+          if (fieldMap.has(field)) {
+            const existing = fieldMap.get(field)!;
+            conflicts.push({
+              field,
+              nodeId,
+              proposal1Value: existing.value,
+              proposal2Value: value,
+            });
+          } else {
+            fieldMap.set(field, { proposalId: proposal.id, value, nodeId });
+          }
         }
+      }
+    }
+
+    // Materialize non-conflicting field changes
+    for (const [nodeKey, fields] of nodeChanges.entries()) {
+      const baseNode = this.getNodeByKey(nodeKey);
+      for (const [field, change] of fields.entries()) {
+        const oldValue =
+          baseNode && field in (baseNode as any) ? (baseNode as any)[field] : undefined;
+        const record = {
+          nodeId: change.nodeId,
+          field,
+          oldValue,
+          newValue: change.value,
+        };
+        merged.push(record);
+        autoMerged.push(record);
       }
     }
 
@@ -1127,6 +1452,80 @@ export class InMemoryStore implements ContextStore {
       accumulatedContext,
       reasoningPath,
     };
+  }
+
+  private buildEdgeIndex(): {
+    outgoing: Map<string, Array<{ type: RelationshipType; toKey: string }>>;
+    incoming: Map<string, Array<{ type: RelationshipType; fromKey: string }>>;
+  } {
+    const outgoing = new Map<string, Array<{ type: RelationshipType; toKey: string }>>();
+    const incoming = new Map<string, Array<{ type: RelationshipType; fromKey: string }>>();
+
+    for (const node of this.nodes.values()) {
+      const fromKey = this.nodeKey(node.id);
+      const rels = node.relationships || [];
+      if (rels.length === 0) continue;
+
+      for (const rel of rels) {
+        const toKey = this.nodeKey(rel.target);
+        if (!outgoing.has(fromKey)) outgoing.set(fromKey, []);
+        outgoing.get(fromKey)!.push({ type: rel.type, toKey });
+
+        if (!incoming.has(toKey)) incoming.set(toKey, []);
+        incoming.get(toKey)!.push({ type: rel.type, fromKey });
+      }
+    }
+
+    return { outgoing, incoming };
+  }
+
+  private traverseRelatedKeys(
+    startNode: NodeId,
+    depth: number,
+    direction: "outgoing" | "incoming" | "both",
+    edgeIndex: {
+      outgoing: Map<string, Array<{ type: RelationshipType; toKey: string }>>;
+      incoming: Map<string, Array<{ type: RelationshipType; fromKey: string }>>;
+    },
+    allowedTypes: Set<RelationshipType> | null
+  ): Set<string> {
+    const startKey = this.nodeKey(startNode);
+    const maxDepth = Math.max(0, depth);
+
+    const visited = new Set<string>([startKey]);
+    const result = new Set<string>();
+    const queue: Array<{ key: string; d: number }> = [{ key: startKey, d: 0 }];
+
+    const allow = (t: RelationshipType) => (allowedTypes ? allowedTypes.has(t) : true);
+
+    while (queue.length > 0) {
+      const { key, d } = queue.shift()!;
+      if (d >= maxDepth) continue;
+
+      if (direction === "outgoing" || direction === "both") {
+        const outs = edgeIndex.outgoing.get(key) || [];
+        for (const e of outs) {
+          if (!allow(e.type)) continue;
+          if (visited.has(e.toKey)) continue;
+          visited.add(e.toKey);
+          result.add(e.toKey);
+          queue.push({ key: e.toKey, d: d + 1 });
+        }
+      }
+
+      if (direction === "incoming" || direction === "both") {
+        const ins = edgeIndex.incoming.get(key) || [];
+        for (const e of ins) {
+          if (!allow(e.type)) continue;
+          if (visited.has(e.fromKey)) continue;
+          visited.add(e.fromKey);
+          result.add(e.fromKey);
+          queue.push({ key: e.fromKey, d: d + 1 });
+        }
+      }
+    }
+
+    return result;
   }
 
   // Helper methods for graph traversal

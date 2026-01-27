@@ -415,5 +415,363 @@ describe("InMemoryStore (coverage)", () => {
     expect(res.reasoningChains?.length).toBeGreaterThan(0);
     expect(res.similarityScores?.length).toBeGreaterThan(0);
   });
+
+  it("queryNodes should support relationshipTypes without relatedTo (direction aware)", async () => {
+    const goal: GoalNode = {
+      id: { id: "goal-rt-001" },
+      type: "goal",
+      status: "accepted",
+      content: "Goal",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    const task: TaskNode = {
+      id: { id: "task-rt-001" },
+      type: "task",
+      status: "accepted",
+      state: "open",
+      content: "Task implements goal",
+      metadata: meta("2026-01-01T00:00:00Z"),
+      relationships: [{ type: "implements", target: { id: "goal-rt-001" } }],
+    };
+    await createAndApply(store, "proposal-goal-rt-001", goal);
+    await createAndApply(store, "proposal-task-rt-001", task);
+
+    const outgoing = await store.queryNodes({
+      status: ["accepted"],
+      relationshipTypes: ["implements"],
+      direction: "outgoing",
+    });
+    expect(outgoing.nodes.map((n) => n.id.id)).toContain("task-rt-001");
+
+    const incoming = await store.queryNodes({
+      status: ["accepted"],
+      relationshipTypes: ["implements"],
+      direction: "incoming",
+    });
+    expect(incoming.nodes.map((n) => n.id.id)).toContain("goal-rt-001");
+  });
+
+  it("queryNodes relatedTo should honor depth and direction", async () => {
+    const a: GoalNode = {
+      id: { id: "rel-a" },
+      type: "goal",
+      status: "accepted",
+      content: "A",
+      metadata: meta("2026-01-01T00:00:00Z"),
+      relationships: [{ type: "related-to", target: { id: "rel-b" } }],
+    };
+    const b: GoalNode = {
+      id: { id: "rel-b" },
+      type: "goal",
+      status: "accepted",
+      content: "B",
+      metadata: meta("2026-01-01T00:00:00Z"),
+      relationships: [{ type: "related-to", target: { id: "rel-c" } }],
+    };
+    const c: GoalNode = {
+      id: { id: "rel-c" },
+      type: "goal",
+      status: "accepted",
+      content: "C",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    await createAndApply(store, "proposal-rel-c", c);
+    await createAndApply(store, "proposal-rel-b", b);
+    await createAndApply(store, "proposal-rel-a", a);
+
+    const depth1 = await store.queryNodes({
+      status: ["accepted"],
+      relatedTo: { id: "rel-a" },
+      relationshipTypes: ["related-to"],
+      direction: "outgoing",
+      depth: 1,
+    });
+    expect(depth1.nodes.map((n) => n.id.id)).toEqual(["rel-b"]);
+
+    const depth2 = await store.queryNodes({
+      status: ["accepted"],
+      relatedTo: { id: "rel-a" },
+      relationshipTypes: ["related-to"],
+      direction: "outgoing",
+      depth: 2,
+      sortBy: "type",
+      sortOrder: "asc",
+    });
+    const ids = depth2.nodes.map((n) => n.id.id).sort();
+    expect(ids).toEqual(["rel-b", "rel-c"]);
+
+    // Incoming should be able to find rel-a when starting from rel-b
+    const incoming = await store.queryNodes({
+      status: ["accepted"],
+      relatedTo: { id: "rel-b" },
+      relationshipTypes: ["related-to"],
+      direction: "incoming",
+      depth: 1,
+    });
+    expect(incoming.nodes.map((n) => n.id.id)).toContain("rel-a");
+  });
+
+  it("queryNodes should support hasRelationship with incoming direction", async () => {
+    const goal: GoalNode = {
+      id: { id: "goal-in-001" },
+      type: "goal",
+      status: "accepted",
+      content: "G",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    const task: TaskNode = {
+      id: { id: "task-in-001" },
+      type: "task",
+      status: "accepted",
+      state: "open",
+      content: "T",
+      metadata: meta("2026-01-01T00:00:00Z"),
+      relationships: [{ type: "implements", target: { id: "goal-in-001" } }],
+    };
+    await createAndApply(store, "proposal-goal-in-001", goal);
+    await createAndApply(store, "proposal-task-in-001", task);
+
+    const res = await store.queryNodes({
+      status: ["accepted"],
+      hasRelationship: { type: "implements", direction: "incoming", targetType: ["task"] },
+    });
+    expect(res.nodes.map((n) => n.id.id)).toContain("goal-in-001");
+  });
+
+  it("queryNodes should sort by relevance when requested", async () => {
+    const n1: GoalNode = {
+      id: { id: "rel-score-1" },
+      type: "goal",
+      status: "accepted",
+      content: "foo foo bar",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    const n2: GoalNode = {
+      id: { id: "rel-score-2" },
+      type: "goal",
+      status: "accepted",
+      content: "foo bar",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    await createAndApply(store, "proposal-rel-score-1", n1);
+    await createAndApply(store, "proposal-rel-score-2", n2);
+
+    const res = await store.queryNodes({
+      status: ["accepted"],
+      search: "foo",
+      sortBy: "relevance",
+      sortOrder: "desc",
+    });
+    expect(res.nodes[0].id.id).toBe("rel-score-1");
+  });
+
+  it("advanced search should support fields/operator/fuzzy", async () => {
+    const decision: DecisionNode = {
+      id: { id: "decision-adv-001" },
+      type: "decision",
+      status: "accepted",
+      content: "content does not mention db",
+      decision: "Use PostgreSQL",
+      rationale: "durability",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    await createAndApply(store, "proposal-decision-adv-001", decision);
+
+    const fieldsOnly = await store.queryNodes({
+      status: ["accepted"],
+      search: { query: "postgresql", fields: ["decision"] },
+    });
+    expect(fieldsOnly.nodes.map((n) => n.id.id)).toContain("decision-adv-001");
+
+    const orQuery = await store.queryNodes({
+      status: ["accepted"],
+      search: { query: "missing postgresql", operator: "OR", fields: ["decision"] },
+    });
+    expect(orQuery.nodes.map((n) => n.id.id)).toContain("decision-adv-001");
+
+    const fuzzyQuery = await store.queryNodes({
+      status: ["accepted"],
+      search: { query: "postgrexql", fuzzy: true, fields: ["decision"] },
+    });
+    expect(fuzzyQuery.nodes.map((n) => n.id.id)).toContain("decision-adv-001");
+  });
+
+  it("detectConflicts should mark disjoint updates as mergeable, overlapping updates as conflicts, and create/update as node conflicts", async () => {
+    const goal: GoalNode = {
+      id: { id: "goal-conf-001" },
+      type: "goal",
+      status: "accepted",
+      content: "Original",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    await createAndApply(store, "proposal-goal-conf-001", goal);
+
+    const disjoint1: Proposal = {
+      id: "proposal-disjoint-1",
+      status: "open",
+      operations: [
+        { id: "op-1", type: "update", order: 1, nodeId: { id: "goal-conf-001" }, changes: { content: "A" } } as UpdateOperation,
+      ],
+      metadata: meta("2026-01-02T00:00:00Z", "u1"),
+    };
+    const disjoint2: Proposal = {
+      id: "proposal-disjoint-2",
+      status: "open",
+      operations: [
+        { id: "op-2", type: "update", order: 1, nodeId: { id: "goal-conf-001" }, changes: { foo: 1 } } as UpdateOperation,
+      ],
+      metadata: meta("2026-01-02T00:00:00Z", "u2"),
+    };
+    await store.createProposal(disjoint1);
+    await store.createProposal(disjoint2);
+
+    const mergeable = await store.detectConflicts("proposal-disjoint-1");
+    expect(mergeable.mergeable).toContain("proposal-disjoint-2");
+    expect(mergeable.needsResolution).not.toContain("proposal-disjoint-2");
+
+    const overlap: Proposal = {
+      id: "proposal-overlap",
+      status: "open",
+      operations: [
+        { id: "op-3", type: "update", order: 1, nodeId: { id: "goal-conf-001" }, changes: { content: "B" } } as UpdateOperation,
+      ],
+      metadata: meta("2026-01-02T00:00:00Z", "u3"),
+    };
+    await store.createProposal(overlap);
+
+    const conflicts = await store.detectConflicts("proposal-overlap");
+    expect(conflicts.needsResolution.length).toBeGreaterThan(0);
+    expect(conflicts.conflicts.length).toBeGreaterThan(0);
+
+    const createProposal: Proposal = {
+      id: "proposal-create-same",
+      status: "open",
+      operations: [
+        { id: "op-create", type: "create", order: 1, node: goal } as CreateOperation,
+      ],
+      metadata: meta("2026-01-02T00:00:00Z", "u4"),
+    };
+    await store.createProposal(createProposal);
+    const nodeConf = await store.detectConflicts("proposal-create-same");
+    expect(nodeConf.needsResolution).toContain("proposal-disjoint-1");
+  });
+
+  it("isProposalStale should use baseVersions when provided", async () => {
+    const goal: GoalNode = {
+      id: { id: "goal-stale-bv" },
+      type: "goal",
+      status: "accepted",
+      content: "v1",
+      metadata: meta("2026-01-01T00:00:00Z", "u1", "2026-01-01T00:00:00Z", "u1", 1),
+    };
+    await createAndApply(store, "proposal-goal-stale-bv", goal);
+
+    const baseVersionsProposal: Proposal = {
+      id: "proposal-baseversions",
+      status: "open",
+      operations: [
+        { id: "op", type: "update", order: 1, nodeId: { id: "goal-stale-bv" }, changes: { content: "v2" } } as UpdateOperation,
+      ],
+      metadata: {
+        ...meta("2026-01-01T00:00:00Z", "u2", "2026-01-01T00:00:00Z", "u2"),
+        baseVersions: { "goal-stale-bv": 1 },
+      },
+    };
+    await store.createProposal(baseVersionsProposal);
+    expect(await store.isProposalStale("proposal-baseversions")).toBe(false);
+
+    // Apply an accepted update to bump version
+    const bump: Proposal = {
+      id: "proposal-bump",
+      status: "accepted",
+      operations: [
+        { id: "opb", type: "update", order: 1, nodeId: { id: "goal-stale-bv" }, changes: { content: "v1b" } } as UpdateOperation,
+      ],
+      metadata: meta("2026-01-02T00:00:00Z", "u3"),
+    };
+    await store.createProposal(bump);
+    await store.applyProposal("proposal-bump");
+
+    expect(await store.isProposalStale("proposal-baseversions")).toBe(true);
+  });
+
+  it("applyProposal should support insert/delete text operations and move parent-child", async () => {
+    const a: GoalNode = {
+      id: { id: "apply-a" },
+      type: "goal",
+      status: "accepted",
+      content: "HelloWorld",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+    const p: GoalNode = {
+      id: { id: "apply-parent" },
+      type: "goal",
+      status: "accepted",
+      content: "Parent",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+    await createAndApply(store, "proposal-apply-a", a);
+    await createAndApply(store, "proposal-apply-parent", p);
+
+    const insertProposal: Proposal = {
+      id: "proposal-insert",
+      status: "accepted",
+      operations: [
+        {
+          id: "op-insert",
+          type: "insert",
+          order: 1,
+          position: 5,
+          text: " ",
+          sourceNodeId: { id: "apply-a" },
+        } as any,
+      ],
+      metadata: meta("2026-01-02T00:00:00Z", "u2"),
+    };
+    await store.createProposal(insertProposal);
+    await store.applyProposal("proposal-insert");
+    const afterInsert = await store.getNode({ id: "apply-a" });
+    expect(afterInsert?.content).toBe("Hello World");
+
+    const deleteProposal: Proposal = {
+      id: "proposal-delete-text",
+      status: "accepted",
+      operations: [
+        {
+          id: "op-del",
+          type: "delete",
+          order: 1,
+          start: 5,
+          end: 6,
+          sourceNodeId: { id: "apply-a" },
+        } as any,
+      ],
+      metadata: meta("2026-01-03T00:00:00Z", "u3"),
+    };
+    await store.createProposal(deleteProposal);
+    await store.applyProposal("proposal-delete-text");
+    const afterDelete = await store.getNode({ id: "apply-a" });
+    expect(afterDelete?.content).toBe("HelloWorld");
+
+    const moveProposal: Proposal = {
+      id: "proposal-move",
+      status: "accepted",
+      operations: [
+        {
+          id: "op-move",
+          type: "move",
+          order: 1,
+          nodeId: { id: "apply-a" },
+          target: { parentId: { id: "apply-parent" } },
+        } as any,
+      ],
+      metadata: meta("2026-01-04T00:00:00Z", "u4"),
+    };
+    await store.createProposal(moveProposal);
+    await store.applyProposal("proposal-move");
+
+    const parentAfter = await store.getNode({ id: "apply-parent" });
+    expect(parentAfter?.relationships?.some((r) => r.type === "parent-child" && r.target.id === "apply-a")).toBe(true);
+  });
 });
 
