@@ -4,12 +4,14 @@ This document outlines storage options for the context store that can be hosted 
 
 ## Overview
 
+**Important**: Context store files are **NOT manually edited**. All changes go through the **proposal/review workflow** managed at a higher level (UI, agents, etc.). Git diffs are not used for context management - proposals are.
+
 The context store needs to be:
-- **Git-friendly**: Text-based formats that diff well
+- **Git-versioned**: Text-based formats that can be versioned in Git (for collaboration and history)
 - **Queryable**: Easy to process programmatically
-- **Human-readable**: Developers can inspect and understand
-- **Versioned**: Git provides versioning and history
-- **Accessible**: Works with GitHub/GitLab web interfaces
+- **Human-readable**: Developers can inspect and understand (for debugging/review)
+- **Versioned**: Git provides versioning and history (automatic, from proposal approvals)
+- **Accessible**: Works with GitHub/GitLab web interfaces (for viewing, not editing)
 
 ## Storage Format Options
 
@@ -31,30 +33,18 @@ The context store needs to be:
 ```
 
 **Pros**:
-- ✅ Excellent git diffs - line-by-line changes are clear
-- ✅ Machine-readable - easy to parse and query
-- ✅ Standard format - widely supported
-- ✅ Deterministic - same data = same file
-- ✅ Works with GitHub/GitLab web UI (can view JSON files)
-- ✅ Good for programmatic access
+- ✅ **Machine-readable**: Easy to parse and query programmatically
+- ✅ **Standard format**: Widely supported, excellent tooling
+- ✅ **Deterministic**: Same data = same file (critical for proposals)
+- ✅ **Git-versioned**: Can be versioned in Git (changes come from proposal approvals, not manual edits)
+- ✅ **Viewable**: Works with GitHub/GitLab web UI (for viewing context, not editing)
+- ✅ **Programmatic access**: Easy to read/write programmatically
 
 **Cons**:
-- ❌ Less human-readable than YAML
+- ❌ Less human-readable than YAML (but files aren't manually edited anyway)
 - ❌ No comments in JSON (but metadata fields can document)
 
-**Git Diff Example**:
-```diff
- {
-   "id": "decision-001",
-   "type": "decision",
-   "status": "accepted",
--  "content": "Use TypeScript",
-+  "content": "Use TypeScript with strict mode",
-   "metadata": {
-     "modifiedAt": "2026-01-26T10:00:00Z"
-   }
- }
-```
+**Note**: Context store files are managed through proposals, not manual edits. Git diffs show the result of approved proposals, not manual file edits.
 
 ### Option 2: YAML Files
 
@@ -71,27 +61,18 @@ The context store needs to be:
 ```
 
 **Pros**:
-- ✅ Human-readable - easier to read and edit manually
-- ✅ Supports comments - can document inline
-- ✅ Good git diffs - clear line-by-line changes
-- ✅ Works with GitHub/GitLab web UI
-- ✅ More compact than JSON for nested structures
+- ✅ **Human-readable**: Easier to read and inspect (for debugging/review)
+- ✅ **Supports comments**: Can document inline (though files aren't manually edited)
+- ✅ **Git-versioned**: Can be versioned in Git (changes from proposal approvals)
+- ✅ **Viewable**: Works with GitHub/GitLab web UI (for viewing)
+- ✅ **More compact**: More compact than JSON for nested structures
 
 **Cons**:
 - ❌ Less strict than JSON (whitespace-sensitive, indentation matters)
 - ❌ Slightly harder to parse programmatically
 - ❌ Can have ambiguity issues (though rare)
 
-**Git Diff Example**:
-```yaml
- id: decision-001
- type: decision
- status: accepted
--content: Use TypeScript
-+content: Use TypeScript with strict mode
- metadata:
-   modifiedAt: 2026-01-26T10:00:00Z
-```
+**Note**: Files are managed through proposals, not manual edits. YAML readability is less important since developers don't edit these files directly.
 
 ### Option 3: Hybrid Approach (JSON + YAML)
 
@@ -131,12 +112,12 @@ The context store needs to be:
 - ✅ Easy to backup/copy
 
 **Cons**:
-- ❌ Poor git diffs - entire file changes on any update
-- ❌ Merge conflicts - harder to resolve
-- ❌ Not scalable - large files are slow
-- ❌ Poor performance - must parse entire file
+- ❌ **Poor versioning**: Entire file changes on any update (harder to track proposal changes)
+- ❌ **Merge conflicts**: Harder to resolve when multiple proposals approved simultaneously
+- ❌ **Not scalable**: Large files are slow to parse
+- ❌ **Poor performance**: Must parse entire file for any operation
 
-**Recommendation**: ❌ Not recommended for git-hosted storage.
+**Recommendation**: ❌ Not recommended - one file per entity is better for proposal-based workflow.
 
 ### Option 5: Directory-per-Type Structure
 
@@ -278,13 +259,15 @@ docs/              # Generated site (GitLab Pages)
 
 **Rationale**:
 1. ✅ **Graph-native**: Matches graph model (see `decision-015`), enables efficient relationship queries
-2. ✅ **Git-friendly**: Excellent diffs, clear history, reviewable in PRs
+2. ✅ **Git-versioned**: Can be versioned in Git (changes come from proposal approvals)
 3. ✅ **Queryable**: Native graph structure enables efficient traversal and path finding
-4. ✅ **Versioned**: Git provides full version history
-5. ✅ **Accessible**: GitHub/GitLab web UI can display JSON
-6. ✅ **Merge-friendly**: Conflicts are isolated to graph structure
+4. ✅ **Versioned**: Git provides full version history (automatic from proposal workflow)
+5. ✅ **Viewable**: GitHub/GitLab web UI can display JSON (for viewing context)
+6. ✅ **Proposal-friendly**: Changes tracked through proposals, not manual edits
 7. ✅ **Self-contained**: All data in Git, no external services (see `constraint-005`)
 8. ✅ **Compatible**: Extends current JSON structure, maintains compatibility
+
+**Note**: Context store files are managed through proposals/review workflow. Git is used for versioning and collaboration, but developers don't manually edit these files or create git diffs. Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update → Git Commit.
 
 ### File Naming Convention
 
@@ -465,12 +448,14 @@ These formats can be stored directly in Git as text files, providing full versio
 **Format**: XML-based text format for graphs
 
 **Pros**:
-- ✅ **Git-friendly**: Pure text/XML, excellent diffs
-- ✅ **Human-readable**: Can be viewed and edited
+- ✅ **Git-versioned**: Pure text/XML, can be versioned in Git
+- ✅ **Human-readable**: Can be viewed and inspected
 - ✅ **Comprehensive**: Supports nodes, edges, attributes, hierarchical graphs
 - ✅ **Standard**: Widely supported by graph tools
 - ✅ **Self-contained**: All data in Git, no external services
-- ✅ **Reviewable**: Can review graph changes in PRs
+- ✅ **Viewable**: Can view graph structure in PRs (for review, not editing)
+
+**Note**: Files are managed through proposals, not manual editing. GraphML readability is for inspection/review, not manual editing.
 
 **Cons**:
 - ❌ Verbose (XML overhead)
@@ -504,11 +489,13 @@ These formats can be stored directly in Git as text files, providing full versio
 **Format**: Text-based graph description language
 
 **Pros**:
-- ✅ **Git-friendly**: Pure text, excellent diffs
-- ✅ **Human-readable**: Very readable syntax
+- ✅ **Git-versioned**: Pure text, can be versioned in Git
+- ✅ **Human-readable**: Very readable syntax (for inspection)
 - ✅ **Simple**: Lightweight format
 - ✅ **Self-contained**: All data in Git
-- ✅ **Reviewable**: Can review in PRs
+- ✅ **Viewable**: Can view in PRs (for review, not editing)
+
+**Note**: Files are managed through proposals, not manual editing.
 
 **Cons**:
 - ❌ Limited metadata support
@@ -531,11 +518,13 @@ digraph context_graph {
 **Format**: XML-based format for network representation
 
 **Pros**:
-- ✅ **Git-friendly**: XML text format, good diffs
+- ✅ **Git-versioned**: XML text format, can be versioned in Git
 - ✅ **Rich metadata**: Supports attributes, dynamics, hierarchies
 - ✅ **Standard**: Used by Gephi and other tools
 - ✅ **Self-contained**: All data in Git
-- ✅ **Reviewable**: Can review in PRs
+- ✅ **Viewable**: Can view in PRs (for review, not editing)
+
+**Note**: Files are managed through proposals, not manual editing.
 
 **Cons**:
 - ❌ Verbose (XML overhead)
@@ -572,12 +561,14 @@ digraph context_graph {
 **Format**: Extend current JSON structure to include graph representation
 
 **Pros**:
-- ✅ **Git-friendly**: Already using JSON, excellent diffs
+- ✅ **Git-versioned**: Already using JSON, can be versioned in Git
 - ✅ **Consistent**: Same format as node files
 - ✅ **Queryable**: Can use existing JSON parsing
 - ✅ **Self-contained**: All data in Git
-- ✅ **Reviewable**: Can review in PRs
+- ✅ **Viewable**: Can view in PRs (for review, not editing)
 - ✅ **No format conversion**: Direct mapping from node structure
+
+**Note**: Files are managed through proposals, not manual editing.
 
 **Cons**:
 - ❌ Custom format (not standard)
@@ -611,15 +602,17 @@ digraph context_graph {
 **Format**: GraphQL Schema Definition Language - text-based schema and data format
 
 **Pros**:
-- ✅ **Git-friendly**: Pure text format, excellent diffs
-- ✅ **Human-readable**: Very readable syntax, more readable than JSON
+- ✅ **Git-versioned**: Pure text format, can be versioned in Git
+- ✅ **Human-readable**: Very readable syntax, more readable than JSON (for inspection)
 - ✅ **Type-safe**: Built-in type system with validation
 - ✅ **Self-documenting**: Schema serves as documentation
 - ✅ **Standard**: Widely supported, mature specification
 - ✅ **Self-contained**: All data in Git
-- ✅ **Reviewable**: Can review in PRs
+- ✅ **Viewable**: Can view in PRs (for review, not editing)
 - ✅ **Query language**: Native GraphQL query support (if using GraphQL runtime)
 - ✅ **Comments**: Supports comments for documentation
+
+**Note**: Files are managed through proposals, not manual editing. GraphQL SDL readability is for schema inspection/review.
 
 **Cons**:
 - ❌ Primarily designed for schema definition, not data storage
@@ -1014,11 +1007,14 @@ node Decision_decision_001 {
 - **Primary**: JSON Graph format (`.context/graph.json`) - default storage for all collected data
 - Graph structure with nodes and edges enables efficient relationship queries
 - Individual node files in `.context/nodes/` for granular access
-- Committed to git for versioning and collaboration
-- Excellent git diffs and merge conflict resolution
-- Works with GitHub/GitLab web interfaces
+- Committed to git for versioning and collaboration (changes come from proposal approvals)
+- **Proposal-based workflow**: All changes go through proposals/review, not manual edits
+- **Git versioning**: Git provides version history (automatic from proposal workflow)
+- Works with GitHub/GitLab web interfaces (for viewing context, not editing)
 - Easy to query and process programmatically with graph structure
 - All data stays within organization (self-hosted Git, no external services)
+
+**Workflow**: UI/Agent → Proposal → Review → Approval → Context Store Update → Git Commit
 
 **Optional Enhancement**: GraphQL SDL for Schema
 - Use `.context/schema.graphql` to define schema (human-readable)

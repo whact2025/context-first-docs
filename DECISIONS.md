@@ -94,14 +94,16 @@ status: accepted
 **Rationale**:
 - Graph model (see `decision-015`) requires graph-native storage format
 - Graph format enables efficient relationship queries and traversal
-- JSON Graph format extends current JSON structure, maintaining git-friendliness
-- Git diffs on structured graph data are meaningful and reviewable
+- JSON Graph format extends current JSON structure, maintaining git-versionability
+- **Proposal-based workflow**: All changes go through proposals/review, not manual edits or git diffs
 - Easier to query and process programmatically with graph structure
 - Markdown files are generated deterministically from the graph store
 - Enables advanced features like relationship traversal, path finding, and graph queries
-- JSON Graph provides excellent git diffs and merge conflict resolution
-- Committed to git provides full version history and collaboration
+- JSON Graph format is machine-readable and programmatically manageable
+- Committed to git provides full version history and collaboration (changes come from proposal approvals)
 - All data stays within organization (see `constraint-005`)
+
+**Workflow**: Context store files are NOT manually edited. Changes flow: UI/Agent → Proposal → Review → Approval → Context Store Update → Git Commit
 
 **Storage Structure**:
 ```
@@ -143,18 +145,20 @@ status: accepted
 - Extends current JSON structure (compatible with existing approach)
 - More machine-friendly and deterministic than XML-based formats (GraphML, GEXF)
 - Better tooling support than GraphML/GEXF
-- Excellent git diffs (better than binary formats)
+- Machine-readable and programmatically manageable (better than binary formats)
 - Standard JSON format, widely supported
 - Native graph structure enables efficient queries
-- Human-readable and reviewable in PRs
+- Viewable in PRs (for inspection, not editing)
 - All data in Git, no external services required
 
 **Git Integration**: Context store is committed to git (not ignored) for:
-- Full version history
-- Collaboration via git workflows
-- Review context changes in PRs
+- Full version history (automatic from proposal workflow)
+- Collaboration via git workflows (syncing context store between team members)
+- View context changes in PRs (for review/inspection, not manual editing)
 - Git-based backup and distribution
 - All data stays within organization (self-hosted Git)
+
+**Important**: Context store files are managed through proposals, not manual edits. Git diffs show the result of approved proposals, but the workflow is proposal-based, not diff-based.
 
 **Alternatives Considered**:
 - Individual JSON files only (loses graph structure, harder to query relationships)
