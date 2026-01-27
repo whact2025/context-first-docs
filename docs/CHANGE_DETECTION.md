@@ -185,13 +185,20 @@ const proposals = await importFromMarkdown(store, markdown, "alice");
 
 ### Git Integration
 
-**Important**: Git is NOT used for change detection. Git is only used for:
-- **Versioning Context Store**: `.context/graph.json` is committed to Git
-- **Collaboration**: Multiple users sync context store through Git
-- **History**: Git provides version history for context store
+**Important**: 
+- Git is NOT used for change detection (handled by UI)
+- Context store is centrally managed, NOT in Git
+- Contexts are NOT subject to git commits/merges
 
-**NOT used for**:
-- ❌ Detecting Markdown changes (handled by UI)
+**Central Management**:
+- **Central Context Store**: Context store is centrally managed for organization/project
+- **No Git Operations**: Contexts NOT subject to git commits/merges
+- **Collaboration**: Multiple users access central context store (not via git sync)
+- **Proposal-Based**: All changes through proposals/review workflow
+
+**NOT used**:
+- ❌ Git commits/merges for context store
+- ❌ Git-based change tracking
 - ❌ Storing Markdown files (UI-only)
 - ❌ Storing ctx blocks (UI-only)
 
