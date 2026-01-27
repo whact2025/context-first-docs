@@ -25,18 +25,20 @@ Only `ctx` blocks are managed by the system; other Markdown content is preserved
 The system scans Markdown files for `ctx` blocks using regex pattern:
 
 ```typescript
-const CTX_BLOCK_REGEX = /```ctx\n([\s\S]*?)```/g;
+// Supports ```ctx or ~~~ctx fences (3+ chars), and \n or \r\n line endings.
+const CTX_BLOCK_REGEX = /(`{3,}|~{3,})ctx\r?\n([\s\S]*?)\1/g;
 ```
 
 Each ctx block has the structure:
 ```markdown
-```ctx
+~~~ctx
 type: decision
 id: decision-001
 status: accepted
+title: Short label (optional)
 ---
-Content here
-```
+Markdown description here (may include ``` code fences safely)
+~~~
 ```
 
 ### 2. Parse ctx Block Structure
@@ -46,7 +48,8 @@ Each block is parsed to extract:
 - **ID**: Stable identifier (survives rebases/merges)
 - **Namespace**: Optional namespace for organization
 - **Status**: Current status (accepted, proposed, rejected, superseded)
-- **Content**: The actual content (everything after `---`)
+- **Title**: Optional short label (header field)
+- **Description**: Markdown body (everything after `---`)
 - **Position**: Start/end positions and line numbers in source file
 
 ### 3. Compare with Context Store

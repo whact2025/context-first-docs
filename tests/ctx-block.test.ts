@@ -16,6 +16,7 @@ describe("ctx-block", () => {
 type: decision
 id: decision-001
 status: accepted
+title: Use TypeScript
 ---
 **Decision**: Use TypeScript.
 
@@ -40,6 +41,7 @@ Build a scalable system.
     expect(blocks[0].type).toBe("decision");
     expect(blocks[0].id).toBe("decision-001");
     expect(blocks[0].status).toBe("accepted");
+    expect(blocks[0].title).toBe("Use TypeScript");
     expect(blocks[1].type).toBe("goal");
     expect(blocks[1].namespace).toBe("architecture");
   });
@@ -51,6 +53,7 @@ Build a scalable system.
       "accepted",
       "Use Rust for performance."
     );
+    expect(block).toContain("~~~ctx");
     expect(block).toContain("type: decision");
     expect(block).toContain("id: decision-002");
     expect(block).toContain("status: accepted");
@@ -66,5 +69,35 @@ Build a scalable system.
       "architecture"
     );
     expect(block).toContain("namespace: architecture");
+  });
+
+  it("should allow markdown (including code fences) inside the content/description", () => {
+    const markdownInside = `This description is Markdown.
+
+\`\`\`ts
+export function hello() {
+  return "world";
+}
+\`\`\`
+`;
+
+    const block = generateCtxBlock(
+      "note",
+      "note-001",
+      "accepted",
+      markdownInside,
+      undefined,
+      "Note with code"
+    );
+
+    // Generated ctx blocks use ~~~ fences specifically so the body can contain ``` fences.
+    expect(block).toContain("~~~ctx");
+    expect(block).toContain("title: Note with code");
+    expect(block).toContain("```ts");
+
+    const extracted = extractCtxBlocks(block);
+    expect(extracted).toHaveLength(1);
+    expect(extracted[0].title).toBe("Note with code");
+    expect(extracted[0].content).toContain("```ts");
   });
 });

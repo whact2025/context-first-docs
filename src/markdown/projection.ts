@@ -67,8 +67,9 @@ export async function projectToMarkdown(
         node.type,
         node.id.id,
         node.status,
-        node.content,
-        node.id.namespace
+        node.description ?? node.content,
+        node.id.namespace,
+        node.title
       );
       sections.push(block);
       sections.push(""); // Empty line between blocks
@@ -146,6 +147,8 @@ function createProposalForNewNode(
     },
     type,
     status,
+    title: block.title,
+    description: block.content,
     content: block.content,
     ...(sourceFile ? { sourceFiles: [sourceFile] } : {}),
     metadata: {
@@ -184,12 +187,16 @@ function createProposalForNewNode(
 function detectChanges(existingNode: AnyNode, block: CtxBlock): string[] {
   const changes: string[] = [];
 
-  if (existingNode.content !== block.content) {
-    changes.push("content");
-  }
+  const existingBody = existingNode.description ?? existingNode.content;
+  if (existingBody !== block.content) changes.push("description");
 
   if (existingNode.status !== block.status) {
     changes.push("status");
+  }
+
+  // Only treat title as changed if the ctx block explicitly provided one
+  if (typeof block.title === "string" && (existingNode.title ?? "") !== block.title) {
+    changes.push("title");
   }
 
   return changes;
@@ -215,8 +222,9 @@ function createProposalForUpdate(
     order: 0,
     nodeId: existingNode.id,
     changes: {
-      ...(changes.includes("content") && { content: block.content }),
+      ...(changes.includes("description") && { description: block.content, content: block.content }),
       ...(changes.includes("status") && { status }),
+      ...(changes.includes("title") && { title: block.title }),
     },
   };
 
@@ -269,8 +277,9 @@ export async function mergeMarkdownWithContext(
         node.type,
         node.id.id,
         node.status,
-        node.content,
-        node.id.namespace
+        node.description ?? node.content,
+        node.id.namespace,
+        node.title
       );
       result = replaceCtxBlock(result, block, newBlock);
     }

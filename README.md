@@ -333,6 +333,14 @@ npm run build
 npm test
 ```
 
+## Playground (Scenario Runner)
+
+If you want to see the system working end-to-end (scenarios + guided flows) via a tiny local web UI, use the playground.
+
+- Source: [`src/playground/`](src/playground/)
+- Run: `npm run playground`
+- Open: `http://localhost:4317`
+
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.

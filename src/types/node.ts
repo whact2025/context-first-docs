@@ -95,6 +95,16 @@ export interface ContextNode {
   type: NodeType;
   /** Current status */
   status: NodeStatus;
+  /**
+   * Normalized short label for UI/display.
+   * Optional for backward compatibility.
+   */
+  title?: string;
+  /**
+   * Normalized long-form description/body for UI/display.
+   * Optional for backward compatibility.
+   */
+  description?: string;
   /** The semantic content of this node */
   content: string;
   /** Text range in source Markdown (if applicable) */

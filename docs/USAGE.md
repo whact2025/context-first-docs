@@ -9,15 +9,20 @@ Create Markdown files with ctx blocks:
 ```markdown
 # Decisions
 
-```ctx
+~~~ctx
 type: decision
 id: decision-001
 status: accepted
+title: Use TypeScript
 ---
 **Decision**: Use TypeScript for type safety.
 
-**Rationale**: Type safety prevents common errors and improves developer experience.
-```
+This is the **description** field (Markdown). It can include code blocks:
+
+\`\`\`ts
+export type NodeStatus = "accepted" | "proposed" | "rejected" | "superseded";
+\`\`\`
+~~~
 ```
 
 ### 2. Import Changes
@@ -126,15 +131,17 @@ await store.createProposal(proposal);
 ### Optional Fields
 
 - `namespace`: For organizing nodes
+- `title`: Short label for display/search (recommended)
 
 ### Example
 
 ```markdown
-```ctx
+~~~ctx
 type: decision
 id: decision-001
 namespace: architecture
 status: accepted
+title: Microservices architecture
 ---
 **Decision**: Use microservices architecture.
 
@@ -142,7 +149,7 @@ status: accepted
 - Better scalability
 - Independent deployment
 - Technology diversity
-```
+~~~
 ```
 
 ## Best Practices

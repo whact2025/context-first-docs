@@ -103,6 +103,8 @@ export function applyUpdateChanges(
   changes: UpdateOperation["changes"]
 ): AnyNode {
   const commonKeys: readonly string[] = [
+    "title",
+    "description",
     "content",
     "status",
     "relationships",
@@ -114,6 +116,16 @@ export function applyUpdateChanges(
 
   const applyCommon = <T extends AnyNode>(node: T): T => {
     let next: T = { ...node };
+
+    const title = changes["title"];
+    if (typeof title === "string") {
+      next = { ...next, title };
+    }
+
+    const description = changes["description"];
+    if (typeof description === "string") {
+      next = { ...next, description };
+    }
 
     if (typeof changes.content === "string") {
       next = { ...next, content: changes.content };

@@ -19,7 +19,7 @@ no-separator-here
 Some content
 \`\`\``;
 
-    const match = Array.from(markdown.matchAll(/```ctx\n([\s\S]*?)```/g))[0];
+    const match = Array.from(markdown.matchAll(/(`{3,}|~{3,})ctx\r?\n([\s\S]*?)\1/g))[0];
     expect(match).toBeDefined();
     expect(parseCtxBlock(match, markdown)).toBeNull();
   });
@@ -32,7 +32,7 @@ id: decision-001
 Some content
 \`\`\``;
 
-    const match = Array.from(markdown.matchAll(/```ctx\n([\s\S]*?)```/g))[0];
+    const match = Array.from(markdown.matchAll(/(`{3,}|~{3,})ctx\r?\n([\s\S]*?)\1/g))[0];
     expect(match).toBeDefined();
     expect(parseCtxBlock(match, markdown)).toBeNull();
   });
@@ -45,7 +45,7 @@ status: accepted
 ---
 content
 \`\`\``;
-    const matchType = Array.from(badType.matchAll(/```ctx\n([\s\S]*?)```/g))[0];
+    const matchType = Array.from(badType.matchAll(/(`{3,}|~{3,})ctx\r?\n([\s\S]*?)\1/g))[0];
     expect(matchType).toBeDefined();
     expect(parseCtxBlock(matchType, badType)).toBeNull();
 
@@ -56,7 +56,7 @@ status: pending
 ---
 content
 \`\`\``;
-    const matchStatus = Array.from(badStatus.matchAll(/```ctx\n([\s\S]*?)```/g))[0];
+    const matchStatus = Array.from(badStatus.matchAll(/(`{3,}|~{3,})ctx\r?\n([\s\S]*?)\1/g))[0];
     expect(matchStatus).toBeDefined();
     expect(parseCtxBlock(matchStatus, badStatus)).toBeNull();
   });
