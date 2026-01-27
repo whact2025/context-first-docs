@@ -33,6 +33,22 @@ status: open
 - Need conflict resolution at the proposal level
 - May need custom merge strategies
 
+**Reconciliation Options** (see `docs/RECONCILIATION_STRATEGIES.md`):
+1. **Proposal-Based Conflict Detection** - Detect conflicts before approval, require resolution
+2. **Last-Write-Wins** - Most recently approved proposal wins
+3. **First-Write-Wins** - First approved proposal wins, later ones rejected
+4. **Field-Level Merging** - Merge non-conflicting fields, resolve conflicting fields
+5. **Three-Way Merge** - Use operational transformation to merge changes
+6. **Manual Resolution** - Always require human review and manual resolution
+7. **Lock-Based** - Prevent concurrent edits with locks
+8. **Optimistic Locking** - Track versions, reject stale proposals
+9. **Proposal Superseding** - Allow proposals to explicitly supersede others
+10. **Priority-Based** - Use proposal priority or approver seniority
+11. **Content-Aware Merging** - Use semantic analysis for intelligent merging
+12. **Branch-Based** - Allow multiple branches/versions of nodes
+
+**Recommended**: Hybrid approach combining conflict detection, field-level merging, manual resolution, and optimistic locking.
+
 **Impact**: High - affects collaboration model
 ```
 

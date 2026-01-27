@@ -23,12 +23,14 @@ status: accepted
 5. Add designated contributors and approvers support
 6. Implement role-based Markdown editing modes (read-only vs editable)
 7. Implement bidirectional sync - Markdown edits sync back to context store and referencing nodes
-8. Implement proposal review workflow with approval requirements
-9. Add issue creation on approval - automatically create issues when proposals are approved
-10. Add comment threading
-11. Support partial accept/reject
-12. Build review history tracking
-13. Support multi-approval workflows
+8. Implement conflict detection - detect when proposals modify the same node
+9. Implement reconciliation strategies - field-level merging, manual resolution, optimistic locking
+10. Implement proposal review workflow with approval requirements
+11. Add issue creation on approval - automatically create issues when proposals are approved
+12. Add comment threading
+13. Support partial accept/reject
+14. Build review history tracking
+15. Support multi-approval workflows
 
 **Phase 3: Persistence & Git Integration**
 1. File-based store implementation (JSON/YAML) - independent persistence
@@ -369,4 +371,36 @@ id: task-040
 status: open
 ---
 Implement reference tracking - detect and update nodes that reference changed content.
+```
+
+```ctx
+type: task
+id: task-041
+status: open
+---
+Build conflict detection system - detect when multiple proposals modify the same node.
+```
+
+```ctx
+type: task
+id: task-042
+status: open
+---
+Implement field-level merging - auto-merge non-conflicting fields, flag conflicts.
+```
+
+```ctx
+type: task
+id: task-043
+status: open
+---
+Create conflict resolution UI - side-by-side comparison and manual resolution interface.
+```
+
+```ctx
+type: task
+id: task-044
+status: open
+---
+Implement optimistic locking - track node versions and reject stale proposals.
 ```
