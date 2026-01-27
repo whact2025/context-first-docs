@@ -14,6 +14,8 @@ status: accepted
 4. Create import/export functionality ✅
 5. Implement in-memory store ✅
 6. Make project self-referential ✅
+7. Define graph model with typed relationships ✅
+8. Design comprehensive Agent API with chain-of-thought traversal ✅
 
 **Phase 2: Authoring & Review System** (Next)
 1. Implement proposal authoring APIs and helpers
@@ -21,40 +23,61 @@ status: accepted
 3. Create authoring helpers for all node types (decisions, tasks, questions, etc.)
 4. Implement role and permission system (contributors, approvers, admins)
 5. Add designated contributors and approvers support
-6. Implement role-based Markdown editing modes (read-only vs editable)
+6. Implement role-based Markdown editing modes (read-only vs editable) - UI-only Markdown
 7. Implement bidirectional sync - Markdown edits sync back to context store and referencing nodes
-8. Implement hybrid reconciliation system:
+8. Implement change detection embedded in UI (VS Code/Cursor extension, web UI)
+9. Implement hybrid reconciliation system:
    - Conflict detection at proposal creation
    - Field-level merging for non-conflicting fields
    - Optimistic locking with version tracking
    - Manual resolution for true conflicts
    - Proposal superseding support
-9. Implement proposal review workflow with approval requirements
+10. Implement proposal review workflow with approval requirements
 11. Add issue creation on approval - automatically create issues when proposals are approved
 12. Add comment threading
 13. Support partial accept/reject
 14. Build review history tracking
 15. Support multi-approval workflows
 
-**Phase 3: Persistence & Git Integration**
-1. File-based store implementation (JSON/YAML) - independent persistence
-2. Commit tracking system - link commits to proposals/nodes (Jira-style checkin semantics)
-3. Git integration for commit message parsing and proposal linking
-4. Migration tools for existing docs
+**Phase 3: Persistence & Self-Hosted Git Storage**
+1. Graph format storage implementation (JSON Graph format) - default storage for all collected data
+2. Self-hosted Git storage service - manage context store in self-hosted Git repository (GitLab, Gitea, etc.)
+3. Automatic Git updates - approved proposals automatically update Git repository (no manual git commits/merges)
+4. File-based store in Git (JSON Graph format) - `.context/graph.json` and individual node files
+5. Commit tracking system - link code commits to proposals/nodes (Jira-style checkin semantics)
+6. Git integration for commit message parsing and proposal linking
+7. Migration tools for existing docs
+8. Ensure context store persistence is independent of git commits - proposals persist immediately
 
 **Phase 4: Agent APIs**
-1. Design agent-safe query API
-2. Implement proposal generation API
-3. Add validation and safety checks
-4. Create agent documentation
+1. Implement comprehensive query API (type, status, keyword, relationships, pagination, sorting)
+2. Implement chain-of-thought traversal APIs:
+   - traverseReasoningChain() - follow logical relationship paths
+   - buildContextChain() - progressive context building
+   - followDecisionReasoning() - understand decision rationale
+   - discoverRelatedReasoning() - find related context
+   - queryWithReasoning() - query with automatic reasoning chains
+3. Implement graph traversal APIs (relationship queries, path finding, dependencies)
+4. Implement proposal generation API
+5. Add validation and safety checks (default to accepted only, explicit opt-in for proposals)
+6. Create agent documentation (see `docs/AGENT_API.md`)
 
 **Phase 5: Installation & Integration**
 1. Clean installation system - non-invasive setup for existing repositories
-2. Migration tools - convert existing docs to context-first format (optional)
-3. VS Code/Cursor extension - in-editor review and context awareness (required)
-4. GitHub/GitLab integration
-5. CLI tools for installation and management
-6. CI/CD integration
+2. Self-hosted Git storage setup - configure storage service for self-hosted Git repository
+3. Migration tools - convert existing docs to context-first format (optional)
+4. VS Code/Cursor extension - in-editor review, context awareness, real-time change detection (required)
+5. Extension features:
+   - Change detection embedded in UI (on save or real-time)
+   - Proposal creation and management UI
+   - Context awareness while coding
+   - Role-based Markdown editing (read-only vs editable)
+6. Pre-baked Cursor rules - AI-assisted proposal and risk authoring
+7. GitHub/GitLab integration (for code repository, not context store)
+8. Reverse engineering MRs/PRs - extract historical context from existing repositories
+9. CLI tools for installation and management
+10. CI/CD integration
+11. Security/privacy validation - ensure zero IP leakage, all data in self-hosted Git
 ```
 
 ```ctx
@@ -102,7 +125,7 @@ type: task
 id: task-006
 status: in-progress
 ---
-Create file-based persistence layer for context store.
+Create file-based persistence layer for context store (JSON Graph format in self-hosted Git).
 ```
 
 ```ctx
@@ -174,7 +197,7 @@ type: task
 id: task-015
 status: open
 ---
-Implement commit tracking - link git commits to proposals/nodes when proposals are implemented.
+Implement commit tracking - link code git commits to proposals/nodes when proposals are implemented (Jira-style checkin semantics).
 ```
 
 ```ctx
@@ -190,7 +213,7 @@ type: task
 id: task-017
 status: open
 ---
-Ensure context store persistence is independent of git commits - proposals persist immediately upon creation.
+Ensure context store persistence is independent of git commits - proposals persist immediately upon creation. Context store files are in self-hosted Git but automatically updated (no manual git commits/merges).
 ```
 
 ```ctx
@@ -230,7 +253,7 @@ type: task
 id: task-022
 status: open
 ---
-Build VS Code/Cursor extension - in-editor review, proposal management, and context awareness.
+Build VS Code/Cursor extension - in-editor review, proposal management, context awareness, and real-time change detection. Change detection embedded in UI (required for v1).
 ```
 
 ```ctx
@@ -238,7 +261,7 @@ type: task
 id: task-023
 status: open
 ---
-Implement extension features - ctx block highlighting, proposal creation, review UI, context queries.
+Implement extension features - ctx block highlighting, proposal creation, review UI, context queries, real-time change detection (on save or as you type), role-based editing modes.
 ```
 
 ```ctx
@@ -407,4 +430,60 @@ id: task-044
 status: open
 ---
 Implement optimistic locking - track node versions and reject stale proposals.
+```
+
+```ctx
+type: task
+id: task-045
+status: open
+---
+Implement graph model with typed relationships - parent-child, depends-on, references, implements, blocks, mitigates, related-to.
+```
+
+```ctx
+type: task
+id: task-046
+status: open
+---
+Implement graph format storage (JSON Graph) - default storage for all collected data in self-hosted Git repository.
+```
+
+```ctx
+type: task
+id: task-047
+status: open
+---
+Build self-hosted Git storage service - manage context store files in self-hosted Git repository (GitLab, Gitea, etc.) with automatic updates.
+```
+
+```ctx
+type: task
+id: task-048
+status: open
+---
+Implement automatic Git updates - approved proposals automatically update Git repository (no manual git commits/merges).
+```
+
+```ctx
+type: task
+id: task-049
+status: open
+---
+Implement chain-of-thought traversal APIs - traverseReasoningChain, buildContextChain, followDecisionReasoning, discoverRelatedReasoning, queryWithReasoning.
+```
+
+```ctx
+type: task
+id: task-050
+status: open
+---
+Ensure UI-only Markdown - ctx blocks and rendered Markdown exist only in UI, NOT in Git. Change detection embedded in UI.
+```
+
+```ctx
+type: task
+id: task-051
+status: open
+---
+Validate security/privacy - ensure zero IP leakage, all data in self-hosted Git repository within organization, no external services.
 ```
