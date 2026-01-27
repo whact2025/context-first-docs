@@ -11,15 +11,18 @@
  * ```
  */
 
+import { isOneOf } from "../utils/type-guards.js";
+import { NodeStatus, NodeType } from "../types/node.js";
+
 export interface CtxBlock {
   /** The node type */
-  type: string;
+  type: NodeType;
   /** The node ID */
   id: string;
   /** Optional namespace */
   namespace?: string;
   /** Current status */
-  status: string;
+  status: NodeStatus;
   /** The content (everything after the separator) */
   content: string;
   /** Start position in source file */
@@ -38,6 +41,28 @@ const CTX_ID_REGEX = /^id:\s*(.+)$/m;
 const CTX_NAMESPACE_REGEX = /^namespace:\s*(.+)$/m;
 const CTX_STATUS_REGEX = /^status:\s*(.+)$/m;
 const CTX_SEPARATOR = /^---$/m;
+
+const NODE_TYPES = [
+  "goal",
+  "decision",
+  "constraint",
+  "task",
+  "risk",
+  "question",
+  "context",
+  "plan",
+  "note",
+ ] as const;
+
+const NODE_STATUSES = [
+  "accepted",
+  "proposed",
+  "rejected",
+  "superseded",
+ ] as const;
+
+const isNodeType = isOneOf(NODE_TYPES);
+const isNodeStatus = isOneOf(NODE_STATUSES);
 
 /**
  * Parse a ctx block from Markdown text.
@@ -67,6 +92,12 @@ export function parseCtxBlock(match: RegExpMatchArray, sourceText: string): CtxB
     return null; // Required fields missing
   }
 
+  const typeRaw = typeMatch[1].trim();
+  const statusRaw = statusMatch[1].trim();
+  if (!isNodeType(typeRaw) || !isNodeStatus(statusRaw)) {
+    return null; // Invalid values
+  }
+
   // Calculate positions
   const startPos = matchIndex;
   const endPos = matchIndex + fullMatch.length;
@@ -74,10 +105,10 @@ export function parseCtxBlock(match: RegExpMatchArray, sourceText: string): CtxB
   const endLine = sourceText.substring(0, endPos).split("\n").length;
 
   return {
-    type: typeMatch[1].trim(),
+    type: typeRaw,
     id: idMatch[1].trim(),
     namespace: namespaceMatch ? namespaceMatch[1].trim() : undefined,
-    status: statusMatch[1].trim(),
+    status: statusRaw,
     content: contentSection,
     startPos,
     endPos,
@@ -107,9 +138,9 @@ export function extractCtxBlocks(markdown: string): CtxBlock[] {
  * Generate a ctx block from node data.
  */
 export function generateCtxBlock(
-  type: string,
+  type: NodeType,
   id: string,
-  status: string,
+  status: NodeStatus,
   content: string,
   namespace?: string
 ): string {

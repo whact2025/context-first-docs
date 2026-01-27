@@ -2,8 +2,7 @@
  * Conflict detection and resolution types.
  */
 
-import { NodeId, AnyNode } from "./node.js";
-import { Proposal } from "./proposal.js";
+import { NodeId } from "./node.js";
 
 /**
  * Conflict between two proposals.

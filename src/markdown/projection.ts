@@ -7,7 +7,12 @@
  * - rewrites only the sections it owns
  */
 
-import { AnyNode, NodeId, NodeStatus } from "../types/node.js";
+import {
+  AnyNode,
+  ContextNode,
+  NodeId,
+  NodeStatus,
+} from "../types/node.js";
 import { Proposal, CreateOperation, UpdateOperation } from "../types/proposal.js";
 import { ContextStore, NodeQuery } from "../types/context-store.js";
 import { extractCtxBlocks, generateCtxBlock, replaceCtxBlock, CtxBlock } from "./ctx-block.js";
@@ -127,29 +132,36 @@ function createProposalForNewNode(
   sourceFile?: string
 ): Proposal {
   const now = new Date().toISOString();
-  const nodeId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  // Note: block.id is the stable node id; we don't need a separate nodeId here.
+
+  const type = block.type;
+  const status = block.status;
 
   // This is a simplified version - in reality, we'd parse the content
   // based on the node type to create the proper node structure
+  const node: ContextNode = {
+    id: {
+      id: block.id,
+      namespace: block.namespace,
+    },
+    type,
+    status,
+    content: block.content,
+    ...(sourceFile ? { sourceFiles: [sourceFile] } : {}),
+    metadata: {
+      createdAt: now,
+      createdBy: author,
+      modifiedAt: now,
+      modifiedBy: author,
+      version: 1,
+    },
+  };
+
   const operation: CreateOperation = {
     id: `op-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     type: "create",
     order: 0,
-    node: {
-      id: {
-        id: block.id,
-        namespace: block.namespace,
-      },
-      type: block.type as any,
-      status: block.status as any,
-      content: block.content,
-      metadata: {
-        createdAt: now,
-        createdBy: author,
-        modifiedAt: now,
-        modifiedBy: author,
-      },
-    } as AnyNode,
+    node,
   };
 
   return {
@@ -161,6 +173,7 @@ function createProposalForNewNode(
       createdBy: author,
       modifiedAt: now,
       modifiedBy: author,
+      ...(sourceFile ? { rationale: `Imported from ${sourceFile}` } : {}),
     },
   };
 }
@@ -194,6 +207,8 @@ function createProposalForUpdate(
 ): Proposal {
   const now = new Date().toISOString();
 
+  const status = block.status;
+
   const operation: UpdateOperation = {
     id: `op-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     type: "update",
@@ -201,7 +216,7 @@ function createProposalForUpdate(
     nodeId: existingNode.id,
     changes: {
       ...(changes.includes("content") && { content: block.content }),
-      ...(changes.includes("status") && { status: block.status as any }),
+      ...(changes.includes("status") && { status }),
     },
   };
 
@@ -214,6 +229,7 @@ function createProposalForUpdate(
       createdBy: author,
       modifiedAt: now,
       modifiedBy: author,
+      ...(sourceFile ? { rationale: `Updated from ${sourceFile}` } : {}),
     },
   };
 }
@@ -230,6 +246,10 @@ export async function mergeMarkdownWithContext(
   const blocks = extractCtxBlocks(markdown);
   let result = markdown;
 
+  const allowed: NodeStatus[] = ["accepted"];
+  if (options.includeProposed) allowed.push("proposed");
+  if (options.includeRejected) allowed.push("rejected");
+
   // Process blocks in reverse order to maintain positions
   for (let i = blocks.length - 1; i >= 0; i--) {
     const block = blocks[i];
@@ -239,7 +259,11 @@ export async function mergeMarkdownWithContext(
     };
 
     const node = await store.getNode(nodeId);
-    if (node && node.status === "accepted") {
+    if (
+      node &&
+      allowed.includes(node.status) &&
+      (!options.namespace || node.id.namespace === options.namespace)
+    ) {
       // Replace with accepted truth
       const newBlock = generateCtxBlock(
         node.type,

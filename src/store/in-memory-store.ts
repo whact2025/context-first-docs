@@ -12,7 +12,6 @@ import {
   NodeQueryResult,
   ProposalQuery,
   RelationshipType,
-  NodeType,
   ReasoningChainOptions,
   ReasoningChainResult,
   ReasoningStep,
@@ -25,7 +24,30 @@ import {
   ReasoningQueryOptions,
   ReasoningQueryResult,
 } from "../types/index.js";
-import { Proposal, Review } from "../types/proposal.js";
+import {
+  NodeType,
+  PlanStep,
+  RiskNode,
+  TaskNode,
+  TextRange,
+} from "../types/node.js";
+import {
+  Guard,
+  isArrayOf,
+  isNumber,
+  isOptional,
+  isRecord as isRecordGuard,
+  isString,
+  isOneOf,
+} from "../utils/type-guards.js";
+import {
+  Proposal,
+  Review,
+  AnyOperation,
+  UpdateOperation,
+  DeleteTextOperation,
+  DeleteOperation,
+} from "../types/proposal.js";
 import {
   ConflictDetectionResult,
   MergeResult,
@@ -44,6 +66,268 @@ export class InMemoryStore implements ContextStore {
 
   private getNodeByKey(key: string): AnyNode | null {
     return this.nodes.get(key) || null;
+  }
+
+  private isDeleteTextOperation(op: AnyOperation): op is DeleteTextOperation {
+    return op.type === "delete" && "start" in op && "end" in op;
+  }
+
+  private isDeleteNodeOperation(op: AnyOperation): op is DeleteOperation {
+    return op.type === "delete" && "nodeId" in op;
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return isRecordGuard(value);
+  }
+
+  private isStringArray: Guard<string[]> = isArrayOf(isString);
+
+  private isNodeId(value: unknown): value is NodeId {
+    if (!this.isRecord(value)) return false;
+    const id = value["id"];
+    const namespace = value["namespace"];
+    return (
+      isString(id) &&
+      isOptional(isString)(namespace)
+    );
+  }
+
+  private isNodeIdArray(value: unknown): value is NodeId[] {
+    return Array.isArray(value) && value.every((v) => this.isNodeId(v));
+  }
+
+  private isRelationshipType(value: unknown): value is RelationshipType {
+    return isOneOf(
+      [
+        "parent-child",
+        "depends-on",
+        "references",
+        "supersedes",
+        "related-to",
+        "implements",
+        "blocks",
+        "mitigates",
+      ] as const
+    )(value);
+  }
+
+  private isNodeRelationship(value: unknown): value is NodeRelationship {
+    if (!this.isRecord(value)) return false;
+    return (
+      this.isRelationshipType(value["type"]) &&
+      this.isNodeId(value["target"])
+    );
+  }
+
+  private isNodeRelationshipArray(value: unknown): value is NodeRelationship[] {
+    return Array.isArray(value) && value.every((v) => this.isNodeRelationship(v));
+  }
+
+  private isTextRange(value: unknown): value is TextRange {
+    if (!this.isRecord(value)) return false;
+    const start = value["start"];
+    const end = value["end"];
+    const source = value["source"];
+    return (
+      isNumber(start) &&
+      isNumber(end) &&
+      isOptional(isString)(source)
+    );
+  }
+
+  private isPlanStep(value: unknown): value is PlanStep {
+    if (!this.isRecord(value)) return false;
+    const description = value["description"];
+    const order = value["order"];
+    const references = value["references"];
+    return (
+      isString(description) &&
+      isNumber(order) &&
+      (references === undefined || this.isNodeIdArray(references))
+    );
+  }
+
+  private isPlanStepArray(value: unknown): value is PlanStep[] {
+    return Array.isArray(value) && value.every((v) => this.isPlanStep(v));
+  }
+
+  private isTaskState(value: unknown): value is TaskNode["state"] {
+    return isOneOf(
+      ["open", "in-progress", "blocked", "completed", "cancelled"] as const
+    )(value);
+  }
+
+  private isRiskSeverity(value: unknown): value is RiskNode["severity"] {
+    return isOneOf(["low", "medium", "high", "critical"] as const)(value);
+  }
+
+  private isRiskLikelihood(value: unknown): value is RiskNode["likelihood"] {
+    return isOneOf(["unlikely", "possible", "likely", "certain"] as const)(value);
+  }
+
+  private applyCommonNodeChanges<T extends AnyNode>(
+    node: T,
+    changes: UpdateOperation["changes"]
+  ): T {
+    let next: T = { ...node };
+
+    if (typeof changes.content === "string") {
+      next = { ...next, content: changes.content };
+    }
+    if (changes.status) {
+      next = { ...next, status: changes.status };
+    }
+
+    const relationships = changes["relationships"];
+    if (this.isNodeRelationshipArray(relationships)) {
+      next = { ...next, relationships };
+    }
+
+    const relations = changes["relations"];
+    if (this.isNodeIdArray(relations)) {
+      next = { ...next, relations };
+    }
+
+    const referencedBy = changes["referencedBy"];
+    if (this.isNodeIdArray(referencedBy)) {
+      next = { ...next, referencedBy };
+    }
+
+    const sourceFiles = changes["sourceFiles"];
+    if (this.isStringArray(sourceFiles)) {
+      next = { ...next, sourceFiles };
+    }
+
+    const textRange = changes["textRange"];
+    if (this.isTextRange(textRange)) {
+      next = { ...next, textRange };
+    }
+
+    return next;
+  }
+
+  private applyUnknownChangeFields<T extends AnyNode>(
+    node: T,
+    changes: UpdateOperation["changes"],
+    knownKeys: ReadonlySet<string>
+  ): T {
+    const next: T = { ...node };
+
+    for (const [key, value] of Object.entries(changes)) {
+      if (knownKeys.has(key)) continue;
+      if (key === "id" || key === "type" || key === "metadata") continue;
+      Reflect.set(next, key, value);
+    }
+
+    return next;
+  }
+
+  private applyUpdateChanges(existing: AnyNode, changes: UpdateOperation["changes"]): AnyNode {
+    const commonKeys: readonly string[] = [
+      "content",
+      "status",
+      "relationships",
+      "relations",
+      "referencedBy",
+      "sourceFiles",
+      "textRange",
+    ];
+
+    switch (existing.type) {
+      case "goal": {
+        const typeKeys: readonly string[] = ["criteria"];
+        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
+        const next = this.applyCommonNodeChanges(existing, changes);
+        const criteria = changes["criteria"];
+        if (this.isStringArray(criteria)) Reflect.set(next, "criteria", criteria);
+        return this.applyUnknownChangeFields(next, changes, knownKeys);
+      }
+      case "decision": {
+        const typeKeys: readonly string[] = [
+          "decision",
+          "rationale",
+          "alternatives",
+          "decidedAt",
+        ];
+        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
+        const next = this.applyCommonNodeChanges(existing, changes);
+        const decision = changes["decision"];
+        if (typeof decision === "string") Reflect.set(next, "decision", decision);
+        const rationale = changes["rationale"];
+        if (typeof rationale === "string") Reflect.set(next, "rationale", rationale);
+        const alternatives = changes["alternatives"];
+        if (this.isStringArray(alternatives)) Reflect.set(next, "alternatives", alternatives);
+        const decidedAt = changes["decidedAt"];
+        if (typeof decidedAt === "string") Reflect.set(next, "decidedAt", decidedAt);
+        return this.applyUnknownChangeFields(next, changes, knownKeys);
+      }
+      case "constraint": {
+        const typeKeys: readonly string[] = ["constraint", "reason"];
+        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
+        const next = this.applyCommonNodeChanges(existing, changes);
+        const constraint = changes["constraint"];
+        if (typeof constraint === "string") Reflect.set(next, "constraint", constraint);
+        const reason = changes["reason"];
+        if (typeof reason === "string") Reflect.set(next, "reason", reason);
+        return this.applyUnknownChangeFields(next, changes, knownKeys);
+      }
+      case "task": {
+        const typeKeys: readonly string[] = [
+          "state",
+          "assignee",
+          "dueDate",
+          "dependencies",
+        ];
+        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
+        const next = this.applyCommonNodeChanges(existing, changes);
+        const state = changes["state"];
+        if (this.isTaskState(state)) Reflect.set(next, "state", state);
+        const assignee = changes["assignee"];
+        if (typeof assignee === "string") Reflect.set(next, "assignee", assignee);
+        const dueDate = changes["dueDate"];
+        if (typeof dueDate === "string") Reflect.set(next, "dueDate", dueDate);
+        const dependencies = changes["dependencies"];
+        if (this.isNodeIdArray(dependencies)) Reflect.set(next, "dependencies", dependencies);
+        return this.applyUnknownChangeFields(next, changes, knownKeys);
+      }
+      case "risk": {
+        const typeKeys: readonly string[] = ["severity", "likelihood", "mitigation"];
+        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
+        const next = this.applyCommonNodeChanges(existing, changes);
+        const severity = changes["severity"];
+        if (this.isRiskSeverity(severity)) Reflect.set(next, "severity", severity);
+        const likelihood = changes["likelihood"];
+        if (this.isRiskLikelihood(likelihood)) Reflect.set(next, "likelihood", likelihood);
+        const mitigation = changes["mitigation"];
+        if (typeof mitigation === "string") Reflect.set(next, "mitigation", mitigation);
+        return this.applyUnknownChangeFields(next, changes, knownKeys);
+      }
+      case "question": {
+        const typeKeys: readonly string[] = ["question", "answer", "answeredAt"];
+        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
+        const next = this.applyCommonNodeChanges(existing, changes);
+        const question = changes["question"];
+        if (typeof question === "string") Reflect.set(next, "question", question);
+        const answer = changes["answer"];
+        if (typeof answer === "string") Reflect.set(next, "answer", answer);
+        const answeredAt = changes["answeredAt"];
+        if (typeof answeredAt === "string") Reflect.set(next, "answeredAt", answeredAt);
+        return this.applyUnknownChangeFields(next, changes, knownKeys);
+      }
+      case "plan": {
+        const typeKeys: readonly string[] = ["steps"];
+        const knownKeys = new Set<string>([...commonKeys, ...typeKeys]);
+        const next = this.applyCommonNodeChanges(existing, changes);
+        const steps = changes["steps"];
+        if (this.isPlanStepArray(steps)) Reflect.set(next, "steps", steps);
+        return this.applyUnknownChangeFields(next, changes, knownKeys);
+      }
+      default: {
+        const knownKeys = new Set<string>(commonKeys);
+        const next = this.applyCommonNodeChanges(existing, changes);
+        return this.applyUnknownChangeFields(next, changes, knownKeys);
+      }
+    }
   }
 
   async getNode(nodeId: NodeId): Promise<AnyNode | null> {
@@ -171,20 +455,36 @@ export class InMemoryStore implements ContextStore {
         ];
 
         if (node.type === "decision") {
-          const d = node as any;
-          if (typeof d.decision === "string") all.push({ field: "decision", text: d.decision });
-          if (typeof d.rationale === "string") all.push({ field: "rationale", text: d.rationale });
-          if (Array.isArray(d.alternatives)) all.push({ field: "alternatives", text: d.alternatives.join(" ") });
+          if ("decision" in node && typeof node.decision === "string") {
+            all.push({ field: "decision", text: node.decision });
+          }
+          if ("rationale" in node && typeof node.rationale === "string") {
+            all.push({ field: "rationale", text: node.rationale });
+          }
+          if (
+            "alternatives" in node &&
+            Array.isArray(node.alternatives) &&
+            node.alternatives.every((x) => typeof x === "string") &&
+            node.alternatives.length > 0
+          ) {
+            all.push({ field: "alternatives", text: node.alternatives.join(" ") });
+          }
         }
         if (node.type === "constraint") {
-          const c = node as any;
-          if (typeof c.constraint === "string") all.push({ field: "constraint", text: c.constraint });
-          if (typeof c.reason === "string") all.push({ field: "reason", text: c.reason });
+          if ("constraint" in node && typeof node.constraint === "string") {
+            all.push({ field: "constraint", text: node.constraint });
+          }
+          if ("reason" in node && typeof node.reason === "string") {
+            all.push({ field: "reason", text: node.reason });
+          }
         }
         if (node.type === "question") {
-          const q = node as any;
-          if (typeof q.question === "string") all.push({ field: "question", text: q.question });
-          if (typeof q.answer === "string") all.push({ field: "answer", text: q.answer });
+          if ("question" in node && typeof node.question === "string") {
+            all.push({ field: "question", text: node.question });
+          }
+          if ("answer" in node && typeof node.answer === "string") {
+            all.push({ field: "answer", text: node.answer });
+          }
         }
 
         // Field filter (if specified)
@@ -202,12 +502,12 @@ export class InMemoryStore implements ContextStore {
         if (idx >= 0) {
           // Score: count of occurrences
           let count = 0;
-          let from = 0;
-          while (true) {
-            const at = hay.indexOf(term, from);
-            if (at === -1) break;
+          for (
+            let at = hay.indexOf(term, 0);
+            at !== -1;
+            at = hay.indexOf(term, at + Math.max(1, term.length))
+          ) {
             count++;
-            from = at + Math.max(1, term.length);
           }
           return { matched: true, score: count };
         }
@@ -516,7 +816,7 @@ export class InMemoryStore implements ContextStore {
           modifiedBy: proposal.metadata.modifiedBy,
           version: (node.metadata.version ?? 0) + 1,
         },
-      } as AnyNode;
+      };
     };
 
     const setNode = (nodeId: NodeId, updater: (current: AnyNode) => AnyNode) => {
@@ -533,51 +833,45 @@ export class InMemoryStore implements ContextStore {
       if (operation.type === "create" && "node" in operation) {
         const key = this.nodeKey(operation.node.id);
         this.nodes.set(key, operation.node);
-      } else if (operation.type === "update" && "nodeId" in operation) {
+      } else if (operation.type === "update") {
         setNode(operation.nodeId, (existing) =>
-          touch({ ...existing, ...operation.changes } as AnyNode)
+          touch(this.applyUpdateChanges(existing, operation.changes))
         );
-      } else if (operation.type === "delete" && "nodeId" in operation) {
+      } else if (this.isDeleteNodeOperation(operation)) {
         // Mark as rejected, don't remove (provenance)
         setNode(operation.nodeId, (existing) =>
-          touch({ ...existing, status: "rejected" } as AnyNode)
+          touch({ ...existing, status: "rejected" })
         );
-      } else if (operation.type === "status-change" && "nodeId" in operation) {
+      } else if (operation.type === "status-change") {
         setNode(operation.nodeId, (existing) =>
-          touch({ ...existing, status: operation.newStatus } as AnyNode)
+          touch({ ...existing, status: operation.newStatus })
         );
       } else if (operation.type === "insert") {
-        const nodeId = (operation as any).sourceNodeId as NodeId | undefined;
+        const nodeId = operation.sourceNodeId;
         if (!nodeId) {
           throw new Error(`Insert operation ${operation.id} missing sourceNodeId`);
         }
         setNode(nodeId, (existing) => {
           const content = existing.content ?? "";
-          const pos = (operation as any).position as number;
-          const text = (operation as any).text as string;
+          const pos = operation.position;
+          const text = operation.text;
           if (pos < 0 || pos > content.length) {
             throw new Error(`Insert position ${pos} out of bounds for node ${this.nodeKey(nodeId)}`);
           }
           return touch({
             ...existing,
             content: content.slice(0, pos) + text + content.slice(pos),
-          } as AnyNode);
+          });
         });
-      } else if (operation.type === "delete") {
-        // Note: proposal operation type "delete" is overloaded (node delete vs text delete).
-        // The node delete case is handled above via "nodeId" in operation.
-        const nodeId = (operation as any).sourceNodeId as NodeId | undefined;
+      } else if (this.isDeleteTextOperation(operation)) {
+        const nodeId = operation.sourceNodeId;
         if (!nodeId) {
-          // If neither nodeId nor sourceNodeId exists, this is invalid.
-          if (!("nodeId" in (operation as any))) {
-            throw new Error(`Delete operation ${operation.id} missing nodeId/sourceNodeId`);
-          }
-          continue;
+          throw new Error(`DeleteText operation ${operation.id} missing sourceNodeId`);
         }
         setNode(nodeId, (existing) => {
           const content = existing.content ?? "";
-          const start = (operation as any).start as number;
-          const end = (operation as any).end as number;
+          const start = operation.start;
+          const end = operation.end;
           if (start < 0 || end < start || end > content.length) {
             throw new Error(
               `Delete range [${start}, ${end}) out of bounds for node ${this.nodeKey(nodeId)}`
@@ -586,11 +880,11 @@ export class InMemoryStore implements ContextStore {
           return touch({
             ...existing,
             content: content.slice(0, start) + content.slice(end),
-          } as AnyNode);
+          });
         });
       } else if (operation.type === "move") {
-        const nodeId = (operation as any).nodeId as NodeId;
-        const target = (operation as any).target as { position?: number; parentId?: NodeId };
+        const nodeId = operation.nodeId;
+        const target = operation.target;
         if (target?.parentId) {
           const newParentId = target.parentId;
           const newParentKey = this.nodeKey(newParentId);
@@ -606,7 +900,7 @@ export class InMemoryStore implements ContextStore {
               (r) => !(r.type === "parent-child" && this.nodeKey(r.target) === this.nodeKey(nodeId))
             );
             if (nextRels.length !== n.relationships.length) {
-              this.nodes.set(this.nodeKey(n.id), touch({ ...n, relationships: nextRels } as AnyNode));
+              this.nodes.set(this.nodeKey(n.id), touch({ ...n, relationships: nextRels }));
             }
           }
 
@@ -621,7 +915,7 @@ export class InMemoryStore implements ContextStore {
               touch({
                 ...newParent,
                 relationships: [...existingRels, { type: "parent-child", target: nodeId }],
-              } as AnyNode)
+              })
             );
           }
         }
@@ -668,6 +962,7 @@ export class InMemoryStore implements ContextStore {
   }
 
   async updateReferencingNodes(nodeId: NodeId): Promise<void> {
+    void nodeId;
     // In-memory store: references are automatically up-to-date
     // This is a no-op for in-memory, but needed for file-based/MongoDB
     // where we might need to update reference metadata
@@ -695,24 +990,35 @@ export class InMemoryStore implements ContextStore {
 
       for (const op of p.operations) {
         let nodeId: NodeId | null = null;
-        let kind = op.type;
+        let kind: string = op.type;
         let fields: string[] = [];
 
         if (op.type === "create" && "node" in op) {
           nodeId = op.node.id;
         } else if ("nodeId" in op) {
-          nodeId = (op as any).nodeId as NodeId;
+          // update/status-change/move/delete(node)
+          nodeId = op.nodeId;
+        } else if (op.type === "insert") {
+          nodeId = op.sourceNodeId ?? null;
+        } else if (this.isDeleteTextOperation(op)) {
+          nodeId = op.sourceNodeId ?? null;
         }
 
         if (!nodeId) continue;
 
-        if (op.type === "update" && "changes" in op) {
+        if (op.type === "update") {
           kind = "update";
-          fields = Object.keys((op as any).changes || {});
-        } else if (op.type === "status-change" && "newStatus" in op) {
+          fields = Object.keys(op.changes || {});
+        } else if (op.type === "status-change") {
           kind = "status-change";
           fields = ["status"];
-        } else if (op.type === "delete") {
+        } else if (op.type === "insert" || this.isDeleteTextOperation(op)) {
+          kind = "content-edit";
+          fields = ["content"];
+        } else if (op.type === "move") {
+          kind = "move";
+          fields = ["relationships"];
+        } else if (this.isDeleteNodeOperation(op)) {
           kind = "delete";
         } else if (op.type === "create") {
           kind = "create";
@@ -808,7 +1114,11 @@ export class InMemoryStore implements ContextStore {
         if (operation.type === "create" && "node" in operation) {
           nodeId = operation.node.id;
         } else if ("nodeId" in operation) {
-          nodeId = (operation as any).nodeId as NodeId;
+          nodeId = operation.nodeId;
+        } else if (operation.type === "insert") {
+          nodeId = operation.sourceNodeId ?? null;
+        } else if (this.isDeleteTextOperation(operation)) {
+          nodeId = operation.sourceNodeId ?? null;
         }
 
         if (!nodeId) continue;
@@ -833,7 +1143,11 @@ export class InMemoryStore implements ContextStore {
       if (operation.type === "create" && "node" in operation) {
         nodeId = operation.node.id;
       } else if ("nodeId" in operation) {
-        nodeId = (operation as any).nodeId as NodeId;
+        nodeId = operation.nodeId;
+      } else if (operation.type === "insert") {
+        nodeId = operation.sourceNodeId ?? null;
+      } else if (this.isDeleteTextOperation(operation)) {
+        nodeId = operation.sourceNodeId ?? null;
       }
 
       if (nodeId) {
@@ -897,10 +1211,10 @@ export class InMemoryStore implements ContextStore {
 
     for (const proposal of validProposals) {
       for (const operation of proposal.operations) {
-        if (operation.type === "update" && "nodeId" in operation) {
-          const nodeId = (operation as any).nodeId as NodeId;
+        if (operation.type === "update") {
+          const nodeId = operation.nodeId;
           const nodeKey = this.nodeKey(nodeId);
-          const changes = (operation as any).changes as Record<string, unknown>;
+          const changes = operation.changes;
 
           if (!nodeChanges.has(nodeKey)) {
             nodeChanges.set(nodeKey, new Map());
@@ -922,13 +1236,13 @@ export class InMemoryStore implements ContextStore {
               fieldMap.set(field, { proposalId: proposal.id, value, nodeId });
             }
           }
-        } else if (operation.type === "status-change" && "nodeId" in operation) {
-          const nodeId = (operation as any).nodeId as NodeId;
+        } else if (operation.type === "status-change") {
+          const nodeId = operation.nodeId;
           const nodeKey = this.nodeKey(nodeId);
           if (!nodeChanges.has(nodeKey)) nodeChanges.set(nodeKey, new Map());
           const fieldMap = nodeChanges.get(nodeKey)!;
           const field = "status";
-          const value = (operation as any).newStatus;
+          const value = operation.newStatus;
           if (fieldMap.has(field)) {
             const existing = fieldMap.get(field)!;
             conflicts.push({
@@ -948,8 +1262,7 @@ export class InMemoryStore implements ContextStore {
     for (const [nodeKey, fields] of nodeChanges.entries()) {
       const baseNode = this.getNodeByKey(nodeKey);
       for (const [field, change] of fields.entries()) {
-        const oldValue =
-          baseNode && field in (baseNode as any) ? (baseNode as any)[field] : undefined;
+        const oldValue = baseNode ? (Reflect.get(baseNode, field) as unknown) : undefined;
         const record = {
           nodeId: change.nodeId,
           field,
@@ -1168,19 +1481,11 @@ export class InMemoryStore implements ContextStore {
     }
 
     const chains: ReasoningChainResult[] = [];
-    const accumulatedContext: {
-      goals?: AnyNode[];
-      decisions?: AnyNode[];
-      tasks?: AnyNode[];
-      risks?: AnyNode[];
-      constraints?: AnyNode[];
-      questions?: AnyNode[];
-    } = {};
+    const accumulatedContext: ContextChainResult["accumulatedContext"] = {};
     const reasoningPath: ReasoningStep[] = [];
 
     // Follow each relationship type in sequence
     let current: AnyNode | null = start;
-    let stepNumber = 1;
 
     for (const relType of options.relationshipSequence) {
       if (!current) {
@@ -1205,20 +1510,28 @@ export class InMemoryStore implements ContextStore {
       if (options.stopOn && current && options.stopOn.includes(current.type)) {
         break;
       }
-
-      stepNumber++;
     }
 
     // Accumulate context by type
+    type ContextBucket = keyof ContextChainResult["accumulatedContext"];
+    const bucketByType: Record<NodeType, ContextBucket | undefined> = {
+      goal: "goals",
+      decision: "decisions",
+      task: "tasks",
+      risk: "risks",
+      constraint: "constraints",
+      question: "questions",
+      context: undefined,
+      plan: undefined,
+      note: undefined,
+    };
+
     for (const chain of chains) {
       for (const node of chain.nodes) {
-        const typeKey = node.type as keyof typeof accumulatedContext;
-        if (typeKey in accumulatedContext) {
-          if (!accumulatedContext[typeKey]) {
-            accumulatedContext[typeKey] = [];
-          }
-          (accumulatedContext[typeKey] as AnyNode[]).push(node);
-        }
+        const bucket = bucketByType[node.type];
+        if (!bucket) continue;
+        if (!accumulatedContext[bucket]) accumulatedContext[bucket] = [];
+        accumulatedContext[bucket].push(node);
       }
     }
 

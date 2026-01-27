@@ -6,11 +6,14 @@ import { describe, it, expect, beforeEach } from "@jest/globals";
 import { InMemoryStore } from "../src/store/in-memory-store.js";
 import {
   AnyNode,
+  ContextNode,
   GoalNode,
   DecisionNode,
   TaskNode,
   RiskNode,
   ConstraintNode,
+  PlanNode,
+  QuestionNode,
   NodeId,
 } from "../src/types/node.js";
 import {
@@ -42,6 +45,30 @@ async function createAndApply(store: InMemoryStore, proposalId: string, node: An
       } as CreateOperation,
     ],
     metadata: meta(node.metadata.createdAt, node.metadata.createdBy, node.metadata.modifiedAt, node.metadata.modifiedBy),
+  };
+  await store.createProposal(proposal);
+  await store.applyProposal(proposalId);
+}
+
+async function updateAndApply(
+  store: InMemoryStore,
+  proposalId: string,
+  nodeId: NodeId,
+  changes: UpdateOperation["changes"]
+) {
+  const proposal: Proposal = {
+    id: proposalId,
+    status: "accepted",
+    operations: [
+      {
+        id: `op-${proposalId}`,
+        type: "update",
+        order: 1,
+        nodeId,
+        changes,
+      } as UpdateOperation,
+    ],
+    metadata: meta("2026-01-10T00:00:00Z", "upd", "2026-01-10T00:00:00Z", "upd"),
   };
   await store.createProposal(proposal);
   await store.applyProposal(proposalId);
@@ -772,6 +799,164 @@ describe("InMemoryStore (coverage)", () => {
 
     const parentAfter = await store.getNode({ id: "apply-parent" });
     expect(parentAfter?.relationships?.some((r) => r.type === "parent-child" && r.target.id === "apply-a")).toBe(true);
+  });
+
+  it("applyProposal update should apply common fields, typed fields, and preserve unknown keys", async () => {
+    const goal: GoalNode = {
+      id: { id: "goal-update-001" },
+      type: "goal",
+      status: "accepted",
+      content: "G0",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+    const decision: DecisionNode = {
+      id: { id: "decision-update-001" },
+      type: "decision",
+      status: "accepted",
+      content: "D0",
+      decision: "Use SQLite",
+      rationale: "Local dev",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+    const constraint: ConstraintNode = {
+      id: { id: "constraint-update-001" },
+      type: "constraint",
+      status: "accepted",
+      content: "C0",
+      constraint: "Must be offline",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+    const task: TaskNode = {
+      id: { id: "task-update-001" },
+      type: "task",
+      status: "accepted",
+      state: "open",
+      content: "T0",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+    const risk: RiskNode = {
+      id: { id: "risk-update-001" },
+      type: "risk",
+      status: "accepted",
+      content: "R0",
+      severity: "low",
+      likelihood: "unlikely",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+    const question: QuestionNode = {
+      id: { id: "question-update-001" },
+      type: "question",
+      status: "accepted",
+      content: "Q0",
+      question: "What is the plan?",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+    const plan: PlanNode = {
+      id: { id: "plan-update-001" },
+      type: "plan",
+      status: "accepted",
+      content: "P0",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+    const note: ContextNode = {
+      id: { id: "note-update-001" },
+      type: "note",
+      status: "accepted",
+      content: "N0",
+      metadata: meta("2026-01-01T00:00:00Z", "u1"),
+    };
+
+    await createAndApply(store, "proposal-create-goal-update-001", goal);
+    await createAndApply(store, "proposal-create-decision-update-001", decision);
+    await createAndApply(store, "proposal-create-constraint-update-001", constraint);
+    await createAndApply(store, "proposal-create-task-update-001", task);
+    await createAndApply(store, "proposal-create-risk-update-001", risk);
+    await createAndApply(store, "proposal-create-question-update-001", question);
+    await createAndApply(store, "proposal-create-plan-update-001", plan);
+    await createAndApply(store, "proposal-create-note-update-001", note);
+
+    // Goal: common fields, typed field (criteria), and unknown key.
+    await updateAndApply(store, "proposal-update-goal", { id: "goal-update-001" }, {
+      content: "G1",
+      status: "superseded",
+      relationships: [{ type: "references", target: { id: "decision-update-001" } }],
+      relations: [{ id: "constraint-update-001" }],
+      referencedBy: [{ id: "task-update-001" }],
+      sourceFiles: ["CONTEXT.md"],
+      textRange: { start: 1, end: 2, source: "CONTEXT.md" },
+      criteria: ["c1", "c2"],
+      foo: 123,
+    });
+
+    const goalAfter = await store.getNode({ id: "goal-update-001" });
+    expect(goalAfter?.content).toBe("G1");
+    expect(goalAfter?.status).toBe("superseded");
+    expect(goalAfter?.relationships?.[0].type).toBe("references");
+    expect(goalAfter?.sourceFiles?.[0]).toBe("CONTEXT.md");
+    expect(Reflect.get(goalAfter as object, "foo")).toBe(123);
+
+    // Decision: typed fields (decision/rationale/alternatives) including a valid alternatives array.
+    await updateAndApply(store, "proposal-update-decision", { id: "decision-update-001" }, {
+      decision: "Use PostgreSQL",
+      rationale: "Durability",
+      alternatives: ["SQLite", "MySQL"],
+      decidedAt: "2026-01-05T00:00:00Z",
+    });
+    const decisionAfter = await store.getNode({ id: "decision-update-001" });
+    expect(Reflect.get(decisionAfter as object, "decision")).toBe("Use PostgreSQL");
+    expect(Reflect.get(decisionAfter as object, "rationale")).toBe("Durability");
+
+    // Constraint: update constraint/reason
+    await updateAndApply(store, "proposal-update-constraint", { id: "constraint-update-001" }, {
+      constraint: "Must be offline-first",
+      reason: "Privacy",
+    });
+    const constraintAfter = await store.getNode({ id: "constraint-update-001" });
+    expect(Reflect.get(constraintAfter as object, "constraint")).toBe("Must be offline-first");
+    expect(Reflect.get(constraintAfter as object, "reason")).toBe("Privacy");
+
+    // Task: invalid state should be ignored; valid assignee/dependencies should apply
+    await updateAndApply(store, "proposal-update-task", { id: "task-update-001" }, {
+      state: "not-a-real-state",
+      assignee: "alice",
+      dependencies: [{ id: "task-update-001" }],
+    });
+    const taskAfter = await store.getNode({ id: "task-update-001" });
+    expect(Reflect.get(taskAfter as object, "state")).toBe("open");
+    expect(Reflect.get(taskAfter as object, "assignee")).toBe("alice");
+
+    // Risk: invalid severity ignored; valid mitigation applied
+    await updateAndApply(store, "proposal-update-risk", { id: "risk-update-001" }, {
+      severity: "extreme",
+      mitigation: "Monitor",
+    });
+    const riskAfter = await store.getNode({ id: "risk-update-001" });
+    expect(Reflect.get(riskAfter as object, "severity")).toBe("low");
+    expect(Reflect.get(riskAfter as object, "mitigation")).toBe("Monitor");
+
+    // Question: typed fields applied
+    await updateAndApply(store, "proposal-update-question", { id: "question-update-001" }, {
+      answer: "The plan is to test everything.",
+      answeredAt: "2026-01-06T00:00:00Z",
+    });
+    const questionAfter = await store.getNode({ id: "question-update-001" });
+    expect(Reflect.get(questionAfter as object, "answer")).toBe("The plan is to test everything.");
+
+    // Plan: steps applied
+    await updateAndApply(store, "proposal-update-plan", { id: "plan-update-001" }, {
+      steps: [{ description: "Step 1", order: 1, references: [{ id: "goal-update-001" }] }],
+    });
+    const planAfter = await store.getNode({ id: "plan-update-001" });
+    expect(Array.isArray(Reflect.get(planAfter as object, "steps"))).toBe(true);
+
+    // Default type: still applies content and unknown fields
+    await updateAndApply(store, "proposal-update-note", { id: "note-update-001" }, {
+      content: "N1",
+      bar: "baz",
+    });
+    const noteAfter = await store.getNode({ id: "note-update-001" });
+    expect(noteAfter?.content).toBe("N1");
+    expect(Reflect.get(noteAfter as object, "bar")).toBe("baz");
   });
 });
 

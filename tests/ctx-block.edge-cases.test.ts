@@ -37,6 +37,30 @@ Some content
     expect(parseCtxBlock(match, markdown)).toBeNull();
   });
 
+  it("parseCtxBlock should return null for invalid type/status values", () => {
+    const badType = `\`\`\`ctx
+type: not-a-real-type
+id: x
+status: accepted
+---
+content
+\`\`\``;
+    const matchType = Array.from(badType.matchAll(/```ctx\n([\s\S]*?)```/g))[0];
+    expect(matchType).toBeDefined();
+    expect(parseCtxBlock(matchType, badType)).toBeNull();
+
+    const badStatus = `\`\`\`ctx
+type: decision
+id: x
+status: pending
+---
+content
+\`\`\``;
+    const matchStatus = Array.from(badStatus.matchAll(/```ctx\n([\s\S]*?)```/g))[0];
+    expect(matchStatus).toBeDefined();
+    expect(parseCtxBlock(matchStatus, badStatus)).toBeNull();
+  });
+
   it("replaceCtxBlock should splice the markdown by positions", () => {
     const markdown = `Before
 
