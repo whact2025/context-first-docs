@@ -40,6 +40,18 @@ export interface ProposalMetadata {
     /** Issue templates to use */
     templates?: string[]; // Template IDs
   };
+  /** Base version of nodes this proposal modifies (for optimistic locking) */
+  baseVersions?: {
+    [nodeId: string]: number; // Node ID -> version number
+  };
+  /** Conflicting proposal IDs (proposals that modify the same nodes) */
+  conflictsWith?: string[];
+  /** Whether this proposal has conflicts that need resolution */
+  hasConflicts?: boolean;
+  /** Proposal IDs that this proposal supersedes */
+  supersedes?: string[];
+  /** Priority for conflict resolution */
+  priority?: "low" | "medium" | "high" | "critical";
 }
 
 /**

@@ -33,6 +33,7 @@ Create a context-first collaboration system that enables:
 - Automatic issue creation on proposal approval
 - Role-based Markdown editing (read-only vs editable)
 - Bidirectional sync - Markdown edits sync back to context store and referencing nodes
+- Hybrid reconciliation for concurrent edits - conflict detection, field-level merging, optimistic locking, manual resolution
 ```
 
 ```ctx

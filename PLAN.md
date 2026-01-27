@@ -23,9 +23,13 @@ status: accepted
 5. Add designated contributors and approvers support
 6. Implement role-based Markdown editing modes (read-only vs editable)
 7. Implement bidirectional sync - Markdown edits sync back to context store and referencing nodes
-8. Implement conflict detection - detect when proposals modify the same node
-9. Implement reconciliation strategies - field-level merging, manual resolution, optimistic locking
-10. Implement proposal review workflow with approval requirements
+8. Implement hybrid reconciliation system:
+   - Conflict detection at proposal creation
+   - Field-level merging for non-conflicting fields
+   - Optimistic locking with version tracking
+   - Manual resolution for true conflicts
+   - Proposal superseding support
+9. Implement proposal review workflow with approval requirements
 11. Add issue creation on approval - automatically create issues when proposals are approved
 12. Add comment threading
 13. Support partial accept/reject

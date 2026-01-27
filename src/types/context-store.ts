@@ -6,6 +6,7 @@
 import { AnyNode, NodeId } from "./node.js";
 import { Proposal, Review } from "./proposal.js";
 import { IssueCreationResult } from "./issues.js";
+import { ConflictDetectionResult, MergeResult } from "./conflicts.js";
 
 /**
  * The context store is the source of truth.
@@ -91,6 +92,21 @@ export interface ContextStore {
    * Update referencing nodes when a node changes.
    */
   updateReferencingNodes(nodeId: NodeId): Promise<void>;
+
+  /**
+   * Detect conflicts between proposals.
+   */
+  detectConflicts(proposalId: string): Promise<ConflictDetectionResult>;
+
+  /**
+   * Check if a proposal is stale (node versions have changed).
+   */
+  isProposalStale(proposalId: string): Promise<boolean>;
+
+  /**
+   * Merge field-level changes from multiple proposals.
+   */
+  mergeProposals(proposalIds: string[]): Promise<MergeResult>;
 }
 
 /**

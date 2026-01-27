@@ -24,30 +24,26 @@ status: resolved
 ```ctx
 type: question
 id: question-002
-status: open
+status: resolved
 ---
 **Question**: How should we handle conflicts when multiple people edit the same ctx block?
 
-**Context**:
-- Git merge conflicts are line-based, not semantic
-- Need conflict resolution at the proposal level
-- May need custom merge strategies
+**Answer**: Hybrid approach combining conflict detection, field-level merging, manual resolution, optimistic locking, and proposal superseding.
 
-**Reconciliation Options** (see `docs/RECONCILIATION_STRATEGIES.md`):
-1. **Proposal-Based Conflict Detection** - Detect conflicts before approval, require resolution
-2. **Last-Write-Wins** - Most recently approved proposal wins
-3. **First-Write-Wins** - First approved proposal wins, later ones rejected
-4. **Field-Level Merging** - Merge non-conflicting fields, resolve conflicting fields
-5. **Three-Way Merge** - Use operational transformation to merge changes
-6. **Manual Resolution** - Always require human review and manual resolution
-7. **Lock-Based** - Prevent concurrent edits with locks
-8. **Optimistic Locking** - Track versions, reject stale proposals
-9. **Proposal Superseding** - Allow proposals to explicitly supersede others
-10. **Priority-Based** - Use proposal priority or approver seniority
-11. **Content-Aware Merging** - Use semantic analysis for intelligent merging
-12. **Branch-Based** - Allow multiple branches/versions of nodes
+**Resolution** (see `docs/RECONCILIATION_STRATEGIES.md`):
+- **Conflict Detection**: Detect conflicts at proposal creation time
+- **Field-Level Merging**: Auto-merge non-conflicting fields, flag conflicting fields
+- **Manual Resolution**: Require human review for true conflicts
+- **Optimistic Locking**: Track node versions, reject stale proposals
+- **Proposal Superseding**: Allow explicit superseding relationships
 
-**Recommended**: Hybrid approach combining conflict detection, field-level merging, manual resolution, and optimistic locking.
+**Workflow**:
+1. User creates proposal → System checks for conflicts with open proposals
+2. If no conflicts → Normal review workflow
+3. If field-level conflicts → Auto-merge non-conflicting fields, flag conflicts
+4. If true conflicts → Mark proposal as "conflict", require manual resolution
+5. Reviewer sees all conflicting proposals, creates merged proposal or chooses one
+6. System applies resolution with version checking
 
 **Impact**: High - affects collaboration model
 ```

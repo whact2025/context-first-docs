@@ -48,6 +48,7 @@ A **context-first collaboration system** with:
 - Automatic issue creation when proposals are approved
 - Role-based Markdown editing (read-only vs editable based on permissions)
 - Bidirectional sync - Markdown edits sync back to context store and update referencing nodes
+- Hybrid reconciliation for concurrent edits - automatic conflict detection, field-level merging, optimistic locking, and manual resolution
 
 This is infrastructure for **long-lived, multi-human, multi-agent systems**.
 

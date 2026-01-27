@@ -7,3 +7,4 @@ export * from "./proposal.js";
 export * from "./context-store.js";
 export * from "./roles.js";
 export * from "./issues.js";
+export * from "./conflicts.js";

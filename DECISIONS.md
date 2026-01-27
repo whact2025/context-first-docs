@@ -437,3 +437,81 @@ status: accepted
 
 **Decided At**: 2026-01-26
 ```
+
+```ctx
+type: decision
+id: decision-014
+status: accepted
+---
+**Decision**: Use hybrid reconciliation approach for handling concurrent edits to the same ctx block.
+
+**Rationale**:
+- No single strategy fits all use cases
+- Need balance between automation and control
+- Must prevent data loss while allowing parallel work
+- Field-level conflicts are often resolvable automatically
+- True conflicts require human judgment
+
+**Hybrid Strategy Components**:
+
+1. **Conflict Detection** (Proposal-Based):
+   - Detect conflicts at proposal creation time
+   - Check if other open proposals modify the same nodes
+   - Mark proposals as "conflicting" if conflicts detected
+   - Track conflicting proposal relationships
+
+2. **Field-Level Merging**:
+   - Auto-merge non-conflicting fields automatically
+   - Detect field-level conflicts (same field changed differently)
+   - Preserve all non-conflicting changes
+   - Flag conflicting fields for manual resolution
+
+3. **Optimistic Locking**:
+   - Track node version numbers (increment on each change)
+   - Proposals reference base version they're modifying
+   - Reject proposals if node version changed (stale)
+   - Require proposal update to latest version before approval
+
+4. **Manual Resolution**:
+   - True conflicts require human review
+   - Reviewers see all conflicting proposals side-by-side
+   - Reviewer creates merged proposal or chooses one
+   - System applies reviewer's resolution
+
+5. **Proposal Superseding**:
+   - Allow proposals to explicitly supersede others
+   - Track proposal relationships and chains
+   - When superseding proposal approved, mark superseded as superseded
+   - Preserve full proposal history
+
+**Workflow**:
+1. User creates proposal → System checks for conflicts with open proposals
+2. System records base versions of nodes being modified
+3. If no conflicts → Normal review workflow
+4. If field-level conflicts → Auto-merge non-conflicting fields, flag conflicts
+5. If true conflicts → Mark proposal as "hasConflicts", require resolution
+6. When applying proposal → Check node versions match base versions
+7. If versions changed → Reject as stale, require update
+8. Reviewer resolves conflicts → Creates merged proposal or chooses one
+9. System applies resolution with version validation
+
+**Configuration**:
+- Per-node-type conflict strategies (can override default)
+- Per-namespace conflict strategies
+- Global default strategy
+- Configurable auto-merge behavior
+
+**Examples**:
+- Proposal A changes `content` field, Proposal B changes `status` → Auto-merge (no conflict)
+- Proposal A changes `content` to "X", Proposal B changes `content` to "Y" → Conflict, manual resolution
+- Proposal created when node version is 5, but node is now version 7 → Reject as stale
+
+**Alternatives Considered**:
+- Single strategy only (too rigid, doesn't fit all cases)
+- No conflict detection (allows data corruption)
+- Always manual resolution (too slow, blocks workflow)
+- Always auto-merge (risky, may lose important changes)
+- Lock-based only (blocks parallel work unnecessarily)
+
+**Decided At**: 2026-01-26
+```

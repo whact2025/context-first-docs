@@ -47,6 +47,8 @@ export interface NodeMetadata {
   implementedInCommit?: string;
   /** Git commit hashes that reference or update this node */
   referencedInCommits?: string[];
+  /** Version number for optimistic locking (increments on each change) */
+  version: number;
 }
 
 /**
