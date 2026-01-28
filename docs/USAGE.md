@@ -1,10 +1,12 @@
 # Usage Guide
 
+This system is an **Agentic Collaboration Approval Layer (ACAL)**. You can use it to collaborate on **any solution** (not just software): policies, procurement decisions, product strategy, incident response, or engineering changes.
+
 ## Basic Workflow
 
 ### 1. Create Context Files
 
-Create Markdown files with ctx blocks:
+Create Markdown files with ctx blocks (a convenient authoring/projection surface):
 
 ```markdown
 # Decisions
@@ -52,6 +54,37 @@ await store.submitReview({
 ```
 
 **Note**: In “review mode”, clients should not mark proposals accepted/rejected directly. Acceptance/rejection happens via reviews (e.g. `submitReview()`), then accepted proposals can be applied.
+
+## Example (non-development): policy or procedure change
+
+You can model policy work the same way you model engineering work: proposals, reviews, and an approved “solution model” graph.
+
+```markdown
+# Policy Decisions
+
+~~~ctx
+type: decision
+id: decision-policy-001
+status: proposed
+title: Require 2 approvals for high-risk policy changes
+---
+We require **two independent approvers** for any policy change tagged as high-risk.
+
+Rationale:
+- reduces single-actor failure
+- supports separation-of-duties
+~~~
+
+~~~ctx
+type: risk
+id: risk-policy-001
+status: accepted
+severity: high
+likelihood: possible
+---
+If we approve policy changes without quorum, we risk accidental non-compliance.
+~~~
+```
 
 ### 4. Apply Accepted Proposals
 

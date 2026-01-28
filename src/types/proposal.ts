@@ -198,6 +198,43 @@ export interface Proposal {
 /**
  * A comment attached to a proposal or a specific operation.
  */
+export type CommentStatus = "open" | "resolved";
+
+/**
+ * Anchor a comment to a semantic node (Google-Docs-style).
+ *
+ * This is intentionally stable against projection changes:
+ * - anchor to `nodeId` + `field`
+ * - optionally anchor to a character range within `description`
+ */
+export interface CommentAnchor {
+  /** Which node this comment is about */
+  nodeId: NodeId;
+  /**
+   * Which field is being commented on.
+   *
+   * Examples:
+   * - "title"
+   * - "description"
+   * - "relationships"
+   * - typed fields like "decision", "rationale", "mitigation"
+   */
+  field?: string;
+  /**
+   * Optional character range within a long-form text field (typically `description`).
+   * Offsets are relative to the field value as stored at the time of commenting.
+   */
+  range?: {
+    start: number;
+    end: number;
+  };
+  /**
+   * Optional quoted text/snippet for display and future re-anchoring heuristics.
+   * (Re-anchoring is a higher-level concern and may be implemented by clients.)
+   */
+  quote?: string;
+}
+
 export interface Comment {
   /** Unique identifier */
   id: string;
@@ -207,13 +244,24 @@ export interface Comment {
   author: string;
   /** When the comment was made */
   createdAt: string;
+  /** Open/resolved lifecycle for threads */
+  status?: CommentStatus;
+  /** When this comment/thread was resolved (if resolved) */
+  resolvedAt?: string;
+  /** Who resolved this comment/thread */
+  resolvedBy?: string;
   /** Optional reference to a specific operation */
   operationId?: string;
-  /** Optional text range this comment refers to */
-  textRange?: {
-    start: number;
-    end: number;
-  };
+  /**
+   * Optional anchor to a node/field (preferred for reviewer feedback).
+   * If omitted, the comment is treated as proposal-level discussion.
+   */
+  anchor?: CommentAnchor;
+  /**
+   * Backward-compatible text range (legacy).
+   * Prefer `anchor.range` with `anchor.field`.
+   */
+  textRange?: { start: number; end: number };
   /** Replies to this comment */
   replies?: Comment[];
 }
@@ -236,6 +284,8 @@ export interface Review {
   action: "accept" | "reject" | "request-changes";
   /** Optional comment */
   comment?: string;
+  /** Optional anchored comments/recommendations (Docs-style) */
+  comments?: Comment[];
   /** Which operations were accepted/rejected (if partial) */
   operationIds?: string[];
   /** Whether this review counts as an approval (for multi-approval workflows) */

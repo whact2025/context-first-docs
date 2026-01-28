@@ -4,7 +4,7 @@
  */
 
 import { AnyNode, NodeId, NodeType, NodeStatus, RelationshipType } from "./node.js";
-import { Proposal, Review } from "./proposal.js";
+import { Proposal, Review, Comment } from "./proposal.js";
 import { IssueCreationResult } from "./issues.js";
 import { ConflictDetectionResult, MergeResult } from "./conflicts.js";
 
@@ -68,6 +68,22 @@ export interface ContextStore {
    * Get review history for a proposal.
    */
   getReviewHistory(proposalId: string): Promise<Review[]>;
+
+  /**
+   * Get comments attached to a proposal (discussion + anchored reviewer comments).
+   */
+  getProposalComments(proposalId: string): Promise<Comment[]>;
+
+  /**
+   * Add a comment to a proposal.
+   * Prefer using `comment.anchor` for Google-Docs-style node/field anchoring.
+   */
+  addProposalComment(proposalId: string, comment: Comment): Promise<void>;
+
+  /**
+   * Query comments across proposals/reviews, optionally filtered by node anchor.
+   */
+  queryComments(query: CommentQuery): Promise<Comment[]>;
 
   /**
    * Get all accepted nodes (truth).
@@ -485,6 +501,24 @@ export interface ProposalQuery {
   createdBy?: string;
   /** Filter by node ID (proposals affecting a specific node) */
   nodeId?: NodeId;
+  /** Limit results */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+}
+
+/**
+ * Query for comments (proposal discussion + anchored reviewer feedback).
+ */
+export interface CommentQuery {
+  /** Limit to comments on a specific proposal */
+  proposalId?: string;
+  /** Limit to comments anchored to a specific node */
+  nodeId?: NodeId;
+  /** Filter by comment author */
+  author?: string;
+  /** Filter by comment status */
+  status?: Array<"open" | "resolved">;
   /** Limit results */
   limit?: number;
   /** Offset for pagination */

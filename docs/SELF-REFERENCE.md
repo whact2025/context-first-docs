@@ -1,6 +1,6 @@
 # Self-Referential Documentation
 
-This project uses its own context-first system to document itself. This document explains how that works.
+This project uses its own **Agentic Collaboration Approval Layer (ACAL)** semantics to document itself. This document explains how that works.
 
 ## Why Self-Reference?
 
@@ -15,7 +15,7 @@ We believe that if we can't use our own tool effectively, we shouldn't expect ot
 
 ### Project Documentation Files
 
-The following files in the project root are managed by the context-first system:
+The following files in the project root are managed by the ACAL workflow (proposals → review → apply), using `ctx` blocks as an authoring/projection surface:
 
 - `CONTEXT.md` - Core context, goals, and constraints
 - `DECISIONS.md` - Architecture decisions with rationale

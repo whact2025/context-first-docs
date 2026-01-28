@@ -8,14 +8,14 @@ id: plan-001
 status: accepted
 ---
 **Phase 1: Core Infrastructure** (Current)
-1. Define node types and proposal system ✅
-2. Implement context store interface ✅
-3. Build Markdown projection system (ctx blocks) ✅
-4. Create import/export functionality ✅
-5. Implement in-memory store ✅
-6. Make project self-referential ✅
-7. Define graph model with typed relationships ✅
-8. Design comprehensive Agent API with chain-of-thought traversal ✅
+1. ✅ Define node types and proposal system
+2. ✅ Implement context store interface
+3. ✅ Build Markdown projection system (ctx blocks)
+4. ✅ Create import/export functionality
+5. ✅ Implement in-memory store
+6. ✅ Make project self-referential
+7. ✅ Define graph model with typed relationships
+8. ✅ Design comprehensive Agent API with chain-of-thought traversal
 
 **Phase 2: Persistence & Storage Implementations** (Next)
 1. ✅ Complete InMemoryStore baseline + extract reusable store core logic (`src/store/core/*`) with coverage tests (see `docs/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
@@ -48,7 +48,7 @@ status: accepted
    - Proposal superseding support
 10. Implement proposal review workflow with approval requirements
 11. Add issue creation on approval - automatically create issues when proposals are approved
-12. Add comment threading
+12. Add **Docs-style comment threads** anchored to nodes/fields (not Markdown line numbers)
 13. Support partial accept/reject
 14. Build review history tracking
 15. Support multi-approval workflows
@@ -135,7 +135,7 @@ Implement file-based storage layer for context store (JSON graph format; example
 ```ctx
 type: task
 id: task-007
-status: open
+status: completed
 ---
 Implement proposal review workflow with accept/reject.
 ```
@@ -143,9 +143,13 @@ Implement proposal review workflow with accept/reject.
 ```ctx
 type: task
 id: task-008
-status: open
+status: completed
 ---
-Add comment threading to proposals.
+Add Docs-style comment threading anchored to semantic nodes/fields (and optionally text ranges) for proposals and reviews.
+
+Notes:
+- Anchors should survive Markdown projection regeneration (anchor to `nodeId`/`field`, not file offsets).
+- Include an optional quote/snippet to support best-effort re-anchoring when text changes.
 ```
 
 ```ctx
@@ -249,7 +253,7 @@ type: task
 id: task-021
 status: open
 ---
-Ensure backward compatibility - repositories work normally without context-first system.
+Ensure backward compatibility - repositories work normally without the ACAL layer enabled/installed.
 ```
 
 ```ctx
@@ -407,7 +411,7 @@ Implement reference tracking - detect and update nodes that reference changed co
 ```ctx
 type: task
 id: task-041
-status: open
+status: completed
 ---
 Build conflict detection system - detect when multiple proposals modify the same node.
 ```
@@ -415,7 +419,7 @@ Build conflict detection system - detect when multiple proposals modify the same
 ```ctx
 type: task
 id: task-042
-status: open
+status: completed
 ---
 Implement field-level merging - auto-merge non-conflicting fields, flag conflicts.
 ```
@@ -439,7 +443,7 @@ Implement optimistic locking - track node versions and reject stale proposals.
 ```ctx
 type: task
 id: task-045
-status: open
+status: completed
 ---
 Implement graph model with typed relationships - parent-child, depends-on, references, implements, blocks, mitigates, related-to.
 ```
@@ -503,7 +507,7 @@ Implement conflict detection and resolution - conflict detection algorithm, fiel
 ```ctx
 type: task
 id: task-052
-status: open
+status: completed
 ---
 Implement chain-of-thought traversal - reasoning chain traversal, context chain building, decision reasoning following, semantic similarity.
 ```
@@ -535,7 +539,7 @@ Implement Git integration - automatic Git commits for file-based storage, Git sn
 ```ctx
 type: task
 id: task-059
-status: open
+status: completed
 ---
 Implement chain-of-thought traversal APIs - traverseReasoningChain, buildContextChain, followDecisionReasoning, discoverRelatedReasoning, queryWithReasoning.
 ```
@@ -543,7 +547,7 @@ Implement chain-of-thought traversal APIs - traverseReasoningChain, buildContext
 ```ctx
 type: task
 id: task-060
-status: open
+status: completed
 ---
 Ensure clean review-mode semantics: Markdown/ctx blocks are treated as a projection format (repo or client), and all concurrent edits are proposals accepted/rejected into truth (no direct edits).
 ```

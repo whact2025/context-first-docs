@@ -1,6 +1,6 @@
 # Review Mode (Google Docs–style)
 
-This project treats all concurrent work on context as **suggestions** that must be **accepted/rejected** — similar to Google Docs “Suggesting” mode.
+This system is an **Agentic Collaboration Approval Layer (ACAL)**. It treats all concurrent work on a **solution model** as **suggestions** that must be **accepted/rejected** — similar to Google Docs “Suggesting” mode, but anchored to semantic nodes (not line diffs).
 
 ## Core invariant
 
@@ -12,6 +12,10 @@ In the current reference implementation (`InMemoryStore`), this is enforced by:
 - disallowing `updateProposal(...{ status: "accepted" | "rejected" })`
 - requiring acceptance/rejection via `submitReview(...)`
 - only allowing `applyProposal(...)` for `accepted` proposals
+
+## Enterprise approval policies (roadmap)
+
+In enterprise deployments, review mode can be extended with policy constraints like quorum approvals, separation of duties, required evidence/attestations, and role-based gates on sensitive node types (see the whitepaper “Enterprise approval policies” roadmap).
 
 ## Status transitions
 

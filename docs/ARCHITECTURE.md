@@ -1,12 +1,14 @@
 # Architecture Overview
 
+This system is an **Agentic Collaboration Approval Layer (ACAL)**: it lets humans and AI agents collaborate on a **solution model** (a typed graph of goals/decisions/constraints/tasks/risks/questions) and converge on **approved truth** via review-mode proposals.
+
 ## System Components
 
 ### 1. Type System (`src/types/`)
 
 The foundation of the system is a strongly-typed node and proposal system:
 
-- **Node Types**: Define semantic concepts (goals, decisions, constraints, tasks, risks, questions, etc.)
+- **Node Types**: Define semantic concepts for solution modeling (goals, decisions, constraints, tasks, risks, questions, etc.)
 - **Graph Model**: Nodes are vertices in a graph with typed relationships (edges)
 - **Relationship Types**: parent-child, depends-on, references, supersedes, implements, blocks, mitigates, related-to
 - **Proposal System**: Represents changes as proposals with operations
@@ -38,9 +40,9 @@ Key principles:
 
 ### 3. Context Store (reference implementation + planned persistence)
 
-The canonical source of truth:
+The canonical source of truth (the “approval layer”):
 
-- Stores all nodes (accepted, proposed, rejected) in graph format
+- Stores all nodes (accepted, proposed, rejected) in graph format (the solution model)
 - Manages proposals and reviews
 - Provides comprehensive query interface for agents with chain-of-thought traversal
 - Manages role-based access control
@@ -61,7 +63,7 @@ Planned additions:
 
 ### Writing Context (Suggesting → Review → Apply)
 
-1. **Client authors a suggestion**: UI/agent produces a proposal (field updates, relationship edits, or Markdown-derived proposals)
+1. **Client authors a suggestion**: human UI / agent produces a proposal (field updates, relationship edits, or Markdown-derived proposals)
 2. **Store records proposal**: proposal remains `open` and does not change accepted truth
 3. **Reviewers accept/reject**: approval is explicit (see `docs/REVIEW_MODE.md`)
 4. **Apply**: accepted proposals are applied to become truth (`applyProposal`)
@@ -94,12 +96,12 @@ Planned additions:
 2. **Conflict Detection**: System checks for conflicts with open proposals
 3. **Field-Level Merging**: Non-conflicting fields auto-merged, conflicts flagged
 4. **Optimistic Locking**: Node versions checked to prevent stale updates
-5. Reviewers comment and review (role-based: approvers can approve/reject)
-6. **Multi-Approval**: Some proposals require multiple approvals
+5. Reviewers comment and review (including anchored, Docs-style feedback on specific node fields)
+6. **Multi-Approval (roadmap)**: Some proposals require multiple approvals / quorum policies
 7. Proposal is accepted or rejected
 8. If accepted:
    - Operations are applied to store (with version validation)
-   - **Issues are automatically created** (if configured - see `decision-012`)
+   - **Issues are automatically created** (if configured - see `decision-012`; broader “action item creation” applies beyond software)
    - Issues can be created as task nodes
    - Referencing nodes updated
 9. Markdown is regenerated from accepted truth

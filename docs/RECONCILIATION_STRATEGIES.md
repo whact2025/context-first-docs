@@ -1,10 +1,10 @@
-# Reconciliation Strategies for Concurrent Edits
+# Reconciliation Strategies for Concurrent Work
 
-This document outlines reconciliation options for handling conflicts when multiple people edit the same ctx block (question-002).
+This document outlines reconciliation options for handling conflicts when multiple people (and/or agents) propose changes to the same part of the shared solution model.
 
 ## Problem Statement
 
-When multiple people edit the same ctx block simultaneously:
+When multiple parties propose overlapping changes simultaneously:
 - Git merge conflicts are line-based, not semantic
 - Need conflict resolution at the proposal level
 - Must preserve intent and rationale from both edits

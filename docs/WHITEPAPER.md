@@ -1,24 +1,24 @@
 # Context-First Docs
-## A Whitepaper on Review-Mode Context Graphs for Agentic Software Development
+## Agentic Collaboration Approval Layer (ACAL): review‑mode solution modeling for human + agent collaboration
 
 **Version**: v1 (target-state)  
-**Audience**: engineering leadership, security, and builders (mixed)  
+**Audience**: leadership, security/compliance, and builders across domains (mixed)  
 
 ---
 
 ## Summary (one page)
 
-Software teams do not have a stable substrate for **durable context**:
+Organizations do not have a stable substrate for **durable, reviewable solution modeling**:
 
-- **Why** decisions were made (and what was rejected) is scattered across Slack/Teams, PR comments, wikis, and tickets.
+- **Why** decisions were made (and what was rejected) is scattered across chat, docs, tickets, meeting notes, email, and review threads.
 - **Truth status** is ambiguous: drafts, proposals, outdated decisions, and open questions are often indistinguishable.
-- As AI agents become participants in development, this ambiguity becomes operational risk: agents can **hallucinate** or apply outdated context because the system cannot reliably distinguish **accepted truth** from **suggestions**.
+- As AI agents become participants in knowledge work, this ambiguity becomes operational risk: agents can **hallucinate** or apply outdated context because the system cannot reliably distinguish **accepted truth** from **suggestions**.
 
-**Context-First Docs** proposes a different primitive: a **review-mode context store** that behaves like Google Docs “Suggesting” mode, but with explicit structure and agent-safe semantics.
+**Context-First Docs** proposes a different primitive: an **Agentic Collaboration Approval Layer (ACAL)** — a review‑mode store that behaves like Google Docs “Suggesting” mode, but with explicit structure and agent‑safe semantics.
 
 In the final architecture:
 
-- The canonical source of truth is a **typed context graph**, not unstructured documents.
+- The canonical source of truth is a **typed solution graph**, not unstructured documents.
 - The system enforces a core invariant: **no direct edits to accepted context**. All changes are captured as **proposals** and move into truth only via **review** (accept/reject) and **apply**.
 - Markdown is an **optional projection** and authoring surface (e.g., via lightweight `ctx` blocks), never the authoritative store.
 - Agents (and humans) read a **queryable API** that defaults to accepted truth for safety, and they write only by creating proposals.
@@ -61,7 +61,7 @@ Google Docs / Word solve human review ergonomics, but they are:
 - opaque to agents (no stable semantic graph),
 - not deterministic (hard to generate stable projections),
 - often cloud-bound (problematic for sensitive repos),
-- and not integrated as a first-class layer in engineering workflows.
+- and not integrated as a first-class layer in domain workflows (engineering, policy, operations, procurement, etc.).
 
 ---
 
@@ -69,9 +69,9 @@ Google Docs / Word solve human review ergonomics, but they are:
 
 Context-First Docs is not “a better document editor.”
 
-It is a **semantic context layer** with:
+It is an **Agentic Collaboration Approval Layer (ACAL)** with:
 
-- a canonical **context store** (graph),
+- a canonical **solution model store** (typed graph),
 - a proposal and review workflow (review mode),
 - deterministic projections into human-friendly formats (Markdown),
 - and agent-safe consumption via an explicit query API.
@@ -198,6 +198,17 @@ Because the system has a structured notion of change, it can enforce:
 - conflict detection and resolution workflows,
 - and auditability across the entire context layer.
 
+### 4.3 Reviewer comments are anchored to nodes (Docs-style)
+
+In the target state, review does not rely on “line comments” tied to file positions.
+Reviewer feedback is modeled as **comments anchored to semantic nodes**, much like Google Docs:
+
+- comments attach to a specific **node id** and a specific **field** (e.g., `description`, `title`, or a typed field like `decision.rationale`)
+- for long-form text fields, comments can optionally include a **text range** anchor (character offsets) inside `description`
+- comment threads remain stable as projections change (Markdown can be regenerated without “losing” review discussion)
+
+This makes reviewer recommendations first-class context: they can be queried, triaged, and linked to the exact place in the semantic model they refer to.
+
 ---
 
 ## 5. Deterministic projections (views), not canonical documents
@@ -280,6 +291,557 @@ It does not provide:
 - or policy enforcement for writes.
 
 RAG can be a discovery layer, but the canonical truth layer needs explicit semantics and review mode.
+
+### 7.3 Typical agentic flow: prompts → proposals → linked context
+
+This section describes a **target-state** workflow where an agent helps authors create context *by producing proposals*, and also auto-creates supporting nodes (questions, risks, tasks, plans) and links them together.
+
+At a high level, the agent runs a loop:
+
+1. **Read** accepted truth (and optionally open proposals) via the query API.
+2. **Propose** changes as structured proposal operations (create/update/link).
+3. **Generate** supporting context nodes (questions/risks/tasks) as additional proposals.
+4. **Link** everything with typed relationships so reviewers and agents can traverse: goal → decision → task → risk/question/constraint.
+5. Humans **review** and accept/reject; accepted proposals are applied; projections update.
+
+#### 7.3.1 Example scenario
+
+Assume a team is about to implement **single sign-on (SSO)**. The agent’s job is to translate intent into reviewable context changes.
+
+#### 7.3.2 Example agent prompts (authoring)
+
+The workflows below show the **literal prompts** you would send to an agent. Copy/paste them as-is; the only “variables” are placeholders like `<project>`.
+
+Prompt A — discover current accepted context:
+
+```text
+SYSTEM:
+You are a context-first assistant operating under review-mode semantics.
+
+Non-negotiable rules:
+- Treat accepted nodes as truth.
+- Do not directly edit accepted truth.
+- When writing, produce proposals only (structured operations).
+- If context is missing or uncertain, prefer creating question nodes rather than inventing facts.
+- Link created nodes using typed relationships so reviewers can traverse goal -> decision -> task -> risk/question/constraint.
+
+Output requirements (when asked to write):
+- Prefer small, reviewable proposals (avoid giant dumps).
+- Use stable ids (kebab-case).
+- Put human-authored Markdown in description; treat content as derived.
+
+USER:
+You are helping with SSO planning for <project>.
+
+Query accepted context for anything related to:
+- authentication, identity, SSO, user sessions
+- compliance constraints
+
+Return:
+- relevant accepted goals/decisions/constraints/risks/questions
+- a list of missing context that should be proposed next (questions/risks/decisions/tasks)
+Do not propose changes yet; discovery only.
+```
+
+Prompt B — draft a proposal set (decision + supporting nodes):
+
+```text
+SYSTEM:
+You are a context-first assistant operating under review-mode semantics.
+
+Non-negotiable rules:
+- Treat accepted nodes as truth.
+- Do not directly edit accepted truth.
+- Produce proposals only (structured operations).
+- If context is missing or uncertain, create question nodes.
+- Link nodes using typed relationships so the chain goal -> decision -> task -> risk/question is traversable.
+
+USER:
+Create proposals to introduce SSO safely for <project>.
+
+Requirements:
+- Create or update a goal describing the business objective.
+- Create a decision for the chosen SSO approach (include rationale and alternatives).
+- Create questions that must be answered before implementation.
+- Create risks with mitigations.
+- Create implementation tasks and a plan outline.
+- Link nodes using typed relationships so the chain goal→decision→task→risk/question is traversable.
+
+Output must be structured as proposal operations (create/update/status-change/relationships).
+Do not apply changes; proposals only.
+```
+
+#### 7.3.3 What the agent produces (structured proposal operations)
+
+In the target-state system, an agent can emit one proposal containing multiple operations, or several smaller proposals (often preferred for review granularity). A representative output looks like:
+
+```json
+{
+  "proposalId": "proposal-sso-bootstrap",
+  "status": "open",
+  "metadata": {
+    "createdBy": "agent",
+    "rationale": "Introduce SSO with clear decision provenance, risks, and open questions before implementation."
+  },
+  "operations": [
+    {
+      "type": "create",
+      "node": {
+        "id": { "id": "goal-sso" },
+        "type": "goal",
+        "status": "proposed",
+        "title": "Enable SSO for enterprise customers",
+        "description": "Provide SSO to reduce onboarding friction and meet enterprise security requirements.",
+        "relationships": []
+      }
+    },
+    {
+      "type": "create",
+      "node": {
+        "id": { "id": "decision-sso-protocol" },
+        "type": "decision",
+        "status": "proposed",
+        "title": "Adopt OIDC as the SSO protocol",
+        "description": "Decision: Use OpenID Connect (OIDC) for SSO.\n\nRationale: widely supported; good fit with modern identity providers.\n\nAlternatives: SAML; vendor-specific auth.",
+        "relationships": [
+          { "type": "references", "target": { "id": "goal-sso" } }
+        ]
+      }
+    },
+    {
+      "type": "create",
+      "node": {
+        "id": { "id": "question-sso-idp-matrix" },
+        "type": "question",
+        "status": "proposed",
+        "title": "Which IdPs must be supported in v1?",
+        "description": "List required identity providers (Okta, Azure AD, Google Workspace, etc.) and any enterprise constraints.",
+        "relationships": [
+          { "type": "references", "target": { "id": "decision-sso-protocol" } }
+        ]
+      }
+    },
+    {
+      "type": "create",
+      "node": {
+        "id": { "id": "risk-sso-account-takeover" },
+        "type": "risk",
+        "status": "proposed",
+        "title": "Account takeover via misconfigured SSO",
+        "description": "SSO misconfiguration or weak linking could allow unintended account access.",
+        "relationships": [
+          { "type": "blocks", "target": { "id": "task-sso-implementation" } }
+        ]
+      }
+    },
+    {
+      "type": "create",
+      "node": {
+        "id": { "id": "task-sso-implementation" },
+        "type": "task",
+        "status": "proposed",
+        "title": "Implement OIDC SSO login flow",
+        "description": "Build login initiation, callback handling, token validation, and account linking.\n\nInclude logging, metrics, and rollback plan.",
+        "relationships": [
+          { "type": "implements", "target": { "id": "decision-sso-protocol" } },
+          { "type": "depends-on", "target": { "id": "question-sso-idp-matrix" } }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Notes on the structure:
+
+- The agent **does not edit accepted truth**; it emits `status: open` proposals with nodes marked `status: proposed` until reviewed.
+- The nodes are **linked** immediately so reviewers can evaluate the full chain of reasoning (goal → decision → task, plus blocking risks and open questions).
+- Additional proposals can be generated automatically as new information arrives (e.g., after a reviewer rejects an alternative or requests more detail).
+
+#### 7.3.4 Auto-generating follow-on context (questions, risks, constraints)
+
+In the target-state system, agents can also generate “supporting context” proposals automatically:
+
+- **Questions** when required inputs are missing (IdPs, compliance constraints, rollout strategy).
+- **Risks** when changes touch sensitive domains (auth, data handling, permissions).
+- **Constraints** when requirements are non-negotiable (e.g., “must support offline mode”, “must pass SOC2 controls”).
+- **Plans** when there is a multi-step implementation requiring coordination and sequencing.
+
+This turns what is usually implicit (and trapped in chat threads) into explicit, reviewable, linkable context.
+
+#### 7.3.5 Keeping proposals reviewable
+
+To avoid “agent spam,” the target workflow typically uses:
+
+- small proposals (one decision, one risk cluster, one question set),
+- explicit linking so reviewers see why a node exists,
+- and reviewer feedback loops (“add a mitigation” / “split this decision” / “reject this alternative”).
+
+### 7.4 Typical agentic flow: ship a feature or fix a bug in an existing codebase
+
+This section describes a common target-state workflow where the agent is asked to **implement** (or help implement) a feature/bugfix in an existing codebase, while keeping context clean and reviewable.
+
+The key idea is that “work in the codebase” and “work in context” are linked but distinct:
+
+- The agent proposes **context changes** (decisions, tasks, risks, questions) via proposals.
+- The agent proposes or produces **codebase changes** as a *codebase projection* (PR/branch/patch/plan).
+- Reviewers can accept/reject context proposals and independently review the code changes via normal code review workflows.
+
+#### 7.4.1 Example scenario
+
+“Add a feature flag to enable SSO only for specific tenants,” or “Fix a bug where token refresh intermittently fails.”
+
+#### 7.4.2 Example agent prompt (implementation request)
+
+```text
+SYSTEM:
+You are a context-first assistant working against an existing codebase.
+You must use review-mode semantics for context:
+- Do not directly edit accepted truth.
+- Propose changes as proposals only.
+- Treat accepted context as truth; treat code inference as hypotheses.
+
+USER:
+Goal: implement <feature_or_fix>.
+
+Constraints:
+- Do not directly edit accepted context; create proposals only.
+- Before writing code, propose the necessary context: a task plan, risks, and any open questions.
+- Link new context to existing decisions/goals where relevant.
+- Produce a codebase projection describing expected code changes (PR/branch/patch/plan).
+```
+
+#### 7.4.3 The agent’s “proposal-first” workflow
+
+1. **Discover context**: query accepted decisions/constraints related to the area (auth, sessions, data handling).
+2. **Discover code signals**: identify likely impacted modules (without treating code diffs as the context truth).
+3. **Draft proposals**:
+   - Create/update a task node that describes the work.
+   - Create risks (security, data integrity, rollout) with mitigations.
+   - Create questions for missing requirements (edge cases, compatibility).
+   - Optionally create or update a decision if a new architectural choice is required.
+4. **Attach a codebase projection**:
+   - `pull_request` (preferred when the agent can open a PR), or
+   - `branch`, `patch`, or a step-by-step `plan`.
+5. **Review loop**:
+   - reviewers accept/reject context proposals,
+   - reviewers review code changes via standard code review,
+   - accepted proposals are applied and projections update.
+
+#### 7.4.4 What the agent produces (linked context + codebase projection)
+
+The target-state output commonly includes:
+
+- A **task** node linked to the relevant decision(s).
+- A small set of **risks** that block the task until mitigations are agreed.
+- A set of **questions** that capture missing inputs.
+- A **codebase projection** that makes the implementation concrete for reviewers.
+
+##### 7.4.4.1 Prompt sequence that produces the output
+
+Below is a typical sequence of prompts that would yield the representative proposal payload shown next. In practice these prompts may be executed by a single agent in a loop, but the **separation of steps** is intentional: it produces smaller, more reviewable artifacts and ensures the agent doesn’t silently jump from “bug report” to “code change” without capturing context.
+
+System prompt used for Prompts 1–5:
+
+```text
+SYSTEM:
+You are a context-first assistant operating under review-mode semantics.
+
+Hard rules:
+- Accepted nodes are truth; open proposals are suggestions.
+- Do not directly edit accepted truth; create proposals only.
+- When context is missing or inferred from code, label it as inferred and convert unknowns into explicit question nodes.
+- Link nodes so reviewers can traverse decision -> task -> risk/question and goal -> decision -> task.
+- Keep proposals small and reviewable.
+```
+
+Prompt 1 — gather context (store-first, but can bootstrap from legacy code):
+
+```text
+USER:
+First, try to query accepted context (if a context store exists) for anything relevant to:
+- authentication, sessions, refresh tokens, retries, timeouts, clock skew
+- existing decisions that constrain the approach
+
+If the context store is empty or incomplete (e.g., this codebase predates captured context), bootstrap from the existing codebase instead:
+- infer likely auth/session mechanisms from the codebase (treat as hypotheses, not truth)
+- extract “proto-context” from code comments, configs, and historical artifacts (PRs/commits) if available
+- convert unknowns into explicit question nodes to be reviewed
+
+Return:
+- relevant accepted decisions/constraints/risks/questions (if present)
+- inferred context hypotheses from the codebase (clearly labeled as inferred)
+- missing context that should be proposed next (questions/risks/tasks/decisions)
+
+Rules:
+- Treat accepted nodes as truth.
+- Do not propose changes yet; this step is read-only discovery.
+```
+
+Prompt 2 — gather codebase signals (diagnostic, not “truth”):
+
+```text
+USER:
+Given the symptom "intermittent token refresh failures", identify likely code hotspots and failure modes.
+
+Return:
+- suspected modules/files/components involved (refresh scheduling, retry/backoff, token validation, clock/time handling)
+- top 3 plausible root causes
+- minimal instrumentation/metrics needed to confirm
+
+Rules:
+- Do not write code yet.
+- Do not treat code guesses as accepted truth; capture uncertainties as questions.
+```
+
+Prompt 3 — propose the context package (task + risks + questions):
+
+```text
+USER:
+Create a proposal (status: open) with operations to create:
+- a task node: "Fix intermittent token refresh failures"
+- a risk node that blocks the task until mitigations are agreed
+- a question node asking for the SLO/acceptable failure rate
+
+Linking requirements:
+- task references the relevant decision (if one exists; otherwise reference the nearest auth decision placeholder)
+- risk blocks the task
+- question references the task
+
+Text requirements:
+- task.description includes acceptance criteria and observability notes
+- risk.description explains the failure amplification concern
+- question.description requests an explicit SLO and alert thresholds
+```
+
+Prompt 4 — produce the codebase projection (plan/patch/PR metadata):
+
+```text
+USER:
+Attach a codebase projection to the proposal metadata.
+
+Prefer kind: plan with:
+- summary: 1–2 sentences
+- steps: 4–8 concrete implementation steps
+
+The plan must cover:
+- bounded jittered retry/backoff
+- explicit handling for clock skew/expired refresh tokens
+- metrics/logging
+- regression tests
+```
+
+Prompt 5 — consistency check before submission:
+
+```text
+USER:
+Validate the proposal package for internal consistency.
+
+Checklist:
+- all created nodes have stable ids
+- links form a navigable chain (decision -> task -> risk/question)
+- proposal is reviewable (no giant dump; clear acceptance criteria)
+- no direct edits to accepted truth
+
+Return the final proposal JSON.
+```
+
+Representative structure:
+
+```json
+{
+  "proposalId": "proposal-fix-refresh",
+  "status": "open",
+  "metadata": {
+    "createdBy": "agent",
+    "rationale": "Fix token refresh reliability while capturing risks/questions and producing a reviewable implementation artifact.",
+    "codeProjection": {
+      "kind": "plan",
+      "summary": "Token refresh fix: add jittered backoff, handle clock skew, add metrics, and update tests.",
+      "steps": [
+        "Locate refresh scheduling and retry logic",
+        "Add bounded jittered retry/backoff to avoid thundering herd",
+        "Add explicit handling for clock skew and expired refresh tokens",
+        "Add metrics/logging for refresh failures and retries",
+        "Add regression tests for intermittent failure mode"
+      ],
+      "generatedAt": "2026-01-01T00:00:00Z"
+    }
+  },
+  "operations": [
+    {
+      "type": "create",
+      "node": {
+        "id": { "id": "task-fix-token-refresh" },
+        "type": "task",
+        "status": "proposed",
+        "title": "Fix intermittent token refresh failures",
+        "description": "Improve reliability of token refresh by addressing retry behavior, timing edge cases, and observability.\n\nAcceptance criteria: no observed intermittent failures in load tests; metrics show stable refresh success rate.",
+        "relationships": [
+          { "type": "references", "target": { "id": "decision-auth-approach" } }
+        ]
+      }
+    },
+    {
+      "type": "create",
+      "node": {
+        "id": { "id": "risk-refresh-lockout" },
+        "type": "risk",
+        "status": "proposed",
+        "title": "Users may get locked out if refresh retries amplify failures",
+        "description": "Retry logic could worsen outages if implemented incorrectly.",
+        "relationships": [
+          { "type": "blocks", "target": { "id": "task-fix-token-refresh" } }
+        ]
+      }
+    },
+    {
+      "type": "create",
+      "node": {
+        "id": { "id": "question-refresh-slo" },
+        "type": "question",
+        "status": "proposed",
+        "title": "What is the acceptable refresh failure rate (SLO)?",
+        "description": "Define SLO and alert thresholds to validate the fix and prevent regressions.",
+        "relationships": [
+          { "type": "references", "target": { "id": "task-fix-token-refresh" } }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Notes:
+
+- The “implementation artifact” is captured as a **codebase projection** (plan/patch/PR), so reviewers can see concrete expected changes.
+- The task/risk/question nodes are linked so the context remains navigable.
+- If an architectural choice is required (e.g., switching token libraries), the agent proposes a decision node rather than silently changing behavior in code.
+
+##### 7.4.4.2 Reviewer prompt sequence (validate, request changes, approve/reject)
+
+In the target-state workflow, reviewers can also use an agent to **evaluate** proposals. The important constraint remains: reviewers do not “edit truth” directly; they accept/reject proposals, and if changes are needed they request revisions (often by asking the agent to generate an updated proposal or a follow-up proposal).
+
+System prompt used for Reviewer Prompts 1–6:
+
+```text
+SYSTEM:
+You are a reviewer-assistant for an Agentic Collaboration Approval Layer (ACAL).
+
+Hard rules:
+- Treat accepted nodes as truth.
+- Treat open proposals as suggestions.
+- Do not apply proposals; reviewers accept/reject, and the system applies accepted proposals.
+- If something is missing or uncertain, recommend creating question/risk/constraint nodes rather than guessing.
+- Prefer reviewable outcomes: either (a) approve, (b) reject with rationale, or (c) request specific changes as follow-up proposals.
+
+Output format:
+- Use concise bullet points.
+- Provide reviewer feedback as **anchored comment suggestions** tied to nodes:
+  - nodeId: {id, namespace?}
+  - field: title | description | relationships | <typed-field>
+  - range: optional {start, end} character offsets for description comments
+  - kind: question | risk | change_request | approval_note
+  - comment: the text
+- When recommending changes, also list exact node ids/fields/relationships to change or create.
+```
+
+Reviewer Prompt 1 — sanity-check the proposal package:
+
+```text
+USER:
+Review proposal <proposalId>.
+
+Return:
+- a 1-paragraph summary of what it changes
+- whether it is internally consistent
+- any missing required context (questions/risks/constraints)
+- any unsafe assumptions or invented facts
+
+Also return:
+- anchored comment suggestions for the exact nodes/fields where changes are needed
+```
+
+Reviewer Prompt 2 — validate linkage and traversal:
+
+```text
+USER:
+Validate that proposal <proposalId> creates a traversable chain:
+- decision -> task -> risk/question
+- goal -> decision -> task (if a goal exists)
+
+Return:
+- the chain as a list of node ids
+- missing links to add (relationship type + from + to)
+
+Also return:
+- anchored comment suggestions on the task/decision nodes indicating missing links
+```
+
+Reviewer Prompt 3 — validate risks and mitigations:
+
+```text
+USER:
+For proposal <proposalId>, evaluate risk coverage.
+
+Return:
+- missing risks for a token refresh reliability fix (e.g., outage amplification, security regressions, observability gaps)
+- proposed mitigations (as text) and whether they should become new/updated nodes
+
+Also return:
+- anchored comment suggestions on the task node describing the missing risks/mitigations
+```
+
+Reviewer Prompt 4 — validate the codebase projection quality:
+
+```text
+USER:
+Evaluate the codebase projection attached to proposal <proposalId>.
+
+Return:
+- whether it is specific enough to review
+- which steps are missing (tests, metrics, rollback, compatibility)
+- whether the projection should be upgraded to a PR/patch/branch artifact before approval
+
+Also return:
+- anchored comment suggestions on the proposal metadata/codebase projection (or on the task node) requesting missing detail
+```
+
+Reviewer Prompt 5 — request changes (as explicit follow-up proposals):
+
+```text
+USER:
+Generate a follow-up proposal that addresses the gaps you found in proposal <proposalId>.
+
+Requirements:
+- keep changes small and reviewable
+- only add/update the minimum necessary nodes/fields/relationships
+- include rationale in metadata
+
+Return the follow-up proposal JSON.
+```
+
+Reviewer Prompt 6 — final decision recommendation:
+
+```text
+USER:
+Given proposal <proposalId> and any follow-up proposals you created, recommend one:
+- ACCEPT (and why),
+- REJECT (and why), or
+- DEFER (and what must change first).
+
+Return the recommendation and a checklist for the human reviewer.
+```
+
+#### 7.4.5 Closing the loop (issue creation and traceability)
+
+In the target state, once a proposal is accepted, the system can create downstream **issues** (execution artifacts) that inherit:
+
+- links back to the proposal,
+- the codebase projection (PR/branch/patch/plan),
+- and relationships to the decision/goal chain.
+
+This keeps the execution system (Jira/GitHub Issues) aligned with durable context without making it the source of truth.
 
 ---
 
@@ -541,6 +1103,21 @@ Key governance capabilities:
 - multi-approval workflows
 - policy constraints on who can apply accepted proposals
 
+### 13.1 Enterprise approval policies (roadmap)
+
+In enterprise settings, “who can approve what, when, and with what evidence” is itself part of the solution. ACAL is designed to support policy as a first-class concept.
+
+Future capabilities:
+
+- **Policy-as-code**: evaluate proposals against versioned approval policies (e.g., by node type, tags, severity/likelihood, namespace).
+- **Quorum / multi-approval**: require \(N\)-of-\(M\) approvals for specific changes (e.g., “high-risk”).
+- **Separation of duties**: prevent self-approval; enforce two-person rules for sensitive changes.
+- **Conditional gates**: require additional reviewers when proposals touch protected concepts (e.g., compliance constraints, high-severity risks).
+- **Attestations / evidence**: require structured evidence attachments (e.g., DPIA/threat model/test results) before approval.
+- **Escalation + SLAs**: time-based escalation if required approvals are not obtained.
+- **Identity integration**: SSO (OIDC/SAML) and group sync to map “approver sets” to org structure.
+- **Audit exports**: exportable, append-only event logs for regulated environments.
+
 ---
 
 ## 14. What is intentionally not solved
@@ -551,14 +1128,14 @@ Context-First Docs is not trying to replace:
 - execution systems (issue trackers remain excellent for delivery workflow)
 - freeform note-taking or wiki browsing for ephemeral content
 
-It is an opinionated layer for **durable, reviewable, agent-safe context**.
+It is an opinionated layer for **durable, reviewable, agent-safe solution modeling + approval**.
 
 ---
 
 ## 15. Objections (and how the architecture answers them)
 
 ### “Isn’t this just documentation?”
-No. The distinguishing element is **truth semantics** (review mode) plus a **structured graph** and an **agent-safe API**.
+No. The distinguishing element is **approval semantics** (review mode) plus a **structured solution graph** and an **agent-safe API**.
 
 ### “Why not just do this in GitHub PR comments?”
 PR comments are tied to code diffs and timelines. The context layer needs durable identity, explicit status, and traversal relationships independent of a specific PR.
@@ -573,7 +1150,7 @@ Review mode is a safety invariant. The system supports concurrency via proposals
 No. Markdown remains a first-class *projection* and authoring surface. Git remains valuable for code review and (optionally) for storing projections and/or a file-based canonical backend.
 
 ### “Is this a wiki/Notion replacement?”
-Not primarily. Wikis are excellent for broad, page-centric knowledge. This system targets **durable engineering truth** (goals, decisions, constraints, risks) with explicit status and review semantics. Many orgs will keep both: a wiki for narrative knowledge, and a context store for agent-safe truth.
+Not primarily. Wikis are excellent for broad, page-centric knowledge. This system targets **durable organizational truth about a solution** (goals, decisions, constraints, risks, open questions) with explicit status and review semantics. Many orgs will keep both: a wiki for narrative knowledge, and an approval layer for agent-safe, reviewable truth.
 
 ### “How does this integrate with Jira/GitHub Issues?”
 In the target state, issues are downstream execution artifacts. Approved proposals can create issues (and attach codebase projections like PR links), while Jira/Issues remains the execution workflow layer.

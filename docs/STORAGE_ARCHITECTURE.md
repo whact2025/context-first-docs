@@ -1,5 +1,7 @@
 # Storage Architecture: Dual Storage Options with Abstraction Layer
 
+Storage supports an **Agentic Collaboration Approval Layer (ACAL)**: a self-hosted, auditable store for proposals, reviews, and the approved solution model.
+
 ## Overview
 
 The system supports **two storage implementations** through a storage abstraction layer (`ContextStore` interface):

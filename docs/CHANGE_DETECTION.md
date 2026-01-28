@@ -1,5 +1,7 @@
 # Change Capture (Suggesting Mode) and Proposal Creation
 
+This document describes change capture for an **Agentic Collaboration Approval Layer (ACAL)**: turning human/agent intent into proposals against a shared **solution model**.
+
 This system does **not** allow direct edits to accepted context. All concurrent work is captured as **proposals** and then **accepted/rejected** into truth (Google Docs “Suggesting” mode).
 
 See `docs/REVIEW_MODE.md` for the invariant and allowed status transitions.
@@ -11,7 +13,7 @@ There are two separable concerns:
 - **Change capture**: turning user/agent intent into a proposal.
 - **Change application**: applying an *accepted* proposal into truth.
 
-Change capture can happen in a UI, a server API, or a CLI; the important part is that the output is always a **proposal**.
+Change capture can happen in a UI, a server API, or a CLI; the important part is that the output is always a **proposal**. This applies to software changes, policy changes, procurement decisions, and any other domain where “what changed” must be reviewable and auditable.
 
 ## Two change-capture inputs
 

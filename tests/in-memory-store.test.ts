@@ -394,6 +394,83 @@ describe("InMemoryStore", () => {
     });
   });
 
+  describe("Comment Operations", () => {
+    it("should support anchored proposal comments and comment queries by node", async () => {
+      const proposal: Proposal = {
+        id: "proposal-comments-001",
+        status: "open",
+        operations: [],
+        metadata: {
+          createdAt: "2026-01-01T00:00:00Z",
+          createdBy: "alice",
+          modifiedAt: "2026-01-01T00:00:00Z",
+          modifiedBy: "alice",
+        },
+      };
+
+      await store.createProposal(proposal);
+
+      await store.addProposalComment("proposal-comments-001", {
+        id: "c1",
+        author: "bob",
+        createdAt: "2026-01-02T00:00:00Z",
+        content: "Please tighten the acceptance criteria.",
+        status: "open",
+        anchor: {
+          nodeId: { id: "task-fix-token-refresh" },
+          field: "description",
+          range: { start: 0, end: 10 },
+          quote: "Improve reli",
+        },
+      });
+
+      const comments = await store.getProposalComments("proposal-comments-001");
+      expect(comments).toHaveLength(1);
+      expect(comments[0].anchor?.nodeId.id).toBe("task-fix-token-refresh");
+
+      const byNode = await store.queryComments({ nodeId: { id: "task-fix-token-refresh" } });
+      expect(byNode.map((c) => c.id)).toContain("c1");
+
+      const byOtherNode = await store.queryComments({ nodeId: { id: "some-other-node" } });
+      expect(byOtherNode).toHaveLength(0);
+    });
+
+    it("queryComments should include review-attached anchored comments", async () => {
+      const proposal: Proposal = {
+        id: "proposal-review-comments-001",
+        status: "open",
+        operations: [],
+        metadata: {
+          createdAt: "2026-01-01T00:00:00Z",
+          createdBy: "alice",
+          modifiedAt: "2026-01-01T00:00:00Z",
+          modifiedBy: "alice",
+        },
+      };
+      await store.createProposal(proposal);
+
+      await store.submitReview({
+        id: "review-anchored-001",
+        proposalId: "proposal-review-comments-001",
+        reviewer: "carol",
+        reviewedAt: "2026-01-02T00:00:00Z",
+        action: "request-changes",
+        comments: [
+          {
+            id: "rc1",
+            author: "carol",
+            createdAt: "2026-01-02T00:00:00Z",
+            content: "Add a risk about outage amplification.",
+            anchor: { nodeId: { id: "task-fix-token-refresh" }, field: "description" },
+          },
+        ],
+      });
+
+      const res = await store.queryComments({ proposalId: "proposal-review-comments-001" });
+      expect(res.map((c) => c.id)).toContain("rc1");
+    });
+  });
+
   describe("Review Operations", () => {
     beforeEach(async () => {
       const proposal: Proposal = {

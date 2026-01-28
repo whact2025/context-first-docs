@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-This document tracks key architectural decisions made during the context-first-docs project.
+This document tracks key architectural decisions made during the context-first-docs project (an Agentic Collaboration Approval Layer — ACAL).
 
 ```ctx
 type: decision
@@ -398,7 +398,7 @@ status: accepted
 6. Import into context store
 
 **Use Cases**:
-- Migrating existing projects to context-first system
+- Migrating existing projects to the context-first approach (ACAL)
 - Building context graph from historical PR/MR discussions
 - Capturing decisions that were made in PR comments but never documented
 - Extracting risks and concerns raised during code review
@@ -756,4 +756,38 @@ status: accepted
 - The UI should surface validation feedback so “dropped blocks” don’t feel silent.
 
 **Decided At**: 2026-01-27
+```
+
+```ctx
+type: decision
+id: decision-020
+status: accepted
+---
+**Decision**: Reviewer comments and recommendations must be **anchored to semantic nodes** (Google Docs–style), not to Markdown line positions.
+
+**Rationale**:
+- Review feedback must remain stable even when Markdown projections are regenerated.
+- Reviewers need to comment on *meaning* (a node/field) rather than a file diff.
+- Agents should be able to query reviewer feedback directly (e.g., “open comments on `decision-123.description`”).
+- Anchoring to node identity enables consistent workflows across clients (editor extension, web UI, CLI).
+
+**Anchoring model**:
+- Comments can attach to:
+  - a **proposal** (general discussion), or
+  - a **specific operation**, or
+  - a **node anchor**: `{ nodeId, field, range? }`
+- For long-form text fields (typically `description`), comments may include a **character range** anchor.
+- Optionally store a short **quote/snippet** to help clients re-anchor if the text changes.
+
+**Implementation (contract)**:
+- Comments are persisted alongside proposals/reviews in the context store.
+- The store exposes APIs to:
+  - add/get proposal comments
+  - query comments by proposal id and/or node anchor
+- Clients render anchored comments as inline “suggestions/threads” on the relevant node fields (Docs-style).
+
+**Notes**:
+- Range re-anchoring across edits is a client/API concern; the store should preserve anchors and quotes and treat re-anchoring as best-effort.
+
+**Decided At**: 2026-01-28
 ```

@@ -1,19 +1,19 @@
 # Project Context
 
-This document contains the core context and background for the context-first-docs project itself.
+This document contains the core context and background for the context-first-docs project itself (an Agentic Collaboration Approval Layer — ACAL).
 
 ```ctx
 type: context
 id: context-001
 status: accepted
 ---
-This project addresses the problem of context collapse in modern software development.
+This project addresses the problem of context collapse in modern knowledge work (including software development).
 Decisions, rationale, and constraints often live in ephemeral channels like Slack or
 get lost in PR comments. This system provides a durable, reviewable, agent-safe way
 to maintain project context.
 
-The project itself uses this system to document itself - this file and others are
-managed through the context-first system, demonstrating the approach in practice.
+The project itself uses the same review-mode workflow to document itself — this file and others are
+managed through the ACAL workflow (proposals → review → apply), demonstrating the approach in practice.
 ```
 
 ```ctx
@@ -21,7 +21,7 @@ type: goal
 id: goal-001
 status: accepted
 ---
-Create a context-first collaboration system that enables:
+Create an agentic collaboration approval layer (ACAL) that enables:
 - Durable decision tracking
 - Agent-safe context consumption
 - Human-readable Markdown interface
@@ -41,7 +41,7 @@ type: goal
 id: goal-002
 status: accepted
 ---
-This project should be self-referential - it uses its own context-first system
+This project should be self-referential - it uses its own ACAL semantics
 to document itself. This demonstrates the approach and serves as a living example.
 ```
 
@@ -72,7 +72,7 @@ The project must use its own system to document itself. This is a core principle
 if we can't use our own tool effectively, we shouldn't expect others to.
 
 This file and others (DECISIONS.md, PLAN.md, RISKS.md, QUESTIONS.md) are managed
-through the context-first system, demonstrating the approach in practice.
+through the ACAL workflow (proposals → review → apply), demonstrating the approach in practice.
 ```
 
 ```ctx
@@ -145,7 +145,7 @@ status: accepted
 ---
 **Note on Self-Reference**: 
 
-This project is self-referential - it uses its own context-first system to document
+This project is self-referential - it uses its own ACAL semantics to document
 itself. The Markdown files in the project root contain ctx blocks that embed semantic
 nodes. As the system matures, these will be automatically synchronized with the
 canonical context store in `.context/`.

@@ -4,7 +4,7 @@ Thank you for your interest in contributing to context-first-docs!
 
 ## Self-Referential Development
 
-**This project uses its own context-first system to document itself.**
+**This project uses its own Agentic Collaboration Approval Layer (ACAL) semantics to document itself.**
 
 When contributing, please be aware that:
 

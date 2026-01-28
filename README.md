@@ -1,26 +1,28 @@
-# Context-First Docs for Agentic Development
+# Context-First Docs
+
+## Agentic Collaboration Approval Layer (ACAL) for solution modeling
 
 ## TL;DR
-This project is **not a document editor**.
+This project is **not a document editor** and **not just for software development**.
 
 It looks like Markdown.  
 It feels like Google Docs review mode.  
-It behaves like a structured, auditable **context graph** that **humans and AI agents can safely reason over**.
+It behaves like an **Agentic Collaboration Approval Layer (ACAL)**: a structured, auditable **solution model** that **humans and AI agents collaborate on** and **approve into truth**.
 
 **🔒 Project context and IP never leak outside your organization** - all data stays in your Git repository (file-based) or self-hosted MongoDB (production), complete organizational control.
 
 Markdown is the interface.  
-Context is the truth.
+Approved meaning is the truth.
 
 ---
 
 ## The Problem
 
-Modern development teams suffer from **context collapse**.
+Teams doing complex work suffer from **context collapse**.
 
 - Decisions live in Slack, Notion, PR comments, and half-remembered conversations
-- README files drift out of sync with reality
-- Git diffs show *what* changed, but not *why*
+- Documents drift out of sync with reality
+- Diffs show *what* changed, but not *why* (or *who approved it*)
 - AI agents hallucinate because they can't distinguish:
   - accepted truth vs proposals
   - rejected ideas vs current constraints
@@ -31,15 +33,15 @@ Word / Google Docs solve **human review**, but are opaque, non-deterministic, ho
 
 GitHub / GitLab solve **code review**, but lose semantic intent and decision provenance.
 
-**There is no shared substrate for durable, reviewable, agent-safe context that keeps your IP secure.**
+**There is no shared substrate for durable, reviewable, agent-safe collaboration on a solution — with enterprise-grade approval semantics — that keeps your IP secure.**
 
 ---
 
 ## What We're Building
 
-A **context-first collaboration system** with:
+An **Agentic Collaboration Approval Layer (ACAL)** with:
 
-- **Graph-based context store**: Nodes with typed relationships (goal → decision → task → risk)
+- **Solution model store (typed graph)**: Nodes with typed relationships (goal → decision → task → risk → question), usable beyond software
 - **Dual storage options (planned)**: File-based (JSON graph in a repo) for development/small projects, MongoDB (self-hosted) for production/scaling
 - **Storage abstraction**: Both implementations use same `ContextStore` interface - start simple, scale up seamlessly via configuration
 - **Review-mode semantics**: No direct edits to accepted context; all writes are proposals that are accepted/rejected into truth
@@ -54,6 +56,7 @@ A **context-first collaboration system** with:
 - **Role-based access control**: Designated contributors and approvers with permissions
 - **Automatic issue creation**: Issues created when proposals are approved
 - **Hybrid conflict reconciliation**: Automatic detection, field-level merging, optimistic locking, manual resolution
+- **Enterprise approval policies (roadmap)**: policy-as-code, quorum/multi-approval, separation-of-duties, attestations/evidence, audit exports
 - **🔒 Zero IP Leakage**: All project context and IP stays within your organization
   - **File-based option**: All data in Git repository (self-hosted GitLab, Gitea, etc.)
   - **MongoDB option**: All data in self-hosted MongoDB (within organization)
@@ -70,7 +73,7 @@ This is infrastructure for **long-lived, multi-human, multi-agent systems** wher
 
 Jira is excellent at **execution management**: backlogs, boards, workflows, reporting, and cross-team coordination.
 
-Context-First Docs focuses on **durable, agent-safe context** that Jira tickets often fail to preserve:
+Context-First Docs focuses on **durable, agent-safe solution modeling + approval** that Jira tickets often fail to preserve:
 
 - **Canonical “why” graph**: Goals/decisions/risks/questions are first-class typed nodes with relationships (goal → decision → task → risk).
 - **Proposals + provenance**: Accepted truth vs proposed changes vs rejected ideas are explicit and reviewable (not buried in comments).
@@ -79,8 +82,8 @@ Context-First Docs focuses on **durable, agent-safe context** that Jira tickets 
 
 ### Recommended division of responsibilities
 
-- **Use Jira for**: sprint planning, assignment, SLAs, workflows/automation, time tracking, delivery reporting.
-- **Use Context-First Docs for**: decision records, constraints, rationale, risks/mitigations, long-lived plans, and structured context that links to code and to Jira items.
+- **Use Jira for**: execution management (planning, assignment, SLAs, workflows/automation, delivery reporting).
+- **Use Context-First Docs for**: solution modeling (decisions/constraints/risks/questions), review-mode approval, and structured context that links to code *or* to non-development artifacts.
 
 In practice: a Jira issue can reference a stable node ID (e.g., `decision-015`, `risk-001`), and approved proposals can auto-create issues—letting Jira manage execution while this system manages truth and reasoning.
 
@@ -266,9 +269,9 @@ If you care about:
 
 ## Self-Referential Documentation
 
-**This project uses its own context-first system to document itself.**
+**This project uses its own Agentic Collaboration Approval Layer (ACAL) semantics to document itself.**
 
-The project's documentation is managed through the context-first system:
+The project's documentation is managed through the same review-mode workflow (proposals → review → apply):
 
 - [`CONTEXT.md`](CONTEXT.md) - Core project context and goals
 - [`DECISIONS.md`](DECISIONS.md) - Architecture decisions with rationale

@@ -114,3 +114,20 @@ likelihood: possible
 - Provide quick fixes / suggestions where safe.
 - Keep a clear audit trail when content is rejected or corrected.
 ```
+
+```ctx
+type: risk
+id: risk-008
+status: accepted
+severity: medium
+likelihood: possible
+---
+**Risk**: Docs-style anchored comments may drift as text changes (ranges no longer point at the intended snippet), causing reviewer feedback to become confusing or appear “misplaced”.
+
+**Mitigation**:
+- Anchor primarily to **semantic identity** (`nodeId` + `field`), and treat range offsets as optional enhancements.
+- Persist an optional **quote/snippet** with the anchor so clients can attempt best-effort re-anchoring.
+- When re-anchoring fails, clearly surface “stale anchor” state and fall back to field-level attachment (still on the right node/field).
+- Prefer deterministic projections so regeneration doesn’t change meaning; avoid anchoring to Markdown line numbers.
+- Add tests for storing/querying anchored comments and for preserving anchors across proposal/review lifecycles.
+```

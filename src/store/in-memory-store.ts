@@ -10,6 +10,7 @@ import {
   NodeRelationship,
   NodeQuery,
   NodeQueryResult,
+  CommentQuery,
   ProposalQuery,
   RelationshipType,
   ReasoningChainOptions,
@@ -25,7 +26,7 @@ import {
   ReasoningQueryResult,
 } from "../types/index.js";
 import { NodeType } from "../types/node.js";
-import { Proposal, Review } from "../types/proposal.js";
+import { Comment, Proposal, Review } from "../types/proposal.js";
 import {
   ConflictDetectionResult,
   MergeResult,
@@ -611,6 +612,83 @@ export class InMemoryStore implements ContextStore {
 
   async getReviewHistory(proposalId: string): Promise<Review[]> {
     return this.reviews.get(proposalId) || [];
+  }
+
+  async getProposalComments(proposalId: string): Promise<Comment[]> {
+    const proposal = await this.getProposal(proposalId);
+    if (!proposal) {
+      throw new Error(`Proposal ${proposalId} not found`);
+    }
+    return proposal.comments || [];
+  }
+
+  async addProposalComment(proposalId: string, comment: Comment): Promise<void> {
+    const proposal = await this.getProposal(proposalId);
+    if (!proposal) {
+      throw new Error(`Proposal ${proposalId} not found`);
+    }
+
+    const comments = [...(proposal.comments || []), comment];
+    this.proposals.set(proposalId, {
+      ...proposal,
+      comments,
+      metadata: {
+        ...proposal.metadata,
+        // Treat comments as a form of modification for auditability.
+        modifiedAt: comment.createdAt,
+        modifiedBy: comment.author,
+      },
+    });
+  }
+
+  async queryComments(query: CommentQuery): Promise<Comment[]> {
+    const flatten = (c: Comment): Comment[] => {
+      const replies = Array.isArray(c.replies) ? c.replies.flatMap(flatten) : [];
+      return [c, ...replies];
+    };
+
+    let results: Comment[] = [];
+
+    // Proposal-attached comments
+    for (const proposal of this.proposals.values()) {
+      if (query.proposalId && proposal.id !== query.proposalId) continue;
+      const comments = (proposal.comments || []).flatMap(flatten);
+      results.push(...comments);
+    }
+
+    // Review-attached comments (anchored reviewer feedback)
+    for (const reviews of this.reviews.values()) {
+      for (const r of reviews) {
+        if (query.proposalId && r.proposalId !== query.proposalId) continue;
+        if (Array.isArray(r.comments) && r.comments.length > 0) {
+          results.push(...r.comments.flatMap(flatten));
+        }
+      }
+    }
+
+    if (query.nodeId) {
+      const target = this.nodeKey(query.nodeId);
+      results = results.filter((c) => {
+        const anchored = c.anchor?.nodeId ? this.nodeKey(c.anchor.nodeId) : null;
+        return anchored === target;
+      });
+    }
+
+    if (query.author) {
+      results = results.filter((c) => c.author === query.author);
+    }
+
+    if (Array.isArray(query.status) && query.status.length > 0) {
+      const allowed = new Set(query.status);
+      results = results.filter((c) => (c.status ? allowed.has(c.status) : allowed.has("open")));
+    }
+
+    // Stable sort by createdAt if present
+    results.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    const offset = query.offset || 0;
+    const limit = query.limit ?? results.length;
+    return results.slice(offset, offset + limit);
   }
 
   async getAcceptedNodes(): Promise<AnyNode[]> {

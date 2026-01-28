@@ -1,6 +1,6 @@
 # Agent API Design
 
-This document describes the API for agents to discover and consume context from the context store.
+This document describes the API for agents to discover and consume the **approved solution model** from the context store, and to collaborate safely by creating **proposals** (not direct edits).
 
 ## Overview
 
@@ -9,6 +9,8 @@ The Agent API provides a comprehensive interface for:
 - **Consumption**: Reading context with clear distinction between accepted truth and proposals
 - **Safety**: Default to accepted nodes only, explicit opt-in for proposals
 - **Graph Queries**: Traverse relationships and find connected nodes
+
+In ACAL terms: agents are contributors operating under review-mode governance. Their output is designed to be reviewable, commentable (including anchored feedback), and approve-able into truth.
 
 ### Review mode (writing is proposals)
 
