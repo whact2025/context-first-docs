@@ -583,14 +583,44 @@ The model is designed for auditability: explicit acceptance/rejection, preserved
 
 ---
 
-## 16. Glossary
+## 16. Terms (Glossary)
 
-- **Accepted truth**: the currently trusted context state (nodes with `status: accepted`).
-- **Proposal**: a suggested change, represented as structured operations, not a diff.
-- **Review**: the only mechanism that accepts/rejects proposals into truth.
-- **Apply**: applying an accepted proposal to update truth.
-- **Projection**: a derived view (Markdown, UI, summaries) of the canonical context graph.
-- **ctx block**: a fenced Markdown block that identifies a semantic node and its canonical body (`description`).
+- **Agent**: an AI system that reads context and proposes changes; it should not directly mutate accepted truth.
+- **Agent-safe defaults**: defaults that reduce accidental misuse (e.g., queries return accepted truth unless proposals are explicitly requested).
+- **Air-gapped**: an environment without internet access (or with strict network isolation).
+- **Apply**: the act of applying an accepted proposal’s operations to update accepted truth.
+- **Approval / approver**: a governance concept where certain users/roles can accept or reject proposals (often with additional policy like multi-approval).
+- **Canonical**: the authoritative source of truth (in this system, the context store/graph, not Markdown).
+- **Change capture**: turning an edit intent (UI edits, API calls, Markdown changes) into a proposal.
+- **Client**: any interface that interacts with the context store (editor extension, web UI, CLI, agents).
+- **Codebase projection**: a derived artifact representing expected/actual code changes for an approved proposal (e.g., PR link, branch ref, patch, implementation plan).
+- **Conflict**: an overlap between proposals that cannot be safely auto-merged (e.g., two proposals editing the same field, or hard node-level operations).
+- **Context**: durable project truth used to guide humans and agents (goals, decisions, constraints, risks, tasks, etc.), distinct from ephemeral discussion.
+- **Context graph**: the typed graph of nodes and relationships that represents canonical context.
+- **Context store**: the system that persists and serves the context graph plus proposals/reviews/issues; exposed behind a `ContextStore` API/contract.
+- **ctx block**: a fenced Markdown block that identifies a semantic node (type/id/status/title) and its canonical Markdown body (`description`).
+- **Derived field**: a field computed deterministically from canonical fields (e.g., `content` derived from `description` and typed fields).
+- **Deterministic projection**: a projection that is reproducible: the same context state yields the same output (useful for Git diffs and agent safety).
+- **Embedding**: a numeric vector representation of text used for similarity search (commonly used in RAG).
+- **Field-level merge**: combining non-overlapping changes from multiple proposals (e.g., one proposal edits `description`, another edits a typed field).
+- **Hodgepodge workflow**: a fragmented approach where context lives across chat, PR comments, wiki pages, tickets, and documents without consistent truth semantics.
+- **Issue**: an execution artifact created from approved context changes (optionally carrying links/projections back to proposals and code).
+- **Knowledge graph**: a graph representation of knowledge; may or may not include review-mode semantics and deterministic projections.
+- **Markdown projection**: a human-friendly view generated from accepted truth (Markdown is treated as a projection, not the canonical store).
+- **Node**: a typed semantic entity in the graph (goal, decision, constraint, task, risk, question, plan, note).
+- **Operation**: an atomic action inside a proposal (create, update fields, status-change, insert/delete text, move).
+- **Optimistic locking / base versions**: a concurrency strategy where proposals reference expected node versions; stale proposals are detected if the underlying node changed.
+- **Policy**: organizational rules applied to context changes (who can propose/review/apply; required approvals; protected node types).
+- **Projection**: any derived view of canonical context (Markdown, UI diff overlays, summaries, dashboards, exports).
+- **Proposal**: a suggested change represented as structured operations, not a line diff; proposals are reviewed and then accepted/rejected.
+- **Provenance**: traceable history of how/why context evolved (including rejected alternatives and review decisions).
+- **RAG (Retrieval-Augmented Generation)**: a pattern where an AI retrieves relevant documents/snippets (often via embeddings/vector search) and then generates an answer grounded in that retrieved context.
+- **Review**: the act of accepting/rejecting proposals (and optionally commenting); the only path by which proposals become accepted/rejected.
+- **Review mode**: the invariant that accepted truth cannot be directly edited; all changes must flow through proposals + review + apply.
+- **Status (node)**: an explicit lifecycle state such as accepted/proposed/rejected/superseded.
+- **Status (proposal)**: an explicit lifecycle state such as open/accepted/rejected/withdrawn.
+- **Superseded**: a lifecycle state indicating something was replaced by a newer accepted truth (useful for decisions and proposals).
+- **Vector database**: a system for storing and querying embeddings for similarity search (commonly used in RAG).
 
 ---
 
