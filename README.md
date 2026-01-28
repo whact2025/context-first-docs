@@ -333,13 +333,21 @@ npm run build
 npm test
 ```
 
-## Playground (Scenario Runner)
+## Playground
 
-If you want to see the system working end-to-end (scenarios + guided flows) via a tiny local web UI, use the playground.
+A local web UI to try ACAL concepts end-to-end.
 
-- Source: [`src/playground/`](src/playground/)
-- Run: `npm run playground`
-- Open: `http://localhost:4317`
+- **Source**: [`src/playground/`](src/playground/)
+- **Run**: `npm run playground`
+- **Open**: `http://localhost:4317`
+
+**Entry points** (home page at `/`):
+
+- **Scenario Runner** (`/scenarios`) — Run scenarios and guided flows; inspect Markdown projections from run output.
+- **ACAL Graph Viewer** (`/acal`) — Navigate the solution model: graph, nodes, proposals, reviews, projections, conflicts. Open a proposal to see:
+  - **Document view**: side-by-side “current truth” vs “proposed truth” as chain-of-thought documents (goals, decisions, tasks, risks, questions).
+  - **Diff view**: Git-style line diff with add/delete highlighting and **synchronized scrolling** between the two panes.
+  - Threaded comments, Accept/Reject/Apply, and conflict/staleness indicators.
 
 ## Architecture
 
