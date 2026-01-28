@@ -102,10 +102,17 @@ export interface ContextNode {
   title?: string;
   /**
    * Normalized long-form description/body for UI/display.
-   * Optional for backward compatibility.
+   * Canonical human-authored Markdown body.
+   *
+   * Optional for backward compatibility; if omitted, systems may fall back to `content`.
    */
   description?: string;
-  /** The semantic content of this node */
+  /**
+   * Normalized plain-text representation used for search/similarity/snippets.
+   *
+   * This is derived from `description` (and key typed fields) and should not be treated as
+   * an authoritative source of truth for rich formatting.
+   */
   content: string;
   /** Text range in source Markdown (if applicable) */
   textRange?: TextRange;

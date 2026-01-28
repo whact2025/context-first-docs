@@ -40,15 +40,15 @@ GitHub / GitLab solve **code review**, but lose semantic intent and decision pro
 A **context-first collaboration system** with:
 
 - **Graph-based context store**: Nodes with typed relationships (goal → decision → task → risk)
-- **Dual storage options**: File-based (JSON Graph in Git) for development/small projects, MongoDB (self-hosted) for production/scaling
+- **Dual storage options (planned)**: File-based (JSON graph in a repo) for development/small projects, MongoDB (self-hosted) for production/scaling
 - **Storage abstraction**: Both implementations use same `ContextStore` interface - start simple, scale up seamlessly via configuration
-- **UI-only Markdown**: ctx blocks and rendered Markdown exist only in UI (VS Code/Cursor extension, web UI), NOT in Git
-- **Real-time change detection**: Embedded in UI layer - detects changes as you type or on save
-- **Docs-style comments and tracked changes**: Accept/reject proposals with review semantics
+- **Review-mode semantics**: No direct edits to accepted context; all writes are proposals that are accepted/rejected into truth
+- **Markdown as a projection**: ctx blocks are an optional authoring/projection format (can live in a repo or in a client)
+- **Change capture**: Can happen in clients or an API; the store enforces review-mode invariants
 - **Structured semantic nodes**: Goals, decisions, constraints, tasks, risks, questions with typed relationships
-- **Bidirectional synchronization**: Markdown ↔ context store (UI-based, not Git-based)
+- **Bidirectional synchronization**: Markdown ↔ context store (client/API-driven; not line-diff-based Git workflows)
 - **First-class agent APIs**: Comprehensive query API with chain-of-thought traversal for reasoning through contexts
-- **VS Code/Cursor extension**: Required for v1 - in-editor review, context awareness, real-time change detection
+- **Clients**: VS Code/Cursor extension, web UI, CLI, or agents (all are clients of the same store API)
 - **Pre-baked Cursor rules**: AI-assisted proposal and risk authoring
 - **Reverse engineering**: Extract historical context from merge requests/PRs
 - **Role-based access control**: Designated contributors and approvers with permissions
@@ -111,8 +111,8 @@ This is equivalent to Word / Docs tracked changes — but **explicit, structured
 
 ---
 
-### README-Style Markdown as a UI Projection
-Humans interact through familiar Markdown files **in the UI** (VS Code/Cursor extension, web UI):
+### README-Style Markdown as a Projection
+Humans can interact through familiar Markdown files (in-editor, in a web UI, or in a repo):
 
 - `README.md`
 - `CONTEXT.md`
@@ -120,10 +120,10 @@ Humans interact through familiar Markdown files **in the UI** (VS Code/Cursor ex
 - `PLAN.md`
 - `RISKS.md`
 
-**Important**: 
-- These Markdown files with ctx blocks are **UI-only** and **NOT committed to Git**
-- Context store is **self-hosted in Git** - stored in self-hosted Git repository (within organization)
-- Contexts are **NOT subject to manual git commits/merges** - managed through proposals
+**Important**:
+- Markdown is a **projection format**, not the canonical truth store.
+- Accepted truth is changed only via **accepted proposals** (see `docs/REVIEW_MODE.md`).
+- Where Markdown lives (repo vs client) and how the store persists (file-based vs DB) are deployment choices.
 
 Semantic sections are wrapped in lightweight `ctx` blocks with stable IDs.
 
@@ -133,14 +133,11 @@ Humans can:
 - review proposals in UI
 - see accepted truth projected back to Markdown
 
-The system (embedded in UI):
-- detects changes to ctx blocks **in real-time** (as you type or on save)
-- imports edits as **proposals** immediately
-- stores proposals in context store (self-hosted Git repository)
-- exports accepted truth back to Markdown **deterministically** in UI
-- rewrites only the sections it owns
-
-**Change detection is embedded in the UI** - not through Git operations. **Context store is self-hosted in Git** - contexts are NOT subject to manual git commits/merges. Approved proposals automatically update Git repository. This enables real-time collaboration without manual Git operations.
+The system:
+- captures suggested edits as **proposals**
+- reviewers accept/reject proposals (no direct edits to accepted truth)
+- applies accepted proposals into truth
+- projects accepted truth back to Markdown deterministically (rewriting only ctx blocks it owns)
 
 ---
 
@@ -158,7 +155,7 @@ This is how Word / Docs behave — but grounded in Git-friendly structures.
 
 ## Agent-Safe by Design
 
-Agents **never read raw Markdown** (which is UI-only anyway).
+Agents should not treat Markdown as canonical truth.
 
 They consume:
 - accepted truth from context store (via `ContextStore` interface - file-based or MongoDB)
@@ -245,7 +242,7 @@ It is a **semantic context layer** that:
 - Review semantics before realtime polish
 - Agent safety before convenience
 
-VS Code/Cursor extension is required for v1 to enable in-editor review and context awareness. Realtime collaboration is additive.
+A VS Code/Cursor extension is a natural client, but the core model does not depend on a specific UI.
 
 ---
 
@@ -279,7 +276,7 @@ The project's documentation is managed through the context-first system:
 - [`RISKS.md`](RISKS.md) - Project risks and mitigation strategies
 - [`QUESTIONS.md`](QUESTIONS.md) - Open questions needing answers
 
-**Note**: These Markdown files with ctx blocks are committed to Git for this self-referential project, but in normal usage, Markdown files would be UI-only. The context store is self-hosted in Git - contexts are NOT subject to manual git commits/merges, managed through proposals.
+**Note**: In this repository, the Markdown files with `ctx` blocks are committed for demonstration/self-reference. In other deployments, you may keep Markdown client-side or in a repo — either way it’s a projection, and truth changes only via accepted proposals.
 
 These files use `ctx` blocks to embed semantic nodes. The system imports edits as proposals, manages review, and exports accepted truth back to Markdown.
 
@@ -347,9 +344,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 
 Key architectural points:
 - **Graph Model**: Nodes with typed relationships (see [`DECISIONS.md`](DECISIONS.md) decision-015)
-- **Dual Storage**: File-based (default) and MongoDB (production) via `ContextStore` abstraction (see [`DECISIONS.md`](DECISIONS.md) decision-005)
-- **UI-Only Markdown**: ctx blocks and Markdown are UI-only, not committed to Git (see [`DECISIONS.md`](DECISIONS.md) decision-016)
-- **Change Detection**: Embedded in UI layer (see [`docs/CHANGE_DETECTION.md`](docs/CHANGE_DETECTION.md))
+- **Dual Storage (planned)**: File-based (intended default) and MongoDB (production) via `ContextStore` abstraction (see [`DECISIONS.md`](DECISIONS.md) decision-005)
+- **Review mode**: proposals are the only write primitive (see [`docs/REVIEW_MODE.md`](docs/REVIEW_MODE.md))
+- **Change capture**: proposals can be authored directly or derived from Markdown ctx blocks (see [`docs/CHANGE_DETECTION.md`](docs/CHANGE_DETECTION.md))
 - **Agent API**: Comprehensive query API with chain-of-thought traversal (see [`docs/AGENT_API.md`](docs/AGENT_API.md))
 - **Security**: All data self-hosted (Git or MongoDB), no external services (see [`CONTEXT.md`](CONTEXT.md) constraint-005)
 
@@ -359,9 +356,8 @@ Key architectural points:
 - Type system, in-memory store, Markdown projection
 
 **Next**: Phase 2 - Persistence & Storage Implementations
-- Complete InMemoryStore
 - Storage abstraction layer
-- File-based storage (default)
+- File-based storage (intended default)
 - MongoDB storage (production)
 - GraphQL API layer
 

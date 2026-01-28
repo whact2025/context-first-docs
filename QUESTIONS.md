@@ -107,9 +107,9 @@ status: resolved
 - **Configuration-Based**: Users select storage backend via configuration
 - **Seamless Scaling**: Switch from file-based to MongoDB without code changes
 
-**File-Based Storage** (Default for Development/Small Projects):
-- **Format**: JSON Graph in `.context/graph.json` and individual node files
-- **Location**: `.context/` directory in Git repository
+**File-Based Storage** (Intended default for development/small projects):
+- **Format**: JSON graph format (example path: `.context/graph.json`) and optional per-node files
+- **Location**: implementation-defined; `.context/` is a common default
 - **Benefits**:
   - Simple, no external dependencies
   - Fully Git-friendly, reviewable in PRs
@@ -122,7 +122,7 @@ status: resolved
 **MongoDB Storage** (Recommended for Production/Large Projects):
 - **Database**: Self-hosted MongoDB (within organization)
 - **API Layer**: GraphQL API for type-safe queries and mutations
-- **Schema**: `.context/schema.graphql` - GraphQL schema definition (committed to Git for versioning)
+- **Schema**: GraphQL schema versioned in your repo (path is implementation-defined)
 - **Collections**: `nodes`, `proposals`, `reviews`, `relationships`
 - **Benefits**:
   - ACID transactions for atomic proposal approvals
@@ -132,7 +132,7 @@ status: resolved
 - **Git Integration**: Periodic snapshots to Git repository for backup, version history, audit trail
 
 **Decision**: 
-- **Both Implementations**: File-based (default) and MongoDB (production) both available
+- **Both Implementations**: File-based (intended default) and MongoDB (production) both available
 - **Abstraction Layer**: `ContextStore` interface allows seamless switching
 - **Scaling Path**: Start with file-based, scale up to MongoDB via configuration
 - **Architecture**: Storage abstraction enables multiple implementations
@@ -623,7 +623,7 @@ status: resolved
 **Answer**: Yes - MongoDB (self-hosted document database) with GraphQL API is now the primary storage.
 
 **Resolution**:
-- **Both implementations available**: File-based (default) and MongoDB (production)
+- **Both implementations available**: File-based (intended default) and MongoDB (production)
 - **Storage abstraction layer**: `ContextStore` interface allows multiple implementations
 - **Scaling path**: Start with file-based, scale up to MongoDB via configuration
 - **GraphQL API layer** works with both storage backends

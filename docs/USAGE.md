@@ -51,7 +51,17 @@ await store.submitReview({
 });
 ```
 
-### 4. Export to Markdown
+**Note**: In “review mode”, clients should not mark proposals accepted/rejected directly. Acceptance/rejection happens via reviews (e.g. `submitReview()`), then accepted proposals can be applied.
+
+### 4. Apply Accepted Proposals
+
+Accepted proposals become truth only when applied:
+
+```typescript
+await store.applyProposal("proposal-001");
+```
+
+### 5. Export to Markdown
 
 Generate Markdown from accepted truth:
 
@@ -97,12 +107,16 @@ const proposal: Proposal = {
         id: { id: "decision-002" },
         type: "decision",
         status: "proposed",
+        title: "Use Rust for performance-critical components",
+        description: "Use Rust for performance-critical components",
+        // `content` is a deterministic derived plain-text index (typically derived from `description` + title).
         content: "Use Rust for performance-critical components",
         metadata: {
           createdAt: new Date().toISOString(),
           createdBy: "agent-001",
           modifiedAt: new Date().toISOString(),
           modifiedBy: "agent-001",
+          version: 1,
         },
       },
     },
@@ -113,6 +127,8 @@ const proposal: Proposal = {
     modifiedAt: new Date().toISOString(),
     modifiedBy: "agent-001",
     rationale: "Performance analysis suggests Rust would improve latency",
+    // Optional: attach a codebase projection that can be carried onto created issues on approval.
+    // codeProjection: { kind: "pull_request", url: "...", generatedAt: new Date().toISOString() },
   },
 };
 
@@ -126,7 +142,7 @@ await store.createProposal(proposal);
 - `type`: Node type (decision, goal, constraint, task, risk, etc.)
 - `id`: Unique identifier (stable across edits)
 - `status`: Current status (accepted, proposed, rejected, superseded)
-- `---`: Separator between metadata and content
+- `---`: Separator between metadata and description (Markdown body)
 
 ### Optional Fields
 
@@ -160,14 +176,13 @@ title: Microservices architecture
 4. **Review regularly**: Keep proposals moving through review
 5. **Preserve history**: Don't delete rejected proposals (they're valuable)
 
-## Integration with Git
+## Integration with Git (optional)
 
 The system is designed to work with Git:
 
-1. Edit Markdown files locally
-2. Import changes as proposals
-3. Review proposals
-4. Commit accepted changes
-5. Push to remote
+1. Author suggestions (proposals) from a client (UI/agent/CLI)
+2. Review + accept/reject proposals
+3. Apply accepted proposals into truth
+4. Persist truth via your chosen storage backend (file-based/MongoDB/other)
 
-The context store can be stored in Git as structured data (JSON/YAML), while Markdown files remain human-readable.
+If you choose a file-based storage backend, the canonical store can be persisted as structured data in a Git repo. Markdown is a projection format and can be committed or kept client-side — it is not canonical truth either way.

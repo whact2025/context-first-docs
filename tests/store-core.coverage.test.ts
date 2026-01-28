@@ -7,9 +7,17 @@ import {
   mergeProposals,
 } from "../src/store/core/conflicts.js";
 import { queryNodesInMemory } from "../src/store/core/query-nodes.js";
+import {
+  buildEdgeIndex,
+  traverseRelatedKeys,
+  getAncestors,
+  getDescendants,
+  getDependencies,
+  getDependents,
+} from "../src/store/core/graph.js";
 
 import type { AnyNode, GoalNode, NodeId, DecisionNode } from "../src/types/node.js";
-import type { Proposal } from "../src/types/proposal.js";
+import type { Proposal, CreateOperation, InsertOperation, DeleteTextOperation } from "../src/types/proposal.js";
 
 function meta(
   createdAt: string,
@@ -65,13 +73,14 @@ describe("store core (coverage)", () => {
             type: "update",
             order: 1,
             nodeId: { id: "g1" },
-            changes: { content: "hello2", criteria: ["c1"] },
+            changes: { title: "T", content: "hello2", criteria: ["c1"] },
           },
         ],
         metadata: meta("2026-01-03T00:00:00Z", "u2", "2026-01-03T00:00:00Z", "u2"),
       };
       applyAcceptedProposalToNodeMap(nodes, update, { keyOf });
-      expect(nodes.get("g1")?.content).toBe("hello2");
+      expect(nodes.get("g1")?.content).toBe("T hello2");
+      expect(nodes.get("g1")?.title).toBe("T");
       expect(Reflect.get(nodes.get("g1") as object, "criteria")).toEqual(["c1"]);
 
       const statusChange: Proposal = {
@@ -200,6 +209,11 @@ describe("store core (coverage)", () => {
         status: "accepted",
         content: "new",
         metadata: meta("2026-01-01T00:00:00Z", "u1"),
+        // pre-existing parent-child edge to cover "has" predicate branch in apply-proposal
+        relationships: [
+          { type: "parent-child", target: { id: "other-child" } },
+          { type: "parent-child", target: { id: "child" } },
+        ],
       };
 
       nodes.set("child", child);
@@ -221,7 +235,9 @@ describe("store core (coverage)", () => {
       expect(oldAfter.relationships?.some((r) => r.type === "parent-child" && r.target.id === "child")).toBe(false);
 
       const newAfter = nodes.get("new-parent")!;
-      expect(newAfter.relationships?.some((r) => r.type === "parent-child" && r.target.id === "child")).toBe(true);
+      const relCount =
+        newAfter.relationships?.filter((r) => r.type === "parent-child" && r.target.id === "child").length ?? 0;
+      expect(relCount).toBe(1);
 
       const badMove: Proposal = {
         id: "p-bad-move",
@@ -571,6 +587,142 @@ describe("store core (coverage)", () => {
       expect(res.autoMerged[0].oldValue).toBe("accepted");
       expect(res.autoMerged[0].newValue).toBe("rejected");
     });
+
+    it("isProposalStale should account for insert/deleteText ops via baseVersions", () => {
+      const node: GoalNode = {
+        id: { id: "n1" },
+        type: "goal",
+        status: "accepted",
+        content: "hello",
+        metadata: meta("2026-01-01T00:00:00Z", "u1", "2026-01-01T00:00:00Z", "u1", 2),
+      };
+      const nodeMap = new Map<string, AnyNode>([[keyOf(node.id), node]]);
+
+      const p: Proposal = {
+        id: "p-insert",
+        status: "open",
+        operations: [
+          { id: "op1", type: "insert", order: 1, position: 0, text: "X", sourceNodeId: { id: "n1" } } as any,
+          { id: "op2", type: "delete", order: 2, start: 0, end: 1, sourceNodeId: { id: "n1" } } as any,
+        ],
+        metadata: {
+          ...meta("2026-01-02T00:00:00Z", "u2"),
+          baseVersions: {
+            // exercise both lookup keys: keyOf(nodeId) and nodeId.id
+            [keyOf({ id: "n1" })]: 1,
+            n1: 1,
+          },
+        },
+      };
+
+      // Node is at version 2, base is 1 => stale.
+      expect(isProposalStale(p, { keyOf, getNode: (id) => nodeMap.get(keyOf(id)) || null })).toBe(true);
+    });
+
+    it("detectConflictsForProposal should treat status-change as a hard node conflict", () => {
+      const a: Proposal = {
+        id: "p-status-a",
+        status: "open",
+        operations: [
+          {
+            id: "op",
+            type: "status-change",
+            order: 1,
+            nodeId: { id: "n1" },
+            oldStatus: "accepted",
+            newStatus: "rejected",
+          } as any,
+        ],
+        metadata: meta("2026-01-01T00:00:00Z", "u1"),
+      };
+      const b: Proposal = {
+        id: "p-status-b",
+        status: "open",
+        operations: [
+          { id: "op", type: "update", order: 1, nodeId: { id: "n1" }, changes: { foo: 1 } } as any,
+        ],
+        metadata: meta("2026-01-01T00:00:00Z", "u2"),
+      };
+
+      const res = detectConflictsForProposal(a, [a, b], { keyOf });
+      expect(res.conflicts).toHaveLength(1);
+      expect(res.conflicts[0].severity).toBe("node");
+    });
+
+    it("isProposalStale fallback should consider insert/deleteText operations by modifiedAt", () => {
+      const node: GoalNode = {
+        id: { id: "n1" },
+        type: "goal",
+        status: "accepted",
+        content: "hello",
+        metadata: meta("2026-01-01T00:00:00Z", "u1", "2026-01-03T00:00:00Z", "u1", 1),
+      };
+      const nodeMap = new Map<string, AnyNode>([[keyOf(node.id), node]]);
+      const p: Proposal = {
+        id: "p-fallback",
+        status: "open",
+        operations: [
+          { id: "op1", type: "insert", order: 1, position: 0, text: "x", sourceNodeId: { id: "n1" } } as any,
+          { id: "op2", type: "delete", order: 2, start: 0, end: 1, sourceNodeId: { id: "n1" } } as any,
+        ],
+        metadata: meta("2026-01-02T00:00:00Z", "u2"),
+      };
+      expect(isProposalStale(p, { keyOf, getNode: (id) => nodeMap.get(keyOf(id)) || null })).toBe(true);
+    });
+
+    it("isProposalStale should consider create ops in both baseVersions and fallback paths", () => {
+      const created: GoalNode = {
+        id: { id: "new-node" },
+        type: "goal",
+        status: "accepted",
+        content: "x",
+        metadata: meta("2026-01-01T00:00:00Z"),
+      };
+
+      // baseVersions path: base present => getNode(null) => stale
+      const withBase: Proposal = {
+        id: "p-create-base",
+        status: "open",
+        operations: [{ id: "op", type: "create", order: 1, node: created } as CreateOperation],
+        metadata: { ...meta("2026-01-02T00:00:00Z"), baseVersions: { [keyOf(created.id)]: 1 } },
+      };
+      expect(isProposalStale(withBase, { keyOf, getNode: () => null })).toBe(true);
+
+      // fallback path: execute create nodeId extraction branch but do not mark stale if node missing
+      const fallback: Proposal = {
+        id: "p-create-fallback",
+        status: "open",
+        operations: [{ id: "op", type: "create", order: 1, node: created } as CreateOperation],
+        metadata: meta("2026-01-02T00:00:00Z", "u2"),
+      };
+      expect(isProposalStale(fallback, { keyOf, getNode: () => null })).toBe(false);
+    });
+
+    it("isProposalStale should recognize deleteText ops in baseVersions path", () => {
+      const node: GoalNode = {
+        id: { id: "n1" },
+        type: "goal",
+        status: "accepted",
+        content: "hello",
+        metadata: meta("2026-01-01T00:00:00Z", "u1", "2026-01-01T00:00:00Z", "u1", 1),
+      };
+      const nodeMap = new Map<string, AnyNode>([[keyOf(node.id), node]]);
+      const del: DeleteTextOperation = {
+        id: "op",
+        type: "delete",
+        order: 1,
+        start: 0,
+        end: 1,
+        sourceNodeId: { id: "n1" },
+      };
+      const p: Proposal = {
+        id: "p-deltext-base",
+        status: "open",
+        operations: [del],
+        metadata: { ...meta("2026-01-02T00:00:00Z", "u2"), baseVersions: { [keyOf(node.id)]: 1 } },
+      };
+      expect(isProposalStale(p, { keyOf, getNode: (id) => nodeMap.get(keyOf(id)) || null })).toBe(false);
+    });
   });
 
   describe("queryNodesInMemory", () => {
@@ -664,9 +816,28 @@ describe("store core (coverage)", () => {
         content: "content does not mention db",
         decision: "Use PostgreSQL",
         rationale: "Durability",
+        alternatives: ["Use SQLite"],
         metadata: meta("2026-01-01T00:00:00Z"),
         relationships: [{ type: "references", target: { id: "goal-1" } }],
       };
+      const constraint: AnyNode = {
+        id: { id: "constraint-1" },
+        type: "constraint",
+        status: "accepted",
+        content: "Constraint content",
+        constraint: "Must be offline",
+        reason: "Customer requirement",
+        metadata: meta("2026-01-01T00:00:00Z"),
+      } as AnyNode;
+      const question: AnyNode = {
+        id: { id: "question-1" },
+        type: "question",
+        status: "accepted",
+        content: "Question content",
+        question: "Why?",
+        answer: "Because.",
+        metadata: meta("2026-01-01T00:00:00Z"),
+      } as AnyNode;
       const task: AnyNode = {
         id: { id: "task-1" },
         type: "task",
@@ -688,7 +859,7 @@ describe("store core (coverage)", () => {
         metadata: meta("2026-01-01T00:00:00Z"),
       } as AnyNode;
 
-      const nodes = [goal, decision, task, task2];
+      const nodes = [goal, decision, constraint, question, task, task2];
       const { getNodeByKey } = indexByKey(nodes);
 
       const fieldsOnly = queryNodesInMemory(
@@ -696,6 +867,24 @@ describe("store core (coverage)", () => {
         { nodes, keyOf, getNodeByKey }
       );
       expect(fieldsOnly.nodes.map((n) => n.id.id)).toContain("decision-1");
+
+      const alternativesOnly = queryNodesInMemory(
+        { status: ["accepted"], search: { query: "sqlite", fields: ["alternatives"] } },
+        { nodes, keyOf, getNodeByKey }
+      );
+      expect(alternativesOnly.nodes.map((n) => n.id.id)).toContain("decision-1");
+
+      const constraintReason = queryNodesInMemory(
+        { status: ["accepted"], search: { query: "customer", fields: ["reason"] } },
+        { nodes, keyOf, getNodeByKey }
+      );
+      expect(constraintReason.nodes.map((n) => n.id.id)).toContain("constraint-1");
+
+      const questionAnswer = queryNodesInMemory(
+        { status: ["accepted"], search: { query: "because", fields: ["answer"] } },
+        { nodes, keyOf, getNodeByKey }
+      );
+      expect(questionAnswer.nodes.map((n) => n.id.id)).toContain("question-1");
 
       const orQuery = queryNodesInMemory(
         { status: ["accepted"], search: { query: "missing postgresql", operator: "OR", fields: ["decision"] } },
@@ -785,6 +974,24 @@ describe("store core (coverage)", () => {
       );
       expect(hasIncoming.nodes.map((n) => n.id.id)).toContain("goal-1");
 
+      const hasNoTargetType = queryNodesInMemory(
+        { status: ["accepted"], hasRelationship: { type: "implements", direction: "outgoing" } },
+        { nodes, keyOf, getNodeByKey }
+      );
+      expect(hasNoTargetType.nodes.map((n) => n.id.id)).toContain("task-1");
+
+      const hasIncomingNoTargetType = queryNodesInMemory(
+        { status: ["accepted"], hasRelationship: { type: "implements", direction: "incoming" } },
+        { nodes, keyOf, getNodeByKey }
+      );
+      expect(hasIncomingNoTargetType.nodes.map((n) => n.id.id)).toContain("goal-1");
+
+      const fuzzyNoMatch = queryNodesInMemory(
+        { status: ["accepted"], search: { query: "zzzzz", fuzzy: true, fields: ["decision"] } },
+        { nodes, keyOf, getNodeByKey }
+      );
+      expect(fuzzyNoMatch.nodes).toHaveLength(0);
+
       // sort by type/status and modifiedAt codepaths
       const sortType = queryNodesInMemory(
         { status: ["accepted"], sortBy: "type", sortOrder: "asc" },
@@ -803,6 +1010,193 @@ describe("store core (coverage)", () => {
         { nodes, keyOf, getNodeByKey }
       );
       expect(sortModified.nodes.length).toBeGreaterThan(0);
+    });
+
+    it("should support createdBy/modifiedBy + modified date filters", () => {
+      const a: GoalNode = {
+        id: { id: "a", namespace: "ns" },
+        type: "goal",
+        status: "accepted",
+        content: "a",
+        metadata: meta("2026-01-01T00:00:00Z", "alice", "2026-01-03T00:00:00Z", "bob"),
+      };
+      const b: GoalNode = {
+        id: { id: "b", namespace: "ns" },
+        type: "goal",
+        status: "accepted",
+        content: "b",
+        metadata: meta("2026-01-02T00:00:00Z", "alice", "2026-01-04T00:00:00Z", "alice"),
+      };
+      const { getNodeByKey } = indexByKey([a, b]);
+
+      const byCreated = queryNodesInMemory(
+        { createdBy: "alice", modifiedBy: "bob", modifiedAfter: "2026-01-02T00:00:00Z" },
+        { nodes: [a, b], keyOf, getNodeByKey }
+      );
+      expect(byCreated.nodes.map((n) => n.id.id)).toEqual(["a"]);
+
+      const modifiedBefore = queryNodesInMemory(
+        { modifiedBefore: "2026-01-03T12:00:00Z" },
+        { nodes: [a, b], keyOf, getNodeByKey }
+      );
+      expect(modifiedBefore.nodes.map((n) => n.id.id)).toContain("a");
+      expect(modifiedBefore.nodes.map((n) => n.id.id)).not.toContain("b");
+    });
+
+    it("tag filtering should exclude nodes without tags", () => {
+      const tagged: GoalNode = {
+        id: { id: "tagged" },
+        type: "goal",
+        status: "accepted",
+        content: "x",
+        metadata: { ...meta("2026-01-01T00:00:00Z"), tags: ["t1"] },
+      };
+      const untagged: GoalNode = {
+        id: { id: "untagged" },
+        type: "goal",
+        status: "accepted",
+        content: "y",
+        metadata: meta("2026-01-01T00:00:00Z"),
+      };
+      const { getNodeByKey } = indexByKey([tagged, untagged]);
+      const res = queryNodesInMemory({ tags: ["t1"] }, { nodes: [tagged, untagged], keyOf, getNodeByKey });
+      expect(res.nodes.map((n) => n.id.id)).toEqual(["tagged"]);
+    });
+
+    it("should hit relevance tie-breaker and default sort branch", () => {
+      const a: GoalNode = {
+        id: { id: "a" },
+        type: "goal",
+        status: "accepted",
+        content: "foo",
+        metadata: meta("2026-01-01T00:00:00Z"),
+      };
+      const b: GoalNode = {
+        id: { id: "b" },
+        type: "goal",
+        status: "accepted",
+        content: "foo",
+        metadata: meta("2026-01-02T00:00:00Z"),
+      };
+      const { getNodeByKey } = indexByKey([a, b]);
+
+      const rel = queryNodesInMemory(
+        { search: "foo", sortBy: "relevance", sortOrder: "asc" },
+        { nodes: [a, b], keyOf, getNodeByKey }
+      );
+      // Same relevance => createdAt tie-breaker (asc) => a first
+      expect(rel.nodes[0].id.id).toBe("a");
+
+      const unknownSort = queryNodesInMemory(
+        { status: ["accepted"], sortBy: "unknown" as any, sortOrder: "asc" },
+        { nodes: [a, b], keyOf, getNodeByKey }
+      );
+      expect(unknownSort.nodes).toHaveLength(2);
+    });
+  });
+
+  describe("graph core", () => {
+    it("buildEdgeIndex + traverseRelatedKeys should support direction, allowed types, and depth", () => {
+      const a: GoalNode = {
+        id: { id: "a" },
+        type: "goal",
+        status: "accepted",
+        content: "a",
+        metadata: meta("2026-01-01T00:00:00Z"),
+        relationships: [
+          { type: "related-to", target: { id: "b" } },
+          { type: "depends-on", target: { id: "c" } },
+        ],
+      };
+      const b: GoalNode = {
+        id: { id: "b" },
+        type: "goal",
+        status: "accepted",
+        content: "b",
+        metadata: meta("2026-01-01T00:00:00Z"),
+        relationships: [{ type: "related-to", target: { id: "a" } }],
+      };
+      const c: GoalNode = {
+        id: { id: "c" },
+        type: "goal",
+        status: "accepted",
+        content: "c",
+        metadata: meta("2026-01-01T00:00:00Z"),
+      };
+
+      // Use default keying (don’t pass keyOf) to cover defaultNodeKey branch.
+      const idx = buildEdgeIndex([a, b, c]);
+
+      const depth0 = traverseRelatedKeys({ id: "a" }, 0, "both", idx, null);
+      expect(Array.from(depth0)).toEqual([]); // depth 0 yields no related keys
+
+      const onlyRelated = traverseRelatedKeys({ id: "a" }, 2, "outgoing", idx, new Set(["related-to"]));
+      expect(onlyRelated.has("b")).toBe(true);
+      expect(onlyRelated.has("c")).toBe(false);
+
+      const incomingRelated = traverseRelatedKeys({ id: "a" }, 1, "incoming", idx, new Set(["related-to"]));
+      expect(incomingRelated.has("b")).toBe(true);
+    });
+
+    it("getDescendants/getDependencies should handle missing starts and empty relationships", () => {
+      const nodesByKey = new Map<string, AnyNode>();
+      const getNodeByKey = (k: string) => nodesByKey.get(k) || null;
+
+      const none = getDescendants(getNodeByKey, { id: "missing" }, "parent-child");
+      expect(none).toEqual([]);
+
+      const a: GoalNode = {
+        id: { id: "a" },
+        type: "goal",
+        status: "accepted",
+        content: "a",
+        metadata: meta("2026-01-01T00:00:00Z"),
+      };
+      nodesByKey.set("a", a);
+      expect(getDependencies(getNodeByKey, { id: "a" })).toEqual([]);
+    });
+
+    it("graph helpers should handle duplicates/cycles without infinite loops", () => {
+      const a: GoalNode = {
+        id: { id: "a" },
+        type: "goal",
+        status: "accepted",
+        content: "a",
+        metadata: meta("2026-01-01T00:00:00Z"),
+        // duplicate edges
+        relationships: [
+          { type: "parent-child", target: { id: "b" } },
+          { type: "parent-child", target: { id: "b" } },
+        ],
+      };
+      const b: GoalNode = {
+        id: { id: "b" },
+        type: "goal",
+        status: "accepted",
+        content: "b",
+        metadata: meta("2026-01-01T00:00:00Z"),
+        // cycle back to a
+        relationships: [
+          { type: "parent-child", target: { id: "a" } },
+          { type: "parent-child", target: { id: "a" } }, // duplicate incoming edge to hit visited check
+        ],
+      };
+      const nodes = [a, b];
+      const byKey = new Map(nodes.map((n) => [n.id.id, n]));
+      const getNodeByKey = (k: string) => byKey.get(k) || null;
+
+      const descendants = getDescendants(getNodeByKey, { id: "a" }, "parent-child");
+      expect(descendants.map((n) => n.id.id)).toContain("b");
+
+      const ancestors = getAncestors(nodes, { id: "a" }, "parent-child");
+      expect(ancestors.map((n) => n.id.id)).toContain("b");
+
+      const idx = buildEdgeIndex(nodes, (id) => id.id);
+      const incoming = traverseRelatedKeys({ id: "a" }, 1, "incoming", idx, new Set(["parent-child"]), (id) => id.id);
+      expect(incoming.has("b")).toBe(true);
+
+      const dependents = getDependents(nodes, { id: "a" });
+      expect(dependents).toEqual([]);
     });
   });
 });

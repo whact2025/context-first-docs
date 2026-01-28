@@ -12,6 +12,7 @@ import {
   AnyOperation,
   UpdateOperation,
 } from "../../types/proposal.js";
+import { normalizeNodeTextFields } from "../../utils/node-text.js";
 import {
   Guard,
   isArrayOf,
@@ -127,8 +128,9 @@ export function applyUpdateChanges(
       next = { ...next, description };
     }
 
-    if (typeof changes.content === "string") {
-      next = { ...next, content: changes.content };
+    // Backward compat: treat `content` changes as `description` updates if `description` isn't provided.
+    if (typeof changes.content === "string" && typeof changes["description"] !== "string") {
+      next = { ...next, description: changes.content };
     }
     if (changes.status) {
       next = { ...next, status: changes.status };
@@ -179,7 +181,7 @@ export function applyUpdateChanges(
       const next = applyCommon(existing);
       const criteria = changes["criteria"];
       if (isStringArray(criteria)) Reflect.set(next, "criteria", criteria);
-      return applyUnknown(next, knownKeys);
+      return normalizeNodeTextFields(applyUnknown(next, knownKeys));
     }
     case "decision": {
       const typeKeys: readonly string[] = ["decision", "rationale", "alternatives", "decidedAt"];
@@ -193,7 +195,7 @@ export function applyUpdateChanges(
       if (isStringArray(alternatives)) Reflect.set(next, "alternatives", alternatives);
       const decidedAt = changes["decidedAt"];
       if (typeof decidedAt === "string") Reflect.set(next, "decidedAt", decidedAt);
-      return applyUnknown(next, knownKeys);
+      return normalizeNodeTextFields(applyUnknown(next, knownKeys));
     }
     case "constraint": {
       const typeKeys: readonly string[] = ["constraint", "reason"];
@@ -203,7 +205,7 @@ export function applyUpdateChanges(
       if (typeof constraint === "string") Reflect.set(next, "constraint", constraint);
       const reason = changes["reason"];
       if (typeof reason === "string") Reflect.set(next, "reason", reason);
-      return applyUnknown(next, knownKeys);
+      return normalizeNodeTextFields(applyUnknown(next, knownKeys));
     }
     case "task": {
       const typeKeys: readonly string[] = ["state", "assignee", "dueDate", "dependencies"];
@@ -217,7 +219,7 @@ export function applyUpdateChanges(
       if (typeof dueDate === "string") Reflect.set(next, "dueDate", dueDate);
       const dependencies = changes["dependencies"];
       if (isNodeIdArray(dependencies)) Reflect.set(next, "dependencies", dependencies);
-      return applyUnknown(next, knownKeys);
+      return normalizeNodeTextFields(applyUnknown(next, knownKeys));
     }
     case "risk": {
       const typeKeys: readonly string[] = ["severity", "likelihood", "mitigation"];
@@ -229,7 +231,7 @@ export function applyUpdateChanges(
       if (isRiskLikelihood(likelihood)) Reflect.set(next, "likelihood", likelihood);
       const mitigation = changes["mitigation"];
       if (typeof mitigation === "string") Reflect.set(next, "mitigation", mitigation);
-      return applyUnknown(next, knownKeys);
+      return normalizeNodeTextFields(applyUnknown(next, knownKeys));
     }
     case "question": {
       const typeKeys: readonly string[] = ["question", "answer", "answeredAt"];
@@ -241,7 +243,7 @@ export function applyUpdateChanges(
       if (typeof answer === "string") Reflect.set(next, "answer", answer);
       const answeredAt = changes["answeredAt"];
       if (typeof answeredAt === "string") Reflect.set(next, "answeredAt", answeredAt);
-      return applyUnknown(next, knownKeys);
+      return normalizeNodeTextFields(applyUnknown(next, knownKeys));
     }
     case "plan": {
       const typeKeys: readonly string[] = ["steps"];
@@ -249,12 +251,12 @@ export function applyUpdateChanges(
       const next = applyCommon(existing);
       const steps = changes["steps"];
       if (isPlanStepArray(steps)) Reflect.set(next, "steps", steps);
-      return applyUnknown(next, knownKeys);
+      return normalizeNodeTextFields(applyUnknown(next, knownKeys));
     }
     default: {
       const knownKeys = new Set<string>(commonKeys);
       const next = applyCommon(existing);
-      return applyUnknown(next, knownKeys);
+      return normalizeNodeTextFields(applyUnknown(next, knownKeys));
     }
   }
 }

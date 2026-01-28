@@ -478,6 +478,338 @@ describe("InMemoryStore (coverage)", () => {
     expect(incoming.nodes.map((n) => n.id.id)).toContain("goal-rt-001");
   });
 
+  it("queryNodes should support OR + fuzzy search + field filters + relevance sorting", async () => {
+    const n1: GoalNode = {
+      id: { id: "goal-search-a" },
+      type: "goal",
+      status: "accepted",
+      title: "Alpha",
+      description: "Hello world",
+      content: "placeholder",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    const n2: GoalNode = {
+      id: { id: "goal-search-b" },
+      type: "goal",
+      status: "accepted",
+      title: "Beta",
+      description: "Hello there",
+      content: "placeholder",
+      metadata: meta("2026-01-01T00:00:01Z"),
+    };
+    await createAndApply(store, "p-goal-search-a", n1);
+    await createAndApply(store, "p-goal-search-b", n2);
+
+    const orRes = await store.queryNodes({
+      search: { query: "world beta", operator: "OR", fields: ["description", "title"] },
+    });
+    expect(orRes.nodes.map((n) => n.id.id)).toEqual(expect.arrayContaining(["goal-search-a", "goal-search-b"]));
+
+    const fuzzyMiss = await store.queryNodes({ search: { query: "worle", fuzzy: false } });
+    expect(fuzzyMiss.nodes).toHaveLength(0);
+
+    const fuzzyHit = await store.queryNodes({ search: { query: "worle", fuzzy: true } });
+    expect(fuzzyHit.nodes.map((n) => n.id.id)).toContain("goal-search-a");
+
+    // Relevance: "hello" appears in both, but we can bump one via duplicate word
+    await updateAndApply(store, "p-bump", { id: "goal-search-b" }, { description: "hello hello there" });
+    const rel = await store.queryNodes({ search: "hello", sortBy: "relevance", sortOrder: "desc" });
+    expect(rel.nodes[0].id.id).toBe("goal-search-b");
+  });
+
+  it("queryNodes should cover typed search fields + modifiedBefore + modifiedAt sorting", async () => {
+    const decision: DecisionNode = {
+      id: { id: "decision-typed" },
+      type: "decision",
+      status: "accepted",
+      content: "Decision body",
+      decision: "Use PostgreSQL",
+      rationale: "Durability",
+      alternatives: ["Use SQLite"],
+      metadata: meta("2026-01-01T00:00:00Z", "u1", "2026-01-03T00:00:00Z", "u1"),
+    };
+    const constraint: ConstraintNode = {
+      id: { id: "constraint-typed" },
+      type: "constraint",
+      status: "accepted",
+      content: "Constraint body",
+      constraint: "Must be offline",
+      reason: "Customer requirement",
+      metadata: meta("2026-01-01T00:00:00Z", "u1", "2026-01-02T00:00:00Z", "u1"),
+    };
+    const question: QuestionNode = {
+      id: { id: "question-typed" },
+      type: "question",
+      status: "accepted",
+      content: "Question body",
+      question: "Why?",
+      answer: "Because.",
+      metadata: meta("2026-01-01T00:00:00Z", "u1", "2026-01-02T12:00:00Z", "u1"),
+    };
+    await createAndApply(store, "p-decision-typed", decision);
+    await createAndApply(store, "p-constraint-typed", constraint);
+    await createAndApply(store, "p-question-typed", question);
+
+    const alt = await store.queryNodes({ search: { query: "sqlite", fields: ["alternatives"] } });
+    expect(alt.nodes.map((n) => n.id.id)).toContain("decision-typed");
+
+    const reason = await store.queryNodes({ search: { query: "customer", fields: ["reason"] } });
+    expect(reason.nodes.map((n) => n.id.id)).toContain("constraint-typed");
+
+    const ans = await store.queryNodes({ search: { query: "because", fields: ["answer"] } });
+    expect(ans.nodes.map((n) => n.id.id)).toContain("question-typed");
+
+    const before = await store.queryNodes({ modifiedBefore: "2026-01-02T23:59:59Z" });
+    expect(before.nodes.map((n) => n.id.id)).toEqual(expect.arrayContaining(["constraint-typed", "question-typed"]));
+    expect(before.nodes.map((n) => n.id.id)).not.toContain("decision-typed");
+
+    const sortModified = await store.queryNodes({
+      sortBy: "modifiedAt",
+      sortOrder: "asc",
+      status: ["accepted"],
+    });
+    expect(sortModified.nodes.length).toBeGreaterThan(0);
+  });
+
+  it("queryNodes relevance tie-breaker + default sort branch", async () => {
+    const a: GoalNode = {
+      id: { id: "goal-tie-a" },
+      type: "goal",
+      status: "accepted",
+      content: "foo",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    const b: GoalNode = {
+      id: { id: "goal-tie-b" },
+      type: "goal",
+      status: "accepted",
+      content: "foo",
+      metadata: meta("2026-01-02T00:00:00Z"),
+    };
+    await createAndApply(store, "p-goal-tie-a", a);
+    await createAndApply(store, "p-goal-tie-b", b);
+
+    const rel = await store.queryNodes({ search: "foo", sortBy: "relevance", sortOrder: "asc" });
+    expect(rel.nodes[0].id.id).toBe("goal-tie-a");
+
+    const unknownSort = await store.queryNodes({ status: ["accepted"], sortBy: "unknown" as any, sortOrder: "asc" });
+    expect(unknownSort.nodes.length).toBeGreaterThan(0);
+  });
+
+  it("hasRelationship should support incoming and both directions", async () => {
+    const goal: GoalNode = {
+      id: { id: "goal-hasrel" },
+      type: "goal",
+      status: "accepted",
+      content: "G",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    const task: TaskNode = {
+      id: { id: "task-hasrel" },
+      type: "task",
+      status: "accepted",
+      state: "open",
+      content: "T",
+      metadata: meta("2026-01-01T00:00:00Z"),
+      relationships: [{ type: "implements", target: { id: "goal-hasrel" } }],
+    };
+    await createAndApply(store, "p-goal-hasrel", goal);
+    await createAndApply(store, "p-task-hasrel", task);
+
+    const incoming = await store.queryNodes({
+      hasRelationship: { type: "implements", direction: "incoming" },
+    });
+    expect(incoming.nodes.map((n) => n.id.id)).toContain("goal-hasrel");
+
+    const both = await store.queryNodes({
+      status: ["accepted"],
+      hasRelationship: { type: "implements", direction: "both" },
+    });
+    expect(both.nodes.map((n) => n.id.id)).toEqual(expect.arrayContaining(["goal-hasrel", "task-hasrel"]));
+  });
+
+  it("review mode: should allow withdrawing open proposals and reject invalid review/apply operations", async () => {
+    const p: Proposal = {
+      id: "proposal-open-1",
+      status: "open",
+      operations: [],
+      metadata: meta("2026-01-01T00:00:00Z", "alice"),
+    };
+    await store.createProposal(p);
+
+    await store.updateProposal("proposal-open-1", { status: "withdrawn" });
+    expect((await store.getProposal("proposal-open-1"))?.status).toBe("withdrawn");
+
+    // Cannot apply non-accepted proposal
+    const p2: Proposal = { ...p, id: "proposal-open-2", status: "open" };
+    await store.createProposal(p2);
+    await expect(store.applyProposal("proposal-open-2")).rejects.toThrow(/not accepted/i);
+
+    // Cannot review non-open proposal
+    const p3: Proposal = { ...p, id: "proposal-open-3", status: "open" };
+    await store.createProposal(p3);
+    await store.submitReview({
+      id: "r1",
+      proposalId: "proposal-open-3",
+      reviewer: "bob",
+      reviewedAt: "2026-01-02T00:00:00Z",
+      action: "accept",
+    });
+    await expect(
+      store.submitReview({
+        id: "r2",
+        proposalId: "proposal-open-3",
+        reviewer: "bob",
+        reviewedAt: "2026-01-02T00:00:01Z",
+        action: "reject",
+      })
+    ).rejects.toThrow(/status is/i);
+
+    // Withdrawing a non-open proposal should fail.
+    await expect(store.updateProposal("proposal-open-3", { status: "withdrawn" })).rejects.toThrow(/cannot withdraw/i);
+  });
+
+  it("createIssuesFromProposal should copy proposal codeProjection onto created issues", async () => {
+    const task: TaskNode = {
+      id: { id: "task-issue-proj" },
+      type: "task",
+      status: "accepted",
+      state: "open",
+      title: "Implement X",
+      description: "Do the work",
+      content: "placeholder",
+      metadata: meta("2026-01-01T00:00:00Z", "alice"),
+    };
+    const proposal: Proposal = {
+      id: "proposal-issue-proj",
+      status: "open",
+      operations: [{ id: "op1", type: "create", order: 1, node: task } as CreateOperation],
+      metadata: {
+        ...meta("2026-01-01T00:00:00Z", "alice"),
+        codeProjection: { kind: "branch", ref: "feature/x", generatedAt: "2026-01-01T00:00:00Z" },
+      },
+    };
+    await store.createProposal(proposal);
+    const result = await store.createIssuesFromProposal("proposal-issue-proj", "review-1");
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0].codeProjection?.kind).toBe("branch");
+  });
+
+  it("buildContextChain and queryWithReasoning should produce accumulated context and reasoning steps", async () => {
+    const goal: GoalNode = {
+      id: { id: "goal-ctx" },
+      type: "goal",
+      status: "accepted",
+      content: "Goal",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    const decision: DecisionNode = {
+      id: { id: "decision-ctx" },
+      type: "decision",
+      status: "accepted",
+      content: "Decision",
+      decision: "Decide",
+      rationale: "Because",
+      metadata: meta("2026-01-01T00:00:00Z"),
+      relationships: [{ type: "references", target: { id: "goal-ctx" } }],
+    };
+    const task: TaskNode = {
+      id: { id: "task-ctx" },
+      type: "task",
+      status: "accepted",
+      state: "open",
+      content: "Task",
+      metadata: meta("2026-01-01T00:00:00Z"),
+      relationships: [{ type: "implements", target: { id: "decision-ctx" } }],
+    };
+    await createAndApply(store, "p-goal-ctx", goal);
+    await createAndApply(store, "p-decision-ctx", decision);
+    await createAndApply(store, "p-task-ctx", task);
+
+    const chain = await store.buildContextChain({ id: "task-ctx" }, {
+      relationshipSequence: ["implements", "references"],
+      maxDepth: 1,
+      includeReasoning: true,
+      accumulate: true,
+    });
+    expect(chain.accumulatedContext.decisions?.map((n) => n.id.id)).toContain("decision-ctx");
+    expect(chain.accumulatedContext.goals?.map((n) => n.id.id)).toContain("goal-ctx");
+
+    const withReasoning = await store.queryWithReasoning({
+      query: { search: "goal", status: ["accepted"] },
+      reasoning: { enabled: true, followRelationships: ["references"], includeRationale: true, maxDepth: 1 },
+    });
+    expect(withReasoning.reasoningChains.length).toBeGreaterThan(0);
+    expect(withReasoning.reasoningPath.length).toBeGreaterThan(0);
+  });
+
+  it("queryProposals nodeId filter should match update/status-change/delete ops too", async () => {
+    const nodeId: NodeId = { id: "n-prop" };
+    const pUpdate: Proposal = {
+      id: "p-node-update",
+      status: "open",
+      operations: [{ id: "op", type: "update", order: 1, nodeId, changes: { description: "x" } } as any],
+      metadata: meta("2026-01-01T00:00:00Z", "alice"),
+    };
+    const pStatus: Proposal = {
+      id: "p-node-status",
+      status: "open",
+      operations: [
+        { id: "op", type: "status-change", order: 1, nodeId, oldStatus: "accepted", newStatus: "rejected" } as any,
+      ],
+      metadata: meta("2026-01-01T00:00:00Z", "alice"),
+    };
+    const pDelete: Proposal = {
+      id: "p-node-delete",
+      status: "open",
+      operations: [{ id: "op", type: "delete", order: 1, nodeId } as any],
+      metadata: meta("2026-01-01T00:00:00Z", "alice"),
+    };
+    await store.createProposal(pUpdate);
+    await store.createProposal(pStatus);
+    await store.createProposal(pDelete);
+
+    const res = await store.queryProposals({ nodeId });
+    expect(res.map((p) => p.id)).toEqual(expect.arrayContaining(["p-node-update", "p-node-status", "p-node-delete"]));
+  });
+
+  it("should cover small convenience APIs (accepted/open/rejected/conflicts/stale/no-op)", async () => {
+    const node: GoalNode = {
+      id: { id: "goal-acc" },
+      type: "goal",
+      status: "accepted",
+      content: "x",
+      metadata: meta("2026-01-01T00:00:00Z"),
+    };
+    await createAndApply(store, "p-goal-acc", node);
+
+    const accepted = await store.getAcceptedNodes();
+    expect(accepted.map((n) => n.id.id)).toContain("goal-acc");
+
+    const open: Proposal = { id: "p-open", status: "open", operations: [], metadata: meta("2026-01-01T00:00:00Z") };
+    await store.createProposal(open);
+    expect((await store.getOpenProposals()).map((p) => p.id)).toContain("p-open");
+
+    await store.submitReview({
+      id: "r-reject",
+      proposalId: "p-open",
+      reviewer: "bob",
+      reviewedAt: "2026-01-02T00:00:00Z",
+      action: "reject",
+    });
+    expect((await store.getRejectedProposals()).map((p) => p.id)).toContain("p-open");
+
+    // detectConflicts on missing should return empty sets
+    const conflicts = await store.detectConflicts("missing");
+    expect(conflicts.conflicts).toEqual([]);
+
+    // stale on missing proposalId should be true
+    expect(await store.isProposalStale("missing")).toBe(true);
+
+    // no-op call
+    await expect(store.updateReferencingNodes({ id: "any" })).resolves.toBeUndefined();
+  });
+
   it("queryNodes relatedTo should honor depth and direction", async () => {
     const a: GoalNode = {
       id: { id: "rel-a" },

@@ -97,6 +97,7 @@ status: accepted
 - **MongoDB Storage**: Production-ready with ACID transactions, concurrency control, and scalability
 - **Scalability Path**: Users can start simple and scale up without code changes
 - **Graph model** (see `decision-015`) requires graph-native storage format
+- **No data loss**: Storage must persist `title` + `description`; `content` is a deterministic derived plain-text index (may be stored or recomputed) and must not silently drift
 - **Self-hosted**: Both implementations run within organization (no external cloud services)
 - **Proposal-based workflow**: All changes go through proposals/review workflow
 - All data stays within organization (see `constraint-005`)
@@ -151,7 +152,7 @@ graph TB
     
     subgraph "File-Based Implementation"
         FileStore[File-Based Store]
-        GraphJSON[.context/graph.json]
+        GraphJSON[graph.json (example path)]
         NodeFiles[.context/nodes/]
         FileStore --> GraphJSON
         FileStore --> NodeFiles
@@ -181,8 +182,8 @@ graph TB
     style MongoStore fill:#e8f5e9
 ```
 
-**File-Based Storage** (Default for Development/Small Projects):
-- **Format**: JSON Graph in `.context/graph.json` and individual node files
+**File-Based Storage** (Intended default for development/small projects):
+- **Format**: JSON graph format (example path: `.context/graph.json`) and optional per-node files
 - **Location**: `.context/` directory in Git repository
 - **Benefits**:
   - ✅ Simple, no external dependencies
@@ -210,7 +211,7 @@ graph TB
 - **Git Integration**: Periodic snapshots to Git for backup, version history, audit trail
 
 **Storage Selection**:
-- **Development/Small Projects**: File-based storage (default)
+- **Development/Small Projects**: File-based storage (intended default)
 - **Production/Large Projects**: MongoDB storage (recommended)
 - **Scaling Path**: Switch from file-based to MongoDB via configuration change (same `ContextStore` interface)
 
@@ -251,11 +252,11 @@ status: accepted
 - Similar to Jira where issues exist independently and commits reference them
 
 **Implementation**:
-- Context store persists to file system (JSON/YAML) immediately when proposals/nodes are created
-- Git commits are tracked and linked to proposals via checkin semantics
+- Proposals are persisted by the selected storage backend when created (independent of code commits)
+- Git commits (if used) are tracked and linked to proposals via check-in semantics (e.g., commit messages reference proposal IDs)
 - Commit messages can reference proposals (e.g., "Implements proposal-123")
 - System tracks which commits correspond to which proposals/nodes
-- Markdown projection happens on commit, but context store is always up-to-date
+- Markdown projections can be generated on demand; they are not the canonical store
 
 **Alternatives Considered**:
 - Requiring git commits for persistence (too restrictive, breaks async workflows)
@@ -269,37 +270,28 @@ type: decision
 id: decision-016
 status: accepted
 ---
-**Decision**: ctx blocks and rendered Markdown are UI-only and NOT committed to Git. Change detection is embedded in whatever UI is being used.
+**Decision**: Markdown (including `ctx` blocks) is a **projection format**, not canonical truth. It may be stored in a repo or kept client-side. All concurrent edits are captured as **proposals** and accepted/rejected into truth (review mode).
 
 **Rationale**:
-- Context store (`.context/graph.json`) is the source of truth committed to Git
-- Markdown files with ctx blocks are UI projections for human editing
-- Change detection must happen in real-time in the UI layer, not through Git operations
-- Keeps Git repository clean - only structured data (context store) is versioned
-- Enables real-time collaboration without Git conflicts on Markdown files
-- UI can detect changes immediately as user types, not just on commit
+- Accepted truth must not be directly mutated; proposals provide a safe, reviewable write path
+- Markdown is familiar for humans, but is not structured enough to be canonical truth
+- Some teams want Markdown committed for visibility; others want it client-side to reduce noise/conflicts
+- Change capture can be client-side (diffing Markdown) or API-side (structured edits); the store enforces review-mode invariants either way
+- File-based persistence can be Git-friendly, but the storage path/format is an implementation choice (e.g. a `.context/` directory)
 
 **Implementation**:
-- **Context Store**: `.context/graph.json` and related files are committed to Git
-- **Markdown Files**: Exist only in UI (VS Code/Cursor extension, web UI, etc.), NOT in Git
-- **Change Detection**: Embedded in UI layer (extension, web UI, etc.)
-  - VS Code/Cursor extension detects changes on save or in real-time
-  - Web UI detects changes as user types
-  - Changes immediately synced to context store as proposals
-- **Git Workflow**: Only context store changes are committed to Git
-- **UI Updates**: Markdown files regenerated from context store in UI
+- **Review mode**: clients create proposals; reviewers accept/reject; accepted proposals are applied into truth
+- **Markdown import (optional)**: `ctx` blocks can be imported into proposals; non-ctx content is preserved
+- **Markdown projection (optional)**: accepted truth can be projected back to Markdown deterministically
 
 **Benefits**:
-- Clean Git repository (only structured data)
-- Real-time change detection (not dependent on Git operations)
-- No Git conflicts on Markdown files
-- Faster iteration (changes detected immediately)
-- Better UX (changes visible immediately in UI)
+- Consistent collaboration semantics (suggest → review → apply)
+- Supports multiple clients (editor extension, web UI, CLI, agents)
+- Allows Markdown in Git *or* client-side without changing the core model
 
 **Alternatives Considered**:
-- Committing Markdown files to Git (pollutes repository, Git conflicts, slower)
-- Git-based change detection (too slow, requires commits, breaks real-time workflow)
-- Separate Markdown storage (adds complexity, loses UI integration)
+- Treat Markdown as canonical truth (agents can’t reliably distinguish truth vs proposal intent)
+- Direct edits to accepted nodes (unsafe under concurrency; loses review semantics)
 
 **Decided At**: 2026-01-26
 ```

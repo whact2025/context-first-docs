@@ -56,7 +56,7 @@ When multiple people edit the same ctx block simultaneously:
 - ❌ No merge of changes
 - ❌ May overwrite recent work unintentionally
 
-**Use case**: Low-stakes content where latest version is always preferred
+**Use case**: Low-stakes node text where latest version is always preferred
 
 ---
 
@@ -89,7 +89,7 @@ When multiple people edit the same ctx block simultaneously:
 **Approach**: Merge changes at the field level, not the whole node.
 
 **How it works**:
-- Proposals contain field-level changes (content, status, metadata, etc.)
+- Proposals contain field-level changes (description/title/typed fields/status/relationships/metadata, etc.)
 - When multiple proposals modify different fields, merge them
 - When proposals modify same field, require resolution
 - Automatic merge for non-conflicting fields
@@ -107,9 +107,12 @@ When multiple people edit the same ctx block simultaneously:
 **Use case**: Nodes with many independent fields
 
 **Example**:
-- Proposal A changes `content` field
+- Proposal A changes `description` field
 - Proposal B changes `status` field
 - Result: Both changes applied (no conflict)
+ 
+In the normalized model, the canonical body is `description` (Markdown); `content` is derived.
+So the typical “text field” to merge/conflict on is `description`.
 
 ---
 
@@ -134,7 +137,7 @@ When multiple people edit the same ctx block simultaneously:
 - ❌ May create unexpected merges
 - ❌ Requires good base version tracking
 
-**Use case**: Text content where semantic merging makes sense
+**Use case**: Node description text where semantic merging makes sense
 
 ---
 
@@ -158,7 +161,7 @@ When multiple people edit the same ctx block simultaneously:
 - ❌ Requires reviewer availability
 - ❌ Can block workflow
 
-**Use case**: High-stakes content requiring careful review
+**Use case**: High-stakes node text requiring careful review
 
 ---
 
@@ -260,12 +263,12 @@ When multiple people edit the same ctx block simultaneously:
 
 ---
 
-### Strategy 11: Content-Aware Merging
+### Strategy 11: Text-Aware Merging
 
-**Approach**: Use semantic understanding to merge content intelligently.
+**Approach**: Use semantic understanding to merge node text (primarily `description`) intelligently.
 
 **How it works**:
-- Analyze content changes semantically
+- Analyze description changes semantically
 - Detect if changes are complementary or conflicting
 - Auto-merge complementary changes
 - Flag true conflicts for resolution
@@ -338,7 +341,7 @@ When multiple people edit the same ctx block simultaneously:
 ### Conflict Detection
 - Compare proposals targeting same node
 - Field-level comparison
-- Content diff analysis
+- Description diff analysis
 - Reference tracking
 
 ### Conflict Resolution UI

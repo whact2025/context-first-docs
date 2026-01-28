@@ -16,6 +16,7 @@ import {
 import { Proposal, CreateOperation, UpdateOperation } from "../types/proposal.js";
 import { ContextStore, NodeQuery } from "../types/context-store.js";
 import { extractCtxBlocks, generateCtxBlock, replaceCtxBlock, CtxBlock } from "./ctx-block.js";
+import { normalizeNodeTextFields } from "../utils/node-text.js";
 
 export interface ProjectionOptions {
   /** Whether to include proposed nodes */
@@ -159,12 +160,13 @@ function createProposalForNewNode(
       version: 1,
     },
   };
+  const normalized = normalizeNodeTextFields(node as unknown as AnyNode) as unknown as ContextNode;
 
   const operation: CreateOperation = {
     id: `op-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     type: "create",
     order: 0,
-    node,
+    node: normalized as unknown as AnyNode,
   };
 
   return {
@@ -222,7 +224,7 @@ function createProposalForUpdate(
     order: 0,
     nodeId: existingNode.id,
     changes: {
-      ...(changes.includes("description") && { description: block.content, content: block.content }),
+      ...(changes.includes("description") && { description: block.content }),
       ...(changes.includes("status") && { status }),
       ...(changes.includes("title") && { title: block.title }),
     },

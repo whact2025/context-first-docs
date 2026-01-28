@@ -319,7 +319,7 @@ describe("InMemoryStore", () => {
       expect(retrieved?.status).toBe("open");
     });
 
-    it("should update a proposal", async () => {
+    it("should update a proposal (metadata)", async () => {
       const proposal: Proposal = {
         id: "proposal-002",
         status: "open",
@@ -333,10 +333,31 @@ describe("InMemoryStore", () => {
       };
 
       await store.createProposal(proposal);
-      await store.updateProposal("proposal-002", { status: "accepted" });
+      await store.updateProposal("proposal-002", {
+        metadata: { ...proposal.metadata, rationale: "Updated rationale" },
+      });
 
       const updated = await store.getProposal("proposal-002");
-      expect(updated?.status).toBe("accepted");
+      expect(updated?.metadata.rationale).toBe("Updated rationale");
+    });
+
+    it("should not allow accepting via updateProposal (review mode)", async () => {
+      const proposal: Proposal = {
+        id: "proposal-accept-001",
+        status: "open",
+        operations: [],
+        metadata: {
+          createdAt: "2026-01-26T10:00:00Z",
+          createdBy: "user1",
+          modifiedAt: "2026-01-26T10:00:00Z",
+          modifiedBy: "user1",
+        },
+      };
+
+      await store.createProposal(proposal);
+      await expect(
+        store.updateProposal("proposal-accept-001", { status: "accepted" })
+      ).rejects.toThrow(/use submitReview/i);
     });
 
     it("should query proposals by status", async () => {

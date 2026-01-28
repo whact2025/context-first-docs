@@ -573,7 +573,13 @@ const SCENARIOS: ScenarioDefinition[] = [
           const proposals = await importFromMarkdown(store, edited, "demo", "PLAYGROUND.md");
           for (const p of proposals) {
             await store.createProposal(p);
-            await store.updateProposal(p.id, { status: "accepted" });
+            await store.submitReview({
+              id: `review-${p.id}`,
+              proposalId: p.id,
+              reviewer: "demo-reviewer",
+              reviewedAt: new Date().toISOString(),
+              action: "accept",
+            });
             await store.applyProposal(p.id);
           }
 

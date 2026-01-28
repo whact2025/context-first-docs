@@ -4,10 +4,20 @@
 
 The system supports **two storage implementations** through a storage abstraction layer (`ContextStore` interface):
 
-1. **File-Based Storage** (Default): JSON Graph format in Git - simple, Git-friendly, perfect for development/small projects
-2. **MongoDB Storage** (Production): Self-hosted document database - production-ready, scales to large projects
+1. **File-Based Storage** (planned): JSON graph format in a repo - simple, Git-friendly, good for small projects/dev
+2. **MongoDB Storage** (planned): Self-hosted document database - production-ready scaling and concurrency
 
 Both implementations satisfy the same `ContextStore` interface, allowing users to start simple and scale up seamlessly.
+
+## Node Text Fields (Normalized)
+
+Nodes now support normalized, UI-friendly text fields:
+
+- `title` (optional): short label for display/search
+- `description` (optional): canonical long-form Markdown body used for projections
+- `content` (required today): deterministic derived plain-text index used for search/similarity/snippets (computed from `description` + key typed fields)
+
+Storage backends must persist `title` + `description`. `content` may be stored for performance, but should be treated as derived and safe to recompute.
 
 ## File-Based Storage Limitations
 
@@ -47,7 +57,7 @@ graph TB
     
     subgraph "File-Based Implementation"
         FileStore[File-Based Store]
-        GraphJSON[.context/graph.json]
+        GraphJSON[graph.json (example path)]
         NodeFiles[.context/nodes/]
         FileStore --> GraphJSON
         FileStore --> NodeFiles
@@ -72,11 +82,11 @@ graph TB
 
 ## Storage Options
 
-### Option 1: File-Based Storage (Default)
+### Option 1: File-Based Storage (planned)
 
 **Best for**: Development, small projects, teams wanting Git-native storage
 
-**Implementation**: JSON Graph format in `.context/graph.json` and individual node files
+**Implementation**: JSON graph format (path/config is implementation-defined; `.context/graph.json` is an example) plus optional per-node files
 
 **Benefits**:
 - ✅ Simple, no external dependencies
@@ -119,10 +129,10 @@ graph TB
     
     subgraph "UI Layer"
         UI
-        Markdown[Markdown Editing<br/>UI-only, not in Git]
-        ChangeDetect[Real-time Change Detection]
+        Markdown[Markdown (optional projection)<br/>may be in repo or client]
+        Suggest[Suggesting mode → proposals]
         UI -.-> Markdown
-        UI -.-> ChangeDetect
+        UI -.-> Suggest
     end
     
     subgraph "GraphQL Layer"
@@ -163,9 +173,9 @@ graph TB
 
 ### Key Components
 
-#### 1. GraphQL Schema
+#### 1. GraphQL Schema (planned)
 
-**Location**: `.context/schema.graphql` (committed to Git for versioning)
+**Location**: versioned in your repo (path is an implementation choice; e.g. `schema.graphql`)
 
 **Purpose**: 
 - Type-safe API definition
@@ -179,6 +189,8 @@ type Node {
   id: ID!
   type: NodeType!
   status: NodeStatus!
+  title: String
+  description: String
   content: String!
   metadata: NodeMetadata!
   relationships: [Relationship!]!
@@ -262,7 +274,9 @@ type Mutation {
       _id: "decision-001",
       type: "decision",
       status: "accepted",
-      content: "Use TypeScript",
+      title: "Use TypeScript",
+      description: "**Decision**: Use TypeScript for type safety.",
+      content: "Use TypeScript Decision: Use TypeScript for type safety.", // derived plain text index
       metadata: { ... },
       relationships: [
         { type: "implements", target: "goal-001" }
@@ -294,6 +308,8 @@ erDiagram
         string _id PK
         string type
         string status
+        string title
+        string description
         string content
         object metadata
         number version
@@ -492,7 +508,7 @@ graph TB
     style DB7 fill:#fff4e1
 ```
 
-| Aspect | File-Based (Default) | MongoDB (Production) |
+| Aspect | File-Based (planned) | MongoDB (planned) |
 |--------|---------------------|----------------------|
 | **Best For** | Development, small projects | Production, large projects |
 | **Concurrency** | ⚠️ File locking issues | ✅ ACID transactions |
@@ -513,7 +529,7 @@ graph TB
 
 **Support Both Storage Options via Abstraction Layer**:
 
-1. **Start Simple**: File-based storage (default) - perfect for development and small projects
+1. **Start Simple**: In-memory for demos/tests today; file-based is the intended default once implemented
 2. **Scale Up**: MongoDB storage (production) - when you need concurrency and scalability
 3. **Seamless Transition**: Same `ContextStore` interface - switch via configuration
 4. **Maintains security requirements** - both options self-hosted, zero IP leakage
@@ -521,7 +537,7 @@ graph TB
 
 **When to Use Each**:
 
-**File-Based Storage** (Default):
+**File-Based Storage** (planned):
 - ✅ Starting a new project
 - ✅ Small teams (< 10 people)
 - ✅ Small context graphs (< 1000 nodes)

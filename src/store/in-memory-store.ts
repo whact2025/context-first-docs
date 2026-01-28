@@ -182,6 +182,10 @@ export class InMemoryStore implements ContextStore {
 
       const getSearchTexts = (node: AnyNode): Array<{ field: string; text: string }> => {
         const all: Array<{ field: string; text: string }> = [
+          ...(typeof node.title === "string" ? [{ field: "title", text: node.title }] : []),
+          ...(typeof node.description === "string"
+            ? [{ field: "description", text: node.description }]
+            : []),
           { field: "content", text: node.content },
         ];
 
@@ -527,6 +531,26 @@ export class InMemoryStore implements ContextStore {
     if (!existing) {
       throw new Error(`Proposal ${proposalId} not found`);
     }
+    // Enforce Google-Docs-style review mode:
+    // - proposals are "suggestions"
+    // - accepting/rejecting is only allowed via submitReview()
+    if (
+      typeof updates.status === "string" &&
+      updates.status !== existing.status &&
+      updates.status !== "withdrawn"
+    ) {
+      throw new Error(
+        `Cannot set proposal ${proposalId} status to "${updates.status}" via updateProposal(); use submitReview()`
+      );
+    }
+
+    // Only allow withdrawing an open proposal (basic invariant; auth is out of scope here).
+    if (updates.status === "withdrawn" && existing.status !== "open") {
+      throw new Error(
+        `Cannot withdraw proposal ${proposalId} because it is "${existing.status}"`
+      );
+    }
+
     this.proposals.set(proposalId, { ...existing, ...updates });
   }
 
@@ -536,11 +560,33 @@ export class InMemoryStore implements ContextStore {
       throw new Error(`Proposal ${review.proposalId} not found`);
     }
 
-    // Update proposal status based on review
+    // Update proposal status based on review (the only supported path to accept/reject).
+    if (proposal.status !== "open") {
+      throw new Error(
+        `Cannot review proposal ${review.proposalId}: status is "${proposal.status}"`
+      );
+    }
+
     if (review.action === "accept") {
-      await this.updateProposal(review.proposalId, { status: "accepted" });
+      this.proposals.set(review.proposalId, {
+        ...proposal,
+        status: "accepted",
+        metadata: {
+          ...proposal.metadata,
+          modifiedAt: review.reviewedAt,
+          modifiedBy: review.reviewer,
+        },
+      });
     } else if (review.action === "reject") {
-      await this.updateProposal(review.proposalId, { status: "rejected" });
+      this.proposals.set(review.proposalId, {
+        ...proposal,
+        status: "rejected",
+        metadata: {
+          ...proposal.metadata,
+          modifiedAt: review.reviewedAt,
+          modifiedBy: review.reviewer,
+        },
+      });
     }
 
     // Store review
@@ -666,6 +712,7 @@ export class InMemoryStore implements ContextStore {
       state: "open" | "in-progress" | "blocked" | "completed" | "cancelled";
       createdAt: string;
       createdBy: string;
+      codeProjection?: import("../types/issues.js").CodebaseProjection;
     }> = [];
 
     for (const operation of proposal.operations) {
@@ -676,11 +723,12 @@ export class InMemoryStore implements ContextStore {
             id: `issue-${proposalId}-${operation.order}`,
             proposalId,
             reviewId,
-            description: `Implement: ${node.content}`,
+            description: `Implement: ${node.title ?? node.content}`,
             type: "implementation",
             state: "open",
             createdAt: new Date().toISOString(),
             createdBy: proposal.metadata.createdBy,
+            codeProjection: proposal.metadata.codeProjection,
           });
         }
       }

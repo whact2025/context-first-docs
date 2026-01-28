@@ -68,14 +68,12 @@
 - ❌ No manual conflict resolution workflow
 
 #### 7. Chain-of-Thought Traversal
-- ❌ No reasoning chain traversal algorithm
-- ❌ No context chain building
-- ❌ No decision reasoning following
-- ❌ No semantic similarity detection
-- ❌ No progressive context accumulation
+- ✅ Baseline reasoning traversal exists (`traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, `discoverRelatedReasoning`)
+- ❌ No semantic similarity beyond basic heuristics
+- ❌ No advanced progressive accumulation strategies / optimization
 
 #### 8. Issue Creation System
-- ❌ No issue creation from proposals
+- ✅ Basic issue creation from proposals exists (`createIssuesFromProposal()` in `InMemoryStore`), but is minimal/stubbed
 - ❌ No issue templates
 - ❌ No issue configuration
 - ❌ No issue lifecycle management
@@ -263,7 +261,9 @@
   _id: "decision-001",
   type: "decision",
   status: "accepted",
-  content: "...",
+  title: "Use TypeScript",
+  description: "**Decision**: Use TypeScript for type safety.",
+  content: "Use TypeScript Decision: Use TypeScript for type safety.", // derived plain-text index
   metadata: { ... },
   relationships: [
     { type: "implements", target: "goal-001", metadata: {...} }
@@ -277,7 +277,7 @@
 db.nodes.createIndex({ type: 1, status: 1 })
 db.nodes.createIndex({ "relationships.target": 1 })
 db.nodes.createIndex({ createdAt: -1 })
-db.nodes.createIndex({ content: "text" })
+db.nodes.createIndex({ title: "text", description: "text", content: "text" })
 ```
 
 **Estimated Effort**: 5-6 weeks

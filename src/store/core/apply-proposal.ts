@@ -5,6 +5,7 @@ import {
   MoveOperation,
 } from "../../types/proposal.js";
 import { applyUpdateChanges, isDeleteNodeOperation, isDeleteTextOperation } from "./updates.js";
+import { normalizeNodeTextFields } from "../../utils/node-text.js";
 
 export interface ApplyProposalOptions {
   keyOf: (id: NodeId) => string;
@@ -47,7 +48,7 @@ export function applyAcceptedProposalToNodeMap(
   for (const operation of ops) {
     if (operation.type === "create" && "node" in operation) {
       const key = keyOf(operation.node.id);
-      nodes.set(key, operation.node);
+      nodes.set(key, normalizeNodeTextFields(operation.node));
       continue;
     }
 
@@ -76,16 +77,18 @@ export function applyAcceptedProposalToNodeMap(
         throw new Error(`Insert operation ${operation.id} missing sourceNodeId`);
       }
       setNode(nodeId, (existing) => {
-        const content = existing.content ?? "";
+        const body = (existing.description ?? existing.content ?? "") as string;
         const pos = (operation as InsertOperation).position;
         const text = (operation as InsertOperation).text;
-        if (pos < 0 || pos > content.length) {
+        if (pos < 0 || pos > body.length) {
           throw new Error(`Insert position ${pos} out of bounds for node ${keyOf(nodeId)}`);
         }
-        return touch({
-          ...existing,
-          content: content.slice(0, pos) + text + content.slice(pos),
-        });
+        return touch(
+          normalizeNodeTextFields({
+            ...existing,
+            description: body.slice(0, pos) + text + body.slice(pos),
+          })
+        );
       });
       continue;
     }
@@ -96,16 +99,18 @@ export function applyAcceptedProposalToNodeMap(
         throw new Error(`DeleteText operation ${operation.id} missing sourceNodeId`);
       }
       setNode(nodeId, (existing) => {
-        const content = existing.content ?? "";
+        const body = (existing.description ?? existing.content ?? "") as string;
         const start = operation.start;
         const end = operation.end;
-        if (start < 0 || end < start || end > content.length) {
+        if (start < 0 || end < start || end > body.length) {
           throw new Error(`Delete range [${start}, ${end}) out of bounds for node ${keyOf(nodeId)}`);
         }
-        return touch({
-          ...existing,
-          content: content.slice(0, start) + content.slice(end),
-        });
+        return touch(
+          normalizeNodeTextFields({
+            ...existing,
+            description: body.slice(0, start) + body.slice(end),
+          })
+        );
       });
       continue;
     }
@@ -117,8 +122,8 @@ export function applyAcceptedProposalToNodeMap(
       if (target?.parentId) {
         const newParentId = target.parentId;
         const newParentKey = keyOf(newParentId);
-        const newParent = nodes.get(newParentKey);
-        if (!newParent) {
+        const initialNewParent = nodes.get(newParentKey);
+        if (!initialNewParent) {
           throw new Error(`Parent ${newParentKey} not found for move`);
         }
 
@@ -134,6 +139,11 @@ export function applyAcceptedProposalToNodeMap(
         }
 
         // Add parent-child edge from new parent to nodeId if missing
+        const newParent = nodes.get(newParentKey);
+        if (!newParent) {
+          throw new Error(`Parent ${newParentKey} not found for move`);
+        }
+
         const existingRels = newParent.relationships || [];
         const has = existingRels.some(
           (r) => r.type === "parent-child" && keyOf(r.target) === keyOf(nodeId)

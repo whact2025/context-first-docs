@@ -20,26 +20,23 @@ Key principles:
 - Nodes form a graph with typed relationships (see `decision-015`)
 - Changes are proposals, not direct mutations
 - Status is explicit (accepted, proposed, rejected, superseded)
+- Nodes support normalized text fields: optional `title` (short label), optional `description` (canonical long-form Markdown body), and required `content` as a deterministic derived plain-text index used for search/similarity/snippets
 - Graph format enables efficient relationship queries and chain-of-thought reasoning
 
-### 2. Markdown Projection (`src/markdown/`) - UI Layer Only
+### 2. Markdown Projection (`src/markdown/`) - Optional projection format
 
-Bidirectional synchronization between Markdown and the context store:
+Bidirectional synchronization between Markdown and the context store (one possible client format):
 
-- **ctx Blocks**: Lightweight syntax for embedding semantic nodes (UI-only, not committed to Git)
-- **Rendered Markdown**: Human-readable projection of context store (UI-only, not committed to Git)
-- **Import**: Converts Markdown edits to proposals (happens in UI layer)
-- **Export**: Projects accepted nodes to Markdown deterministically (happens in UI layer)
+- **ctx Blocks**: Lightweight syntax for embedding semantic nodes inside Markdown
+- **Import**: Converts ctx block edits into proposals (`importFromMarkdown`)
+- **Export**: Projects accepted nodes into ctx blocks deterministically (`projectToMarkdown`)
 
 Key principles:
-- **Markdown is UI-only**: ctx blocks and rendered Markdown are NOT committed to Git
-- **Context Store is Source of Truth**: Only `.context/graph.json` and related files are committed to Git
-- **Change Detection in UI**: Change detection is embedded in whatever UI is being used (VS Code/Cursor extension, web UI, etc.)
-- **Real-time Sync**: Changes detected in UI are immediately synced to context store as proposals
-- Only ctx blocks are managed by the system
-- Other Markdown content is preserved
+- **Review mode (no direct edits)**: clients submit proposals; reviewers accept/reject into truth (see `docs/REVIEW_MODE.md`)
+- **Markdown is a projection, not truth**: whether Markdown lives in Git or only in a UI is a deployment choice; it’s never the canonical store
+- **Only ctx blocks are managed**: other Markdown content is preserved when merging (`mergeMarkdownWithContext`)
 
-### 3. Context Store (to be implemented)
+### 3. Context Store (reference implementation + planned persistence)
 
 The canonical source of truth:
 
@@ -51,62 +48,34 @@ The canonical source of truth:
 - Creates issues automatically when proposals are approved
 
 **Storage Format**: Dual storage options via `ContextStore` abstraction layer (see `decision-005`)
-- **File-Based Storage**: JSON Graph format in `.context/graph.json` (default for development/small projects)
-- **MongoDB Storage**: Self-hosted document database (for production/large projects)
-- **Storage Abstraction**: Both implementations satisfy `ContextStore` interface
-- **GraphQL API**: Works with both storage backends
-- **Self-hosted**: All storage options run within organization (no external cloud services)
-- **Git Integration**: File-based uses Git directly, MongoDB uses periodic Git snapshots
-- **Proposal-based workflow**: All changes go through proposals/review, then stored via `ContextStore` interface
-- All data stays within organization (Git repository or self-hosted MongoDB, no external services - see `constraint-005`)
+- **In-memory**: implemented baseline for dev/testing (`InMemoryStore`)
+- **File-based**: planned JSON graph format (Git-friendly; intended default once implemented)
+- **MongoDB**: planned self-hosted production backend (scaling/concurrency)
 
-Planned implementations:
-- In-memory store (for testing) ✅
-- File-based store (JSON Graph in Git) - default
-- MongoDB store with GraphQL API (self-hosted within organization) - for scaling
-- Storage abstraction layer (`ContextStore` interface)
-- GraphQL schema definition (`.context/schema.graphql`)
-- Git snapshot/backup system for MongoDB periodic exports
+Planned additions:
+- persistent backends (file-based, MongoDB) behind the same `ContextStore` interface
+- optional API layer(s) (e.g. GraphQL/HTTP) built on top of `ContextStore`
+- optional Git-based snapshot/backup for database-backed deployments
 
-## Data Flow
+## Data Flow (Review Mode)
 
-### Writing Context (UI-Based)
+### Writing Context (Suggesting → Review → Apply)
 
-1. **UI Layer**: Human edits Markdown file in UI (VS Code/Cursor extension, web UI, etc.)
-   - Markdown file with ctx blocks exists only in UI, NOT in Git
-   - Based on role permissions (read-only or editable)
-2. **Change Detection (Embedded in UI)**: UI extracts ctx blocks and compares with central context store
-   - New ctx blocks → create proposals
-   - Modified ctx blocks → create update proposals
-   - Removed ctx blocks → create delete proposals
-   - Change detection happens in real-time or on save (UI-dependent)
-   - See `docs/CHANGE_DETECTION.md` for detailed process
-3. **Proposal Creation**: Changes imported as proposals (for ctx blocks)
-   - Proposals created immediately via `ContextStore` interface
-   - Storage backend (file-based or MongoDB) handles persistence
-4. **Conflict Detection**: System checks for conflicts with open proposals
-   - File-based: Optimistic locking via version numbers
-   - MongoDB: ACID transactions with optimistic locking
-5. Non-ctx content changes tracked and synced (UI-only)
-6. Referencing nodes updated if referenced content changed
-7. Proposals are reviewed (by designated approvers) - in UI
-8. Accepted proposals become truth via `ContextStore` interface
-   - File-based: Atomic file writes
-   - MongoDB: ACID transactions
-9. **Git Integration**: 
-   - File-based: Direct Git commits for version history
-   - MongoDB: Periodic Git snapshots for backup/version history
-10. **UI Updates**: All affected Markdown files regenerated from accepted truth in UI (via storage abstraction)
+1. **Client authors a suggestion**: UI/agent produces a proposal (field updates, relationship edits, or Markdown-derived proposals)
+2. **Store records proposal**: proposal remains `open` and does not change accepted truth
+3. **Reviewers accept/reject**: approval is explicit (see `docs/REVIEW_MODE.md`)
+4. **Apply**: accepted proposals are applied to become truth (`applyProposal`)
+5. **Optional projections**: clients can render Markdown projections and/or show diffs/overlays
 
 ### Reading Context
 
 1. **Agents**: Query context store via `ContextStore` interface (never read raw Markdown)
-   - Agents never see Markdown files - they only interact with storage abstraction
-   - Storage backend (file-based or MongoDB) is transparent to agents
-   - GraphQL API provides type-safe, comprehensive query interface (works with both backends)
-2. **Humans**: View Markdown projection in UI (VS Code/Cursor extension, web UI)
-   - Markdown is generated on-demand from context store via storage abstraction
-   - Markdown files exist only in UI, not in Git
+   - Agents treat Markdown as a projection, not canonical truth
+   - Storage backend is transparent to agents
+   - Optional API layers (GraphQL/HTTP) can be added later; the contract is `ContextStore`
+2. **Humans**: View projections in a client (editor extension, web UI, CLI)
+   - Projections can be generated on-demand from accepted truth
+   - Markdown may be client-side or committed in a repo; either way it is a projection, not canonical truth
 3. Context store returns accepted nodes + open proposals (default: accepted only for safety)
 4. Agent can distinguish truth from proposals (explicit status indicators)
 5. Agent can create new proposals (stored in central context store)
@@ -154,7 +123,7 @@ Planned implementations:
 
 ### Why Deterministic Projection?
 
-- Same context = same Markdown (critical for Git)
+- Same context = same Markdown (deterministic; enables reproducible projections and clean diffs when Markdown is versioned)
 - Enables validation and drift detection
 - Predictable behavior for agents
 - Supports reproducible builds
@@ -204,15 +173,14 @@ Agents always:
 - Discover related context through graph traversal
 - See `docs/AGENT_API.md` for full API documentation
 
-## VS Code/Cursor Extension (Required)
+## Clients (not coupled to a specific UI)
 
-The VS Code/Cursor extension is a core component, not optional:
+Any client can participate as long as it follows review-mode semantics:
 
-- **In-editor review**: Review proposals, accept/reject changes without leaving the editor
-- **Context awareness**: See related decisions, risks, and tasks while coding
-- **Authoring support**: Create proposals and nodes directly from the editor
-- **Syntax support**: Highlight and validate ctx blocks
-- **Git integration**: Link commits to proposals, track implementation
+- VS Code/Cursor extension
+- Web UI
+- CLI tooling
+- Agents (via the `ContextStore` API)
 
 ## Additional Components
 
@@ -221,7 +189,7 @@ The VS Code/Cursor extension is a core component, not optional:
 - **Roles**: Contributors, approvers, admins
 - **Permissions**: Create proposals, review, approve, manage users
 - **Designated Approvers**: Per-node-type approvers, multi-approval workflows
-- **Role-Based Markdown Editing**: Read-only vs editable based on permissions
+- **Role-Based Markdown Editing**: Read-only vs **suggesting** based on permissions (accept/reject requires approver role)
 
 ### Conflict Reconciliation (see `decision-014`)
 
@@ -237,10 +205,11 @@ The VS Code/Cursor extension is a core component, not optional:
 - **Templates**: Configurable issue templates
 - **Task Nodes**: Issues can be created as task nodes in context store
 - **Traceability**: Issues reference originating proposals
+- **Codebase projection**: Issues may carry an optional `codeProjection` (PR/branch/patch/plan) to show the expected/actual code changes that implement the approved proposal
 
 ### Security & Privacy (see `constraint-005`)
 
-- **Self-Hosted**: All data in Git repository, no external services
+- **Self-Hosted**: All data stays within your organization (Git-friendly file backend and/or self-hosted DB), no external services required
 - **No Data Leak**: All context stays within organization
 - **Air-Gapped Support**: Can work in air-gapped environments
 - **Full Control**: Complete control over data location and access

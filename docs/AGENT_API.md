@@ -10,6 +10,22 @@ The Agent API provides a comprehensive interface for:
 - **Safety**: Default to accepted nodes only, explicit opt-in for proposals
 - **Graph Queries**: Traverse relationships and find connected nodes
 
+### Review mode (writing is proposals)
+
+Agents (and humans) do not directly mutate accepted nodes. They:
+
+1. create proposals (`createProposal`)
+2. wait for reviews (`submitReview`)
+3. apply accepted proposals (`applyProposal`)
+
+See `docs/REVIEW_MODE.md` for the invariant and allowed status transitions.
+
+### Text fields (important for search)
+
+- `description`: canonical long-form **Markdown** body (what humans author; what ctx blocks import/export)
+- `content`: deterministic derived **plain-text index** (computed from `description` + key typed fields) used for keyword search/similarity/snippets
+- `title`: optional short label (recommended for search and display)
+
 ## Core Discovery API
 
 ### 1. Query Nodes by Type, Status, and Keyword
@@ -19,7 +35,7 @@ The Agent API provides a comprehensive interface for:
 const results = await store.queryNodes({
   type: ["decision", "goal"],           // Filter by node types
   status: ["accepted"],                 // Filter by status (default: accepted only)
-  search: "TypeScript",                  // Keyword search across content
+  search: "TypeScript",                  // Keyword search (uses derived `content` index by default)
   limit: 50,                             // Pagination
   offset: 0                              // Pagination offset
 });
@@ -34,7 +50,7 @@ const results = await store.queryNodes({
   status: ["accepted", "proposed"],      // Include both accepted and proposed
   search: {
     query: "TypeScript strict mode",     // Full-text search query
-    fields: ["content", "decision", "rationale"], // Search in specific fields
+    fields: ["title", "content", "description", "decision", "rationale"], // Search in specific fields
     operator: "AND" | "OR"               // Search operator (default: AND)
   },
   tags: ["architecture", "typescript"],  // Filter by tags
@@ -234,7 +250,7 @@ const deps = await store.queryNodes({
 const results = await store.queryNodes({
   search: {
     query: "authentication security",
-    fields: ["content", "decision", "rationale", "mitigation"],
+    fields: ["title", "content", "description", "decision", "rationale", "mitigation"],
     operator: "AND"
   },
   status: ["accepted"],
@@ -266,7 +282,7 @@ const results = await store.queryNodes({
   namespace: "backend",
   search: {
     query: "API key",
-    fields: ["content", "mitigation"],
+    fields: ["title", "content", "description", "mitigation"],
     operator: "OR"
   },
   createdAfter: "2026-01-01",

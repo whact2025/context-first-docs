@@ -150,9 +150,9 @@ itself. The Markdown files in the project root contain ctx blocks that embed sem
 nodes. As the system matures, these will be automatically synchronized with the
 canonical context store in `.context/`.
 
-Currently (early development), the files are manually maintained but structured to
-work with the system. Once file-based persistence and import/export are implemented,
-the full workflow will be automated.
+Currently, the files are committed for demonstration/self-reference. The repo already includes
+Markdown import/projection utilities and a review-mode store for demos/tests; persistent
+file-based storage is still planned, at which point synchronization can be automated end-to-end.
 
 See `docs/SELF-REFERENCE.md` for more details.
 ```

@@ -20,7 +20,7 @@ status: accepted
 **Phase 2: Persistence & Storage Implementations** (Next)
 1. ✅ Complete InMemoryStore baseline + extract reusable store core logic (`src/store/core/*`) with coverage tests (see `docs/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
 2. Storage abstraction layer - storage factory, configuration system, backend selection (see Phase 2)
-3. File-based storage implementation - JSON Graph format in `.context/graph.json` (default for development) (see Phase 3)
+3. File-based storage implementation - JSON graph format (example path: `.context/graph.json`) (see Phase 3)
 4. MongoDB storage implementation - self-hosted MongoDB document database (for production/scaling) (see Phase 4)
 5. GraphQL API layer - schema definition, resolvers, type validation, authentication/authorization (see Phase 5)
 6. Conflict detection and resolution - build on the baseline (conflict detection, field-level merge, optimistic locking) with manual resolution + superseding workflow (see Phase 6)
@@ -37,9 +37,9 @@ status: accepted
 3. Create authoring helpers for all node types (decisions, tasks, questions, etc.)
 4. Implement role and permission system (contributors, approvers, admins)
 5. Add designated contributors and approvers support
-6. Implement role-based Markdown editing modes (read-only vs editable) - UI-only Markdown
-7. Implement bidirectional sync - Markdown edits sync back to context store and referencing nodes
-8. Implement change detection embedded in UI (VS Code/Cursor extension, web UI)
+6. Implement role-based authoring modes (read-only vs suggesting)
+7. Implement bidirectional sync - proposals (optionally derived from Markdown ctx blocks) ↔ projections
+8. Implement client/API change-capture workflows (client-side diffs or API-side structured edits), while enforcing review-mode invariants in the store
 9. Implement hybrid reconciliation system:
    - Conflict detection at proposal creation
    - Field-level merging for non-conflicting fields
@@ -70,12 +70,12 @@ status: accepted
 1. Clean installation system - non-invasive setup for existing repositories
 2. Self-hosted Git storage setup - configure storage service for self-hosted Git repository
 3. Reverse engineering tools - extract historical context from existing merge requests/PRs
-4. VS Code/Cursor extension - in-editor review, context awareness, real-time change detection (required)
+4. VS Code/Cursor extension (client) - in-editor review, context awareness, and proposal authoring/preview
 5. Extension features:
-   - Change detection embedded in UI (on save or real-time)
+   - Client-side change capture (on save or real-time) that produces proposals (review mode enforced by store)
    - Proposal creation and management UI
    - Context awareness while coding
-   - Role-based Markdown editing (read-only vs editable)
+   - Role-based authoring modes (read-only vs suggesting)
 6. Pre-baked Cursor rules - AI-assisted proposal and risk authoring
 7. GitHub/GitLab integration (for code repository, not context store)
 8. Reverse engineering MRs/PRs - extract historical context from existing repositories
@@ -129,7 +129,7 @@ type: task
 id: task-006
 status: in-progress
 ---
-Implement file-based storage layer for context store (JSON Graph format in `.context/graph.json`).
+Implement file-based storage layer for context store (JSON graph format; example path: `.context/graph.json`).
 ```
 
 ```ctx
@@ -257,7 +257,7 @@ type: task
 id: task-022
 status: open
 ---
-Build VS Code/Cursor extension - in-editor review, proposal management, context awareness, and real-time change detection. Change detection embedded in UI (required for v1).
+Build VS Code/Cursor extension (client) - in-editor review, proposal management, context awareness, and proposal authoring from editor changes (client-side capture; review mode enforced by store).
 ```
 
 ```ctx
@@ -545,7 +545,7 @@ type: task
 id: task-060
 status: open
 ---
-Ensure UI-only Markdown - ctx blocks and rendered Markdown exist only in UI, NOT in Git. Change detection embedded in UI.
+Ensure clean review-mode semantics: Markdown/ctx blocks are treated as a projection format (repo or client), and all concurrent edits are proposals accepted/rejected into truth (no direct edits).
 ```
 
 ```ctx

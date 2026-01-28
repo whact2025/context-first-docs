@@ -27,18 +27,26 @@ These files contain `ctx` blocks that embed semantic nodes. The blocks are manag
 
 ### Context Store
 
-The `.context/` directory (to be implemented) will contain the canonical context store - structured data (JSON/YAML) that represents the truth.
+The canonical context store is represented by the `ContextStore` interface.
+
+- **Today (in this repo)**: the reference implementation is `InMemoryStore` (useful for demos/tests)
+- **Planned**: persistent backends (file-based and MongoDB). A file-based backend may store its data under a `.context/` directory (path is implementation-defined)
 
 ### Workflow
 
-1. **Editing**: Developers edit the Markdown files directly
-2. **Import**: Changes to ctx blocks are imported as proposals
-3. **Review**: Proposals are reviewed and accepted/rejected
-4. **Export**: Accepted truth is exported back to Markdown deterministically
+1. **Author suggestions**: Developers (or agents) create proposals (optionally derived from Markdown ctx blocks)
+2. **Review mode**: Proposals are accepted/rejected via reviews (no direct edits to accepted truth)
+3. **Apply**: Accepted proposals are applied into truth
+4. **Project**: Accepted truth can be projected back into Markdown deterministically
 
 ### Current State
 
-Currently, the project is in early development. The Markdown files exist and use ctx blocks, but the full import/export workflow is not yet automated. This will be implemented as part of Phase 2-3 of the development plan.
+Currently:
+
+- The core proposal/review workflow is implemented in the in-memory store (see `docs/REVIEW_MODE.md`)
+- Markdown import/projection utilities exist (`importFromMarkdown`, `projectToMarkdown`)
+- A small local playground exists to demonstrate the flow (`npm run playground`)
+- Persistent storage backends are still planned (see `docs/STORAGE_IMPLEMENTATION_PLAN.md`)
 
 ## Separation of Concerns
 

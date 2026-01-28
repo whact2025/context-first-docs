@@ -5,6 +5,61 @@
 import { NodeId, TaskNode } from "./node.js";
 
 /**
+ * A projection of proposed/approved changes to the codebase.
+ *
+ * This is a derived artifact (repo-state dependent) intended for review/implementation
+ * traceability. It should not be treated as canonical “truth” for the node graph itself.
+ */
+export type CodebaseProjection =
+  | {
+      kind: "pull_request";
+      /** Optional repo identifier (e.g. org/name) */
+      repo?: string;
+      /** Base commit the PR was generated against */
+      baseCommit?: string;
+      /** Link to PR/MR */
+      url: string;
+      /** Head ref (branch) */
+      headRef?: string;
+      /** Optional head commit */
+      headCommit?: string;
+      /** Who/what generated this projection */
+      generatedBy?: string;
+      /** When generated */
+      generatedAt: string;
+    }
+  | {
+      kind: "branch";
+      repo?: string;
+      baseCommit?: string;
+      /** Branch name/ref containing the implementation */
+      ref: string;
+      remote?: string;
+      headCommit?: string;
+      generatedBy?: string;
+      generatedAt: string;
+    }
+  | {
+      kind: "patch";
+      repo?: string;
+      baseCommit?: string;
+      /** Unified diff (keep small) */
+      unifiedDiff?: string;
+      /** Reference to an external artifact (preferred for large diffs) */
+      artifactRef?: string;
+      generatedBy?: string;
+      generatedAt: string;
+    }
+  | {
+      kind: "plan";
+      /** Human/agent readable plan (no patch yet) */
+      summary?: string;
+      steps?: string[];
+      generatedBy?: string;
+      generatedAt: string;
+    };
+
+/**
  * Issue template defines what issues should be created when a proposal is approved.
  */
 export interface IssueTemplate {
@@ -74,6 +129,12 @@ export interface Issue {
   createdBy: string;
   /** Optional: link to created task node */
   taskNodeId?: NodeId;
+
+  /**
+   * Optional projection of codebase changes associated with implementing this issue.
+   * Typically attached when a proposal is approved (or later updated when an implementation exists).
+   */
+  codeProjection?: CodebaseProjection;
 }
 
 /**

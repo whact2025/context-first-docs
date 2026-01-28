@@ -51,7 +51,7 @@ export function detectConflictsForProposal(
         fields = ["status"];
       } else if (op.type === "insert" || isDeleteTextOperation(op)) {
         kind = "content-edit";
-        fields = ["content"];
+        fields = ["description"];
       } else if (op.type === "move") {
         kind = "move";
         fields = ["relationships"];
