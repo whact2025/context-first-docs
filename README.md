@@ -342,6 +342,10 @@ If you want to see the system working end-to-end (scenarios + guided flows) via 
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 
+## Whitepaper (Target-State Overview)
+
+See [`docs/WHITEPAPER.md`](docs/WHITEPAPER.md) for a comprehensive target-state whitepaper that highlights the solution’s distinguishing elements vs hodgepodge and common alternatives.
+
 Key architectural points:
 - **Graph Model**: Nodes with typed relationships (see [`DECISIONS.md`](DECISIONS.md) decision-015)
 - **Dual Storage (planned)**: File-based (intended default) and MongoDB (production) via `ContextStore` abstraction (see [`DECISIONS.md`](DECISIONS.md) decision-005)
