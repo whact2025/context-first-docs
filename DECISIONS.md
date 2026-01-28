@@ -791,3 +791,59 @@ status: accepted
 
 **Decided At**: 2026-01-28
 ```
+
+```ctx
+type: decision
+id: decision-021
+status: accepted
+---
+**Decision**: “Accepted” and “Applied” are distinct states; the system must represent **applied** explicitly for proposal lifecycle correctness across clients.
+
+**Rationale**:
+- Review acceptance should not be conflated with truth mutation.
+- UIs must be able to show “Accepted but not applied” and prevent accidental re-apply.
+- Auditability requires recording who applied what, when.
+
+**Implementation**:
+- Add proposal metadata fields such as `appliedAt`, `appliedBy` (and optional `appliedRevision`).
+- Applying should be idempotent from the UI perspective (no double-apply).
+
+**Decided At**: 2026-01-28
+```
+
+```ctx
+type: decision
+id: decision-022
+status: accepted
+---
+**Decision**: Introduce a first-class **workspace/tenancy boundary** for the UI and API, and enforce it consistently across nodes, proposals, reviews, comments, and projections.
+
+**Rationale**:
+- The UI route model (`/workspaces/:ws`) implies scoped navigation and policy boundaries.
+- Multi-client operation must not leak data across organizational boundaries.
+
+**Implementation Options**:
+- Workspace maps to a store instance (recommended for simplicity), or
+- workspace is enforced via namespace partitioning, or
+- explicit `workspaceId` field is added to all persisted entities.
+
+**Decided At**: 2026-01-28
+```
+
+```ctx
+type: decision
+id: decision-023
+status: accepted
+---
+**Decision**: Projections must be attributable to a **truth snapshot**; introduce “projection runs” (or equivalent identity) so UIs can render and diff deterministic projection outputs.
+
+**Rationale**:
+- The UI must be able to say “Generated from Truth Snapshot: X” and compare runs.
+- Determinism is part of the contract; a stable snapshot identifier makes that testable and auditable.
+
+**Implementation**:
+- Introduce a `ProjectionRun` concept (id, config, generatedAt/by, basedOnRevision/snapshot).
+- Projection outputs remain non-canonical views derived from truth.
+
+**Decided At**: 2026-01-28
+```

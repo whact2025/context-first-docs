@@ -2,6 +2,8 @@
 
 This document tracks the development roadmap and milestones for context-first-docs.
 
+See `docs/UI_SPEC.md` for the clean-slate UI specification aligned to ACAL.
+
 ```ctx
 type: plan
 id: plan-001
@@ -550,6 +552,59 @@ id: task-060
 status: completed
 ---
 Ensure clean review-mode semantics: Markdown/ctx blocks are treated as a projection format (repo or client), and all concurrent edits are proposals accepted/rejected into truth (no direct edits).
+```
+
+```ctx
+type: task
+id: task-061
+status: open
+---
+Implement explicit “applied” state for proposals (distinct from “accepted”) so UIs can reliably show Accepted vs Applied and prevent re-apply.
+
+Notes:
+- Add `appliedAt`/`appliedBy` (and optional `appliedRevision`) metadata.
+- Expose via store/API so all clients behave consistently.
+```
+
+```ctx
+type: task
+id: task-062
+status: open
+---
+Define and enforce a workspace/tenancy model for the UI (`/workspaces/:ws`), including data partitioning and policy boundaries.
+
+Notes:
+- Decide whether workspace maps to store instance, namespace partition, or explicit workspaceId on entities.
+- Ensure no cross-workspace leakage in queries, proposals, reviews, comments, and projections.
+```
+
+```ctx
+type: task
+id: task-063
+status: open
+---
+Introduce “projection runs” / truth snapshot identity so the UI can label projections as “Generated from Truth Snapshot: X” and diff between runs deterministically.
+```
+
+```ctx
+type: task
+id: task-064
+status: open
+---
+Build Web UI MVP aligned to `docs/UI_SPEC.md`:
+- Explore (accepted-only default)
+- Node detail (read-only accepted + Propose change)
+- Proposal composer (structured ops + rationale + prechecks)
+- Review accept/reject + Apply
+- Projections viewer (non-canonical, deterministic outputs)
+```
+
+```ctx
+type: task
+id: task-065
+status: open
+---
+Create shared UI component library + client SDK to enforce ACAL invariants consistently across web and VS Code extension (accepted-only defaults, proposal-only writes, anchored comments, clear proposal state).
 ```
 
 ```ctx

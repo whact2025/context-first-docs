@@ -131,3 +131,48 @@ likelihood: possible
 - Prefer deterministic projections so regeneration doesn’t change meaning; avoid anchoring to Markdown line numbers.
 - Add tests for storing/querying anchored comments and for preserving anchors across proposal/review lifecycles.
 ```
+
+```ctx
+type: risk
+id: risk-009
+status: accepted
+severity: medium
+likelihood: likely
+---
+**Risk**: UI confusion between **Accepted** (reviewed) and **Applied** (truth mutated) leads to incorrect user expectations, duplicated applies, or “why didn’t it change?” incidents.
+
+**Mitigation**:
+- Represent “applied” explicitly in the data model (`appliedAt`/`appliedBy`), not inferred from node state.
+- UI must always show proposal state clearly: open / accepted / rejected / withdrawn / applied.
+- After accept, present “Accepted but not applied” with a dedicated Apply CTA (policy-gated).
+```
+
+```ctx
+type: risk
+id: risk-010
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: Multi-workspace/tenancy is underspecified, causing accidental cross-workspace data leakage in UI queries, proposal review queues, comments, or projections.
+
+**Mitigation**:
+- Define a first-class workspace boundary early (store instance vs namespace vs explicit workspaceId) and enforce it in the API.
+- Add tests for workspace scoping on all read/write paths (nodes, proposals, reviews, comments, projections).
+- UI should never “fall back” to global searches without an explicit workspace selector.
+```
+
+```ctx
+type: risk
+id: risk-011
+status: accepted
+severity: medium
+likelihood: possible
+---
+**Risk**: Policy/roles UI implies enforcement that the server does not yet guarantee, creating a false sense of governance and auditability.
+
+**Mitigation**:
+- Treat policy displays as “preview” until server enforcement exists; clearly label enforcement status.
+- Centralize policy evaluation server-side and return explicit “blocked/required approvals” results to all clients.
+- Maintain an audit trail for policy evaluation and apply actions in enterprise deployments (roadmap).
+```
