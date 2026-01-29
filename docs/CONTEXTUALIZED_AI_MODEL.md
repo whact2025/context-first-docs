@@ -8,6 +8,19 @@ This document describes **how the context store is used to create a contextualiz
 
 ---
 
+## Position in architecture: the Contextualize module
+
+**Contextualize** is a **first-class module** in the ACAL architecture. It packages everything needed to turn the context store into a substrate for RAG, fine-tuning, and structured prompting, with **policy-as-code for prompt leakage** as a named, auditable component.
+
+| Layer | What it is | Status |
+|-------|------------|--------|
+| **Contextualize module** | Thin wrapper over the store: retrieval, prompt building, export for fine-tuning, optional vector index. Sits between the context store and any LLM (self-hosted or vendor). | Designed and documented here; implementation roadmap in PLAN Phase 5. |
+| **Prompt-leakage policy layer** | Policy-as-code for what may leave the perimeter: **sensitivity labels** on nodes/namespaces, a **retrieval policy module** (allow/deny by destination, e.g. vendor_llm vs internal_only), and **logging of node IDs** included in each prompt sent to a vendor LLM. Wraps retrieval and prompt building; store stays agnostic. | Same design doc; implementation is "thin wrapper v0" in PLAN Phase 5. |
+
+Even at v0, the **prompt-leakage policy layer** is the formal hook security and compliance can point to: labels + policy module + logging = auditable, enforceable control over prompt leakage. See §3.3 (operational controls) and §3.4 (policy interface) below.
+
+---
+
 ## Contextualized enterprise AI model: how enterprise IP benefits
 
 Enterprises hold valuable IP in goals, decisions, constraints, risks, and rationale. Sending that context to external AI services creates leakage and compliance risk. The context store enables **building a contextualized enterprise AI model** — one that reasons using your approved context — while keeping that IP inside your organization.
@@ -19,6 +32,8 @@ Enterprises hold valuable IP in goals, decisions, constraints, risks, and ration
 | **Auditability and provenance** | The store keeps proposals, reviews, and acceptance history. You can record which context version was used for a given export or retrieval, so you can trace how a contextualized model or answer was produced (compliance and internal audit). |
 | **Structured, reviewable training data** | Exported context is typed (goals, decisions, risks, constraints) and linked. You can restrict export to accepted-only, by namespace, or by type so sensitive or obsolete context is excluded. |
 | **Choice of inference location** | With a **self-hosted or private-VPC LLM**, the full flow (store → retrieval → prompt → inference) stays in-house. With a vendor LLM, only the prompt is sent; you control what is included and can use vendor DPAs and data-residency options. |
+
+Accepted-only retrieval is the same safety contract that prevents agent hallucinations in collaboration; we reuse it to prevent data poisoning in training/prompting.
 
 **Implementation paths:** RAG at inference (§2.1), export for fine-tuning (§2.2), structured prompting (§2.3). All run against the store on your infrastructure; training and inference can stay on-prem or in a private cloud. See also `docs/WHITEPAPER.md` section 7.1.
 
@@ -172,9 +187,9 @@ When the prompt is sent to a vendor LLM, every byte of context you include is ex
 
 **Putting it together:** In your retrieval + prompt pipeline for a vendor LLM, apply in order: (1) **topic-scoped retrieval** with a small default limit, (2) **namespace/type allowlist** filter, (3) **redaction** pass, (4) **context budget** check and **sensitivity label** filter. Log what was included (e.g. node IDs, namespace, size) for audit. The store's `queryNodes` and `queryWithReasoning` already support `namespace`, `type`, `search`, and `limit`; the rest is policy and a thin orchestration layer.
 
-### 3.4 Prompt leakage controls: policy interface
+### 3.4 Prompt-leakage policy layer (policy interface)
 
-The patterns above are operational; security and compliance need an **operational hook** — a formal **policy layer** that makes prompt leakage controls auditable and enforceable. A minimal **policy interface** has three elements:
+The patterns above are operational; security and compliance need an **operational hook** — a formal **policy layer** that makes prompt leakage controls auditable and enforceable. The **Contextualize** module’s **prompt-leakage policy layer** is that component: policy-as-code for what may leave the perimeter. A minimal **policy interface** has three elements:
 
 | Element | Purpose | Operational hook |
 |--------|---------|-------------------|
@@ -182,7 +197,7 @@ The patterns above are operational; security and compliance need an **operationa
 | **Retrieval policy module with allow/deny rules** | Central place to enforce what can be sent where. | A thin **retrieval policy** module: input = (candidate nodes, destination e.g. "vendor_llm" | "internal_only"), output = (allowed nodes, optional deny reason per node). Rules can be config (e.g. allow only `namespace` in allowlist and `type` in allowlist for vendor; deny `type: risk` or `sensitivity: confidential` for vendor) or code. The pipeline calls this module after retrieval and before formatting the prompt; any node not allowed is dropped or redacted. |
 | **Logging of node IDs included in prompts** | Audit trail for what was sent. | For every prompt sent to a vendor LLM (and optionally for every retrieval used for a prompt), log **which node IDs** were included (and optionally namespace, type, sensitivity, token count). That gives compliance an audit trail: "this request included nodes g1, d1, t1" so you can verify that only allowed context was sent and investigate if a sensitive node ever appears. |
 
-**Interface in practice:** Before calling the vendor LLM, the pipeline (1) retrieves candidates, (2) runs them through the **retrieval policy** (allow/deny by sensitivity, namespace, type), (3) applies redaction and budget, (4) **logs** the list of node IDs (and metadata) included in the prompt, (5) sends the prompt. The store does not need to implement labels or policy; they live in a **policy layer** (config + thin module) that wraps retrieval and prompt building. This gives security readers a clear contract: sensitivity labels + policy module + logging = prompt leakage controls as a formal, auditable layer.
+**Interface in practice:** Before calling the vendor LLM, the pipeline (1) retrieves candidates, (2) runs them through the **retrieval policy** (allow/deny by sensitivity, namespace, type), (3) applies redaction and budget, (4) **logs** the list of node IDs (and metadata) included in the prompt, (5) sends the prompt. The store does not need to implement labels or policy; they live in the **Contextualize** module’s **prompt-leakage policy layer** (config + thin module) that wraps retrieval and prompt building. That layer is the named, first-class component: sensitivity labels + policy module + logging = policy-as-code for prompt leakage.
 
 ---
 
@@ -199,6 +214,7 @@ The patterns above are operational; security and compliance need an **operationa
 
 ## 5. References
 
+- **Architecture (Contextualize as first-class module):** `docs/ARCHITECTURE.md` — System Components §4 (Contextualize module).
 - **Whitepaper (contextualized enterprise AI model, enterprise IP benefits):** `docs/WHITEPAPER.md` — section 7 (Security, privacy, and governance) and **section 7.1 (Enterprise IP and contextualized AI models)**.
 - **Query and decision/rationale traversal APIs:** `docs/AGENT_API.md`; `src/types/context-store.ts` (`queryNodes`, `traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, `queryWithReasoning` — these perform typed relationship traversal / provenance chains, not LLM chain-of-thought).
 - **Projection:** `src/markdown/projection.ts` (`projectToMarkdown`).

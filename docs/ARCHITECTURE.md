@@ -59,6 +59,16 @@ Planned additions:
 - optional API layer(s) (e.g. GraphQL/HTTP) built on top of `ContextStore`
 - optional Git-based snapshot/backup for database-backed deployments
 
+### 4. Contextualize module (contextualized AI + prompt-leakage policy)
+
+A **first-class component** that turns the context store into the substrate for RAG, fine-tuning, and structured prompting. Even at v0 it is a **thin wrapper** over the store; the **prompt-leakage policy layer** is the named, policy-as-code hook for controlling what leaves the perimeter when using a vendor LLM.
+
+- **Scope:** Retrieval from the store, prompt building, export for fine-tuning, optional vector index. Sits between the context store and any LLM (self-hosted or vendor).
+- **Prompt-leakage policy layer:** Policy-as-code with three elements: **sensitivity labels** on nodes/namespaces, a **retrieval policy module** (allow/deny by destination, e.g. vendor_llm vs internal_only), and **logging of node IDs** included in each prompt sent to a vendor LLM. Wraps retrieval and prompt building; the store stays agnostic.
+- **Operational controls (same doc):** Topic-scoped retrieval, namespace/type allowlists, redaction, max context budget — see `docs/CONTEXTUALIZED_AI_MODEL.md` §3.3–3.4.
+
+**Status:** Designed and documented in `docs/CONTEXTUALIZED_AI_MODEL.md`; implementation roadmap in PLAN Phase 5 (Contextualize module).
+
 ## Data Flow (Review Mode)
 
 ### Writing Context (Suggesting → Review → Apply)

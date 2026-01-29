@@ -82,7 +82,7 @@ No direct edit to the store: the change is expressed as a **proposal**.
 
 ## 3. Proposal JSON (open)
 
-The proposal contains two operations: one **update** (d1), one **create** (r1). Status is `open` until a review accepts it. Node status in proposal operations is the status that will be written on apply; until apply, it is not part of accepted truth (so the create for r1 uses `"status": "accepted"` as the post-apply intent).
+The proposal contains two operations: one **update** (d1), one **create** (r1). Status is `open` until a review accepts it. Node status in proposal operations is the status that will be written on apply; until apply, it is not part of accepted truth (so the create for r1 uses `"status": "accepted"` as the post-apply intent). *Why is `status: accepted` inside an open proposal?* See the **“Status in proposals”** callout in the whitepaper §4.1: proposal open = not truth yet; operation status = intended post-apply status; for preview semantics, treat open-proposal nodes as “proposed overlay.”
 
 ```json
 {

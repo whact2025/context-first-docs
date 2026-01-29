@@ -1,6 +1,6 @@
 # Project Risks
 
-This document tracks potential risks and mitigation strategies for context-first-docs. Mitigations often reference implementation in `src/store/`, `src/playground/`, and `docs/` (e.g. `docs/REVIEW_MODE.md`, `docs/CONFLICT_AND_MERGE_SCENARIO.md`, whitepaper §7 for security deployment).
+This document tracks potential risks and mitigation strategies for context-first-docs. Mitigations often reference implementation in `src/store/`, `src/playground/`, and `docs/`. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **production security posture** (condensed enterprise summary): `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade posture and roadmap).
 
 ```ctx
 type: risk
@@ -176,7 +176,7 @@ likelihood: possible
 - Treat policy displays as “preview” until server enforcement exists; clearly label enforcement status.
 - Centralize policy evaluation server-side and return explicit “blocked/required approvals” results to all clients.
 - Maintain an audit trail for policy evaluation and apply actions in enterprise deployments (roadmap).
-- For secure deployment today: use an external gateway to gate review/apply on identity; see `docs/WHITEPAPER.md` §7.4 (minimum secure deployment, operational posture).
+- For secure deployment today: see **Production posture today** table in `docs/WHITEPAPER.md` §7.4 (gateway, approvers-only for review/apply, disable reset, log vendor prompts, audit split) and §7.5 (enterprise-grade summary).
 ```
 
 ```ctx

@@ -31,7 +31,7 @@ In the architecture (implemented and planned):
 - Markdown is an **optional projection** and authoring surface (e.g., via lightweight `ctx` blocks), never the authoritative store (see `src/markdown/ctx-block.ts`, `src/markdown/projection.ts`).
 - Agents (and humans) read a **queryable API** that defaults to accepted truth for safety, and they write only by creating proposals (see `src/store/core/query-nodes.ts`: `query.status || ["accepted"]`).
 - Storage is designed for self-hosting: **Implemented**: in-memory store; **Planned**: file-based backend (Git-friendly) and database backend (MongoDB) behind the same `ContextStore` interface (see `docs/STORAGE_IMPLEMENTATION_PLAN.md`).
-- **Enterprise IP and contextualized AI:** The context store can be used to **create a contextualized AI model** — one that reasons using your organization's approved goals, decisions, constraints, and risks — while keeping that IP inside your infrastructure. Retrieval (RAG), export for fine-tuning, and structured prompting all run against the store; training and inference can stay on-prem or in a private cloud so sensitive context and derived models never leave your control. See `docs/CONTEXTUALIZED_AI_MODEL.md` and section 7.1.
+- **Enterprise IP and contextualized AI:** The context store is the substrate for a **contextualized AI model** — one that reasons using your organization's approved goals, decisions, constraints, and risks — while keeping that IP inside your infrastructure. This is packaged as a first-class **Contextualize** module (retrieval, prompt building, export; **prompt-leakage policy layer** = policy-as-code). Retrieval (RAG), export for fine-tuning, and structured prompting run against the store; training and inference can stay on-prem or in a private cloud. See `docs/CONTEXTUALIZED_AI_MODEL.md` and section 7.1.
 
 This paper explains what distinguishes this approach from “hodgepodge” workflows and from existing tools (Git+Markdown, wikis, issue trackers, knowledge graphs, RAG/vector stores, and agent memory tools).
 
@@ -141,6 +141,12 @@ flowchart LR
 ```
 
 *(Node status changes only when a proposal is applied; no direct edits to accepted nodes.)*
+
+**Status in proposals (callout):** Many readers ask: *why is `status: accepted` inside an open proposal?* The semantics are:
+
+- **Proposal open = not truth yet.** Until a proposal is accepted and applied, nothing in it is part of accepted truth; the query API does not surface it as truth (default `status: ["accepted"]`).
+- **Operation node status = intended post-apply status.** The `status` on a node inside a create/update operation is the status that **will be written** when the proposal is applied. So a create with `"status": "accepted"` means “when this proposal is applied, the new node enters as accepted.”
+- **If you want preview semantics,** treat nodes in open proposals as a **“proposed overlay”** regardless of the status field: i.e. “this is proposed content, not yet truth,” and only after apply does the operation’s status take effect in the store.
 
 ### 4.2 Core invariant: review mode (Google Docs-style)
 
@@ -263,6 +269,8 @@ flowchart TD
 ```
 
 For a **concrete end-to-end walkthrough** with starting state, proposal JSON, review comments anchored to nodes, accept/apply, and before/after Markdown projection, see [Hello World scenario](HELLO_WORLD_SCENARIO.md). The **hello-world** scenario in the playground (`npm run playground` → Scenario Runner) runs this flow and returns the artifacts.
+
+**Canonical scenarios for builders (doc set):** The doc set is complete with two standalone scenario files: **(1)** [Hello World](HELLO_WORLD_SCENARIO.md) — basic lifecycle (accepted graph → proposal → review → accept/apply → Markdown); **(2)** [Conflict and Merge](CONFLICT_AND_MERGE_SCENARIO.md) — parallel authoring (conflict detection, field-level merge, stale proposal). Run **hello-world**, **conflicts-and-merge**, and **stale-proposal** in Scenario Runner to reproduce.
 
 ### 4.7 Data model: node text fields (human-authored vs derived)
 
@@ -1127,6 +1135,8 @@ This section is intentionally explicit. The goal is not to claim “everything e
 
 ## 7. Security, privacy, and governance
 
+For an **enterprise-grade security posture** summary (identity, RBAC, separation of duties, audit trail, data in perimeter, encryption, roadmap), see **§7.5**.
+
 The system is **designed for self-hosted and air-gapped deployment** (see `CONTEXT.md` constraint-005, `DECISIONS.md` decision-005). All context data stays within the organization; no external cloud services are required for core functionality.
 
 **Implemented now:**
@@ -1162,7 +1172,7 @@ Enterprises hold valuable IP in goals, decisions, constraints, risks, and ration
 - **Export for fine-tuning:** Export accepted nodes (and optionally provenance chains from decision/rationale traversal) to a dataset; fine-tune or instruction-tune a model on your infrastructure. Fine-tuned model and training data remain under your control.
 - **Structured prompting:** Build a context document from the store (e.g. via `projectToMarkdown` or `queryWithReasoning`) and feed it as system or user context. No training; contextualization is the prompt. All assembly from your store inside your infra.
 
-**Summary:** The context store is the substrate for contextualized AI that respects enterprise IP: retrieval and export run against your store on your infrastructure; training and inference can stay on-prem or in a private cloud so sensitive context and derived models never leave your control. See `docs/CONTEXTUALIZED_AI_MODEL.md` for data flows, APIs, and implementation steps.
+**Summary:** The context store is the substrate for contextualized AI that respects enterprise IP: retrieval and export run against your store on your infrastructure; training and inference can stay on-prem or in a private cloud so sensitive context and derived models never leave your control. This is packaged as a first-class **Contextualize** module (thin wrapper v0) with a **prompt-leakage policy layer** (policy-as-code: sensitivity labels, retrieval policy module, logging of node IDs in prompts). See `docs/CONTEXTUALIZED_AI_MODEL.md` for data flows, APIs, and the module design.
 
 ### 7.2 Threat model (lite)
 
@@ -1200,6 +1210,19 @@ Security teams often ask: who can do what, and what is the blast radius? This se
 
 ### 7.4 Minimum secure deployment (external wrapper today)
 
+**Production posture today (enterprise “stop sign” — scan in 10 seconds):**
+
+| | |
+|-|-|
+| **Repo** | Demo/local; **no auth** in reference server. Do not expose directly. |
+| **Gateway** | Put store/API **behind** a gateway (or BFF). Authenticate every request (e.g. SSO/JWT). |
+| **Review/apply** | Allow `POST /api/acal/review` and `POST /api/acal/apply` **only for approvers** (JWT claim); 403 others. Separation of duties at perimeter. |
+| **Reset** | **Disable** `POST /api/acal/reset` in production, or restrict to admin-only. |
+| **Vendor LLM** | Log **node IDs** (and optionally namespace/type) included in each prompt; see CONTEXTUALIZED_AI_MODEL §3.4. |
+| **Audit** | Gateway logs = who called what, when. Store = who proposed/reviewed/applied (queryable); no standard export yet. |
+
+*Detail: reference endpoints, audit split (store vs gateway), and approver-only config are in the paragraphs below.*
+
 The threat model makes it explicit: today, **any client** that can reach the store can create proposals, submit reviews (accept/reject), and apply. So for enterprise readers the question is sharp: **if anyone can accept/apply, how is this safer than docs?** The answer is that the *store* does not enforce identity or roles yet — but you can run it safely by putting enforcement in an **external wrapper**. A **minimum secure deployment** looks like this:
 
 1. **Deploy the store behind an API gateway.** Do not expose the store (or the API that wraps it) directly to clients. All traffic goes through a gateway (or BFF) that authenticates and authorizes every request.
@@ -1215,6 +1238,28 @@ The threat model makes it explicit: today, **any client** that can reach the sto
 - **Approver-only apply in practice.** At the gateway, configure: (1) Authenticate every request (e.g. validate JWT, reject unauthenticated). (2) For `POST /api/acal/review` and `POST /api/acal/apply`, allow only if the request identity has an approver claim (e.g. `role: "approver"` or group `context-approvers` in JWT). Return 403 for others. (3) Allow all other ACAL endpoints (reads + `POST /api/acal/proposeUpdate`, `POST /api/acal/comment`) for any authenticated user, or further restrict by role if desired. (4) Do not expose `POST /api/acal/reset` in production, or restrict it to a separate admin endpoint. Result: proposers and commenters can create/update proposals and comment; only approvers can accept/reject and apply, so separation of duties is enforced at the perimeter.
 
 So: **today**, enforcement is "external wrapper" — gateway + claim-based gating on review/apply. The store still gives you review-mode semantics (no direct edits to truth; proposals → review → apply), provenance (rejected proposals kept), and a single graph of truth; the wrapper adds *who* can accept/apply. When auth/roles move into the store or API layer (roadmap), the same policy (approvers-only for review/apply) can be enforced inside the stack; the minimum secure deployment pattern remains valid.
+
+### 7.5 Enterprise-grade security posture
+
+The system is designed to meet enterprise security and compliance requirements. The table below summarizes **target posture** and how **today’s minimum secure deployment** plus **roadmap** get there.
+
+| Requirement | Target (enterprise-grade) | Today | Roadmap |
+|-------------|---------------------------|--------|---------|
+| **Identity** | All access authenticated; SSO/MFA; no anonymous writes. | Gateway authenticates every request (e.g. JWT from SSO); reference server has no auth (demo only). | Auth enforced at API/store; optional MFA and step-up for apply. |
+| **Access control (RBAC)** | Least privilege: proposers create/edit proposals; approvers review/apply; admins manage. | Gateway restricts `POST /api/acal/review` and `POST /api/acal/apply` to approver claim; other ACAL endpoints to authenticated users. | RBAC in-store; contributor/approver/admin roles; optional per-namespace or per-node-type policy. |
+| **Separation of duties** | Proposer ≠ approver; multi-approval for high-impact changes. | Enforced at gateway: only identities with approver claim can submit review or apply. | Policy-as-code; required approvers per node type/namespace; quorum/multi-approval. |
+| **Audit trail** | Immutable record of who proposed, who reviewed, who applied, and when; exportable for SIEM/compliance. | Store: proposal/review metadata and history queryable (`getProposal`, `getReviewHistory`). Gateway: request-level logs (identity, method, path, timestamp). No standard audit export format yet. | Audit export (e.g. JSON/CSV by date range); retention policies; optional signed audit log. |
+| **Data in perimeter** | All context and derived data remain within organization; no unsanctioned exfiltration. | Self-hosted store and API; retrieval/export run in your infra. Vendor LLM: only prompt leaves perimeter—log node IDs in prompts (§7.1, CONTEXTUALIZED_AI_MODEL §3.4). | Same; file-based and MongoDB backends keep data in perimeter. |
+| **Encryption** | Data in transit (TLS); data at rest per backend policy. | Application layer does not mandate TLS; use TLS at gateway and for all client connections. At rest: in-memory only today; file/MongoDB backends use org encryption policy. | API and backends document TLS requirements; at-rest encryption for file and MongoDB backends. |
+| **No direct edits to truth** | All changes flow through proposal → review → apply; no bypass. | Enforced in store: `updateProposal` cannot set accepted/rejected; only `submitReview` and `applyProposal` change truth. | Same. |
+| **Provenance** | Rejected proposals and review history retained for compliance and dispute resolution. | Implemented: rejected proposals and review history preserved and queryable. | Same; exportable for audit. |
+| **Sensitive context (contextualized AI)** | Control what leaves perimeter when using vendor LLM; audit what was sent. | Policy layer (sensitivity labels, retrieval policy, logging of node IDs in prompts) is designed and documented; implementation is roadmap. | Retrieval policy module; sensitivity labels on nodes/namespaces; logging of node IDs in every vendor prompt. |
+
+**Summary for security and compliance reviewers:**
+
+- **Today:** See the **Production posture today** table in §7.4 (gateway, approvers-only for review/apply, disable reset, log vendor prompts, audit split).
+
+- **Roadmap:** In-store auth and RBAC, audit export, attestations/signed audit log, retrieval policy for vendor prompts; same posture preserved as features move in.
 
 ---
 

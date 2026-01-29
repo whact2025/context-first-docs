@@ -1,6 +1,6 @@
 # Open Questions
 
-This document tracks questions that need answers as the project evolves. For **contextualized AI model** (Phase 5, RAG/fine-tuning/structured prompting, prompt leakage), see also `docs/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5.
+This document tracks questions that need answers as the project evolves. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **contextualized AI model** (Phase 5, RAG/fine-tuning/structured prompting, prompt leakage), see `docs/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5. For **production security posture** (enterprise summary: gateway, approvers-only, disable reset, audit), see `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade).
 
 ```ctx
 type: question
@@ -149,7 +149,7 @@ status: resolved
 ---
 **Question**: How should agents discover and consume context?
 
-**Answer**: Comprehensive query API with chain-of-thought traversal capabilities. See `docs/AGENT_API.md` for full API design.
+**Answer**: Comprehensive query API with decision/rationale traversal (provenance chains) capabilities. See `docs/AGENT_API.md` for full API design.
 
 **Discovery API**:
 - **Query by Type, Status, Keyword**: `queryNodes()` with comprehensive filtering
@@ -165,12 +165,12 @@ status: resolved
   - Filter by relationship existence and direction
   - Depth-controlled traversal
 
-- **Chain-of-Thought Traversal**: Progressive reasoning through contexts
+- **Decision/rationale traversal (provenance chains)**: Progressive context building via typed relationships
   - `traverseReasoningChain()`: Follow logical relationship paths (goal → decision → task → risk)
   - `buildContextChain()`: Build context progressively by following relationship sequences
   - `followDecisionReasoning()`: Understand decision rationale (goals, alternatives, implementations, risks, constraints)
   - `discoverRelatedReasoning()`: Find related context through multiple hops and semantic similarity
-  - `queryWithReasoning()`: Query with automatic reasoning chain traversal
+  - `queryWithReasoning()`: Query with automatic provenance chain traversal
   - Accumulates context progressively as agents reason
   - Includes rationale and alternatives at each step
 
@@ -178,14 +178,14 @@ status: resolved
 - **Default Behavior**: Queries return only accepted nodes (truth) by default
 - **Explicit Opt-in**: Agents must explicitly include proposals: `status: ["accepted", "proposed"]`
 - **Clear Status Indicators**: All nodes include explicit status field
-- **Reasoning Paths**: Chain-of-thought traversal shows step-by-step reasoning with rationale
+- **Reasoning Paths**: Decision/rationale traversal (provenance chains) shows step-by-step reasoning with rationale
 
 **API Structure**:
 - Programmatic interface (TypeScript/JavaScript)
 - Returns `NodeQueryResult` with pagination metadata
 - Supports complex multi-filter queries
 - Graph-native queries for relationship traversal
-- Chain-of-thought queries for progressive reasoning
+- Decision/rationale traversal (provenance chain) queries for progressive context building
 
 **Authentication/Authorization**:
 - To be determined (see `question-007` for role management)
@@ -194,7 +194,7 @@ status: resolved
 
 **Examples**:
 - Basic query: `queryNodes({ type: ["decision"], status: ["accepted"], search: "TypeScript" })`
-- Chain-of-thought: `traverseReasoningChain(startNode, { path: [...], accumulateContext: true })`
+- Provenance chain: `traverseReasoningChain(startNode, { path: [...], accumulateContext: true })`
 - Query with reasoning: `queryWithReasoning({ query: {...}, reasoning: { enabled: true } })`
 
 **Impact**: High - core to agent safety and reasoning capabilities

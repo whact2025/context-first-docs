@@ -16,6 +16,21 @@ Approved meaning is the truth.
 
 ---
 
+## Start Here
+
+One map for builders. Everything else branches from these.
+
+| If you want… | Start with |
+|--------------|------------|
+| **Hello World** (basic lifecycle: proposal → review → apply → Markdown) | [HELLO_WORLD_SCENARIO.md](docs/HELLO_WORLD_SCENARIO.md) |
+| **Conflict & Merge** (parallel editing: conflict detection, field-level merge, staleness) | [CONFLICT_AND_MERGE_SCENARIO.md](docs/CONFLICT_AND_MERGE_SCENARIO.md) |
+| **Change Detection** (how ctx blocks become proposals) | [CHANGE_DETECTION.md](docs/CHANGE_DETECTION.md) |
+| **Reconciliation** (default policy and overrides) | [RECONCILIATION_STRATEGIES.md](docs/RECONCILIATION_STRATEGIES.md) |
+| **Whitepaper + Appendix** (why + contract) | [WHITEPAPER.md](docs/WHITEPAPER.md) · [WHITEPAPER_APPENDIX.md](docs/WHITEPAPER_APPENDIX.md) |
+| **Contextualized AI model** (enterprise AI / IP posture) | [CONTEXTUALIZED_AI_MODEL.md](docs/CONTEXTUALIZED_AI_MODEL.md) |
+
+---
+
 ## The Problem
 
 Teams doing complex work suffer from **context collapse**.
@@ -351,7 +366,7 @@ A local web UI to try ACAL concepts end-to-end.
 - **Run**: `npm run playground`
 - **Open**: `http://localhost:4317`
 
-For a **single canonical walkthrough** (starting graph → proposal JSON → review with anchored comments → accept/apply → regenerated Markdown), run the **hello-world** scenario in Scenario Runner, and see [Hello World scenario](docs/HELLO_WORLD_SCENARIO.md) for the full narrative and artifacts. For **concurrency** (conflict detection, field-level merge, stale proposal), run **conflicts-and-merge** and **stale-proposal** in Scenario Runner, and see [Conflict and Merge scenario](docs/CONFLICT_AND_MERGE_SCENARIO.md).
+**Canonical doc set for builders:** **(1)** [Hello World](docs/HELLO_WORLD_SCENARIO.md) — basic lifecycle (accepted graph → proposal → review → accept/apply → Markdown). **(2)** [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) — parallel authoring (conflict detection, field-level merge, stale proposal). Run **hello-world**, **conflicts-and-merge**, and **stale-proposal** in Scenario Runner to reproduce.
 
 **Entry points** (home page at `/`):
 
@@ -369,7 +384,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 
 See [`docs/WHITEPAPER.md`](docs/WHITEPAPER.md) for a comprehensive target-state whitepaper that highlights the solution’s distinguishing elements vs hodgepodge and common alternatives.
 
-For **contextualized enterprise AI model** (RAG, fine-tuning, prompting) and **enterprise IP benefits**, see [`docs/CONTEXTUALIZED_AI_MODEL.md`](docs/CONTEXTUALIZED_AI_MODEL.md) and whitepaper section 7.1.
+For the **Contextualize module** (first-class: RAG, fine-tuning, structured prompting; **prompt-leakage policy layer** = policy-as-code) and enterprise IP benefits, see [`docs/CONTEXTUALIZED_AI_MODEL.md`](docs/CONTEXTUALIZED_AI_MODEL.md) and whitepaper section 7.1.
 
 Key architectural points:
 - **Graph Model**: Nodes with typed relationships (see [`DECISIONS.md`](DECISIONS.md) decision-015)

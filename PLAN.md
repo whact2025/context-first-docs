@@ -4,8 +4,9 @@ This document tracks the development roadmap and milestones for context-first-do
 
 - **UI**: See `docs/UI_SPEC.md` for the clean-slate UI specification aligned to ACAL.
 - **Canonical walkthroughs**: [Hello World](docs/HELLO_WORLD_SCENARIO.md) (proposal → review → apply → Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, merge, staleness) — run via playground Scenario Runner (`npm run playground`).
-- **Contextualized AI model**: Phase 5 below; full design in `docs/CONTEXTUALIZED_AI_MODEL.md` (RAG, fine-tuning, structured prompting; prompt leakage policy).
-- **Security**: Minimum secure deployment (gateway gating review/apply) and operational posture today: `docs/WHITEPAPER.md` §7.4.
+- **Contextualize module** (contextualized AI): Phase 5 below; first-class component—full design in `docs/CONTEXTUALIZED_AI_MODEL.md` (RAG, fine-tuning, structured prompting; **prompt-leakage policy layer** = policy-as-code for prompt leakage).
+- **Security**: Production posture today (condensed enterprise "stop sign") and enterprise-grade posture: `docs/WHITEPAPER.md` §7.4 (Production posture today table: repo = demo/no auth, gateway, approvers-only for review/apply, disable reset, log vendor prompts, audit split) and §7.5 (enterprise-grade table and roadmap).
+- **Decisions**: Key decisions (e.g. node status = post-apply intent, contextualized AI policy, minimum secure deployment) in `DECISIONS.md` (decision-024, decision-025, decision-026).
 
 ```ctx
 type: plan
@@ -72,9 +73,9 @@ status: accepted
 5. Add validation and safety checks (default to accepted only, explicit opt-in for proposals)
 6. Create agent documentation (see `docs/AGENT_API.md`)
 
-**Phase 5: Contextualized AI Model**
+**Phase 5: Contextualize module (contextualized AI)**
 
-Implement the three paths and policy layer described in `docs/CONTEXTUALIZED_AI_MODEL.md` (store as substrate for RAG, fine-tuning, structured prompting; enterprise IP stays in-house). See also whitepaper §7.1, decision-025, risk-012.
+Implement the **Contextualize** module (first-class component) as described in `docs/CONTEXTUALIZED_AI_MODEL.md`: retrieval, prompt building, export for fine-tuning, optional vector index; **prompt-leakage policy layer** (policy-as-code: labels, retrieval policy module, logging). Store remains substrate; enterprise IP stays in-house. See also whitepaper §7.1, decision-025, risk-012.
 
 1. **Retrieval module** — New module (e.g. `src/contextualize/retrieve.ts`). Input: query string and optional `startNodeId`. Use `queryNodes({ status: ["accepted"], search: query, limit })` and/or `traverseReasoningChain(startNodeId, ...)`. Output: list of nodes or a single formatted string. (Path A: RAG at inference.)
 2. **Prompt builder** — New module (e.g. `src/contextualize/prompt.ts`). Takes retrieved context string + user message; returns system + user messages (or a single prompt) for the LLM. (Path A, C.)

@@ -162,7 +162,7 @@ So: **same field, two values** → classified as conflict; **different fields** 
 
 **Outcome:** P1 and P2 edit **different fields** on d1. The merge logic combines both updates; there is no overlapping field.
 
-**Representative result shape:**
+**Representative result shape:** *oldValue* is read from the accepted graph version referenced by *baseVersions* (or current accepted node at merge time).
 
 ```json
 {

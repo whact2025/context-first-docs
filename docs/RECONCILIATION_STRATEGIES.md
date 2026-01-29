@@ -10,6 +10,22 @@ When multiple parties propose overlapping changes simultaneously:
 - Must preserve intent and rationale from both edits
 - Should support different reconciliation strategies
 
+---
+
+## V1 default policy (what we do unless configured)
+
+**Unless you configure otherwise, the system uses this policy.** The strategies in the next section are the menu of options; this is the default composition.
+
+| Scope | Behavior |
+|-------|----------|
+| **Default** | **Field-level merge** + **optimistic locking** + **manual resolution for same-field conflicts**. Non-conflicting fields are auto-merged; when two proposals touch the same field, resolution is required before approval. Node versions are checked so stale proposals are rejected. |
+| **Certain node types (e.g. decision, constraint)** | **Block approval on conflicts.** For these types, do not allow approval until same-field conflicts are resolved (no last-write-wins). Ensures high-stakes nodes always get explicit resolution. |
+| **Low-stakes text nodes** | **Optional last-write-wins** only when **explicitly configured** (e.g. by node type or namespace). Off by default; enable only where “latest version wins” is acceptable. |
+
+In short: **default = field-level merge + optimistic locking + manual resolution for same-field conflicts**; block approval on conflicts for decision/constraint (and similar) node types; last-write-wins only where explicitly configured for low-stakes text.
+
+---
+
 ## Reconciliation Strategies
 
 ### Strategy 1: Proposal-Based Conflict Detection
@@ -312,28 +328,31 @@ So the typical “text field” to merge/conflict on is `description`.
 
 ---
 
-## Recommended Approach: Hybrid Strategy
+## Recommended approach: V1 default policy (hybrid)
 
-**Combination of multiple strategies**:
+The **V1 default policy** (see *V1 default policy (what we do unless configured)* above) is implemented as this hybrid. Unless configured otherwise, this is what the system does.
+
+**Combination of strategies (the default)**:
 
 1. **Conflict Detection** (Strategy 1): Detect conflicts at proposal creation
 2. **Field-Level Merging** (Strategy 4): Auto-merge non-conflicting fields
-3. **Manual Resolution** (Strategy 6): Require human review for true conflicts
+3. **Manual Resolution** (Strategy 6): Require human review for same-field conflicts (and block approval on conflicts for decision/constraint-type nodes)
 4. **Proposal Superseding** (Strategy 9): Allow explicit superseding
 5. **Optimistic Locking** (Strategy 8): Track versions to prevent stale updates
 
-**Workflow**:
+**Workflow (default)**:
 1. User creates proposal → System checks for conflicts
 2. If no conflicts → Normal review workflow
-3. If field-level conflicts → Auto-merge non-conflicting fields, flag conflicts
-4. If true conflicts → Mark proposal as "conflict", require manual resolution
+3. If field-level conflicts → Auto-merge non-conflicting fields, flag same-field conflicts
+4. If true conflicts → Mark proposal as "conflict", require manual resolution; for decision/constraint (and configured types), block approval until resolved
 5. Reviewer sees all conflicting proposals, creates merged proposal or chooses one
 6. System applies resolution
 
-**Configuration**:
-- Per-node-type conflict strategy
+**Configuration (overrides)**:
+- **Default** is the above. Override only when needed.
+- Per-node-type: e.g. decision/constraint → block approval on conflicts; low-stakes text → optional last-write-wins (explicitly configured)
 - Per-namespace conflict strategy
-- Global default strategy
+- Global default strategy (this hybrid)
 - Override per proposal
 
 ## Implementation Considerations
@@ -364,8 +383,8 @@ So the typical “text field” to merge/conflict on is `description`.
 
 ## Questions to Resolve
 
-1. Should conflict detection be automatic or manual?
-2. What's the default strategy for different node types?
-3. Can users choose reconciliation strategy per proposal?
+1. Should conflict detection be automatic or manual? *(Default: automatic at proposal creation.)*
+2. What's the default strategy for different node types? *(Default: V1 default policy above; decision/constraint block approval on conflicts; low-stakes text may use last-write-wins when explicitly configured.)*
+3. Can users choose reconciliation strategy per proposal? *(Override per proposal is supported as configuration.)*
 4. How to handle conflicts in multi-approval workflows?
-5. Should conflicts block approval or allow parallel approval?
+5. Should conflicts block approval or allow parallel approval? *(Default: block approval for same-field conflicts and for configured node types such as decision/constraint.)*
