@@ -1,12 +1,12 @@
 # Context-First Docs
 ## Agentic Collaboration Approval Layer (ACAL): review‑mode solution modeling for human + agent collaboration
 
-**Version**: v1 (target-state)  
+**Version**: v1  
 **Audience**: leadership, security/compliance, and builders across domains (mixed)  
 
 ---
 
-## Summary (one page)
+## 1. Executive summary
 
 Organizations do not have a stable substrate for **durable, reviewable solution modeling**:
 
@@ -16,19 +16,25 @@ Organizations do not have a stable substrate for **durable, reviewable solution 
 
 **Context-First Docs** proposes a different primitive: an **Agentic Collaboration Approval Layer (ACAL)** — a review‑mode store that behaves like Google Docs “Suggesting” mode, but with explicit structure and agent‑safe semantics.
 
-In the final architecture:
+**What is distinct:**
+
+- **Review-mode invariant**: no direct edits to accepted context; all change flows through proposals → review → apply (see `docs/REVIEW_MODE.md`).
+- **Structured truth**: the canonical source of truth is a **typed solution graph** (nodes and relationships), not unstructured documents (see `src/types/node.ts`, `src/store/core/graph.ts`).
+
+In the architecture (implemented and planned):
 
 - The canonical source of truth is a **typed solution graph**, not unstructured documents.
-- The system enforces a core invariant: **no direct edits to accepted context**. All changes are captured as **proposals** and move into truth only via **review** (accept/reject) and **apply**.
-- Markdown is an **optional projection** and authoring surface (e.g., via lightweight `ctx` blocks), never the authoritative store.
-- Agents (and humans) read a **queryable API** that defaults to accepted truth for safety, and they write only by creating proposals.
-- Storage is self-hosted by design, with a **file-based backend** (Git-friendly) and a **database backend** (MongoDB) behind the same `ContextStore` interface.
+- The system enforces the **review-mode invariant**: all changes are captured as **proposals** and move into truth only via **review** (accept/reject) and **apply**.
+- Markdown is an **optional projection** and authoring surface (e.g., via lightweight `ctx` blocks), never the authoritative store (see `src/markdown/ctx-block.ts`, `src/markdown/projection.ts`).
+- Agents (and humans) read a **queryable API** that defaults to accepted truth for safety, and they write only by creating proposals (see `src/store/core/query-nodes.ts`: `query.status || ["accepted"]`).
+- Storage is designed for self-hosting: **Implemented**: in-memory store; **Planned**: file-based backend (Git-friendly) and database backend (MongoDB) behind the same `ContextStore` interface (see `docs/STORAGE_IMPLEMENTATION_PLAN.md`).
+- **Enterprise IP and contextualized AI:** The context store can be used to **create a contextualized AI model** — one that reasons using your organization's approved goals, decisions, constraints, and risks — while keeping that IP inside your infrastructure. Retrieval (RAG), export for fine-tuning, and structured prompting all run against the store; training and inference can stay on-prem or in a private cloud so sensitive context and derived models never leave your control. See `docs/CONTEXTUALIZED_AI_MODEL.md` and section 7.1.
 
 This paper explains what distinguishes this approach from “hodgepodge” workflows and from existing tools (Git+Markdown, wikis, issue trackers, knowledge graphs, RAG/vector stores, and agent memory tools).
 
 ---
 
-## 1. The problem: context collapse and truth ambiguity
+## 2. Problem statement: why "hodgepodge" fails
 
 Teams already “document.” The problem is that context:
 
@@ -37,7 +43,7 @@ Teams already “document.” The problem is that context:
 - is **reviewed inconsistently** (some changes are code-reviewed, others are not),
 - and is **not machine-verifiable** as truth.
 
-### 1.1 Why this becomes critical with AI agents
+### 2.1 Why this becomes critical with AI agents
 
 Agents can execute work at high speed, but they need a reliable contract:
 
@@ -54,7 +60,7 @@ Without explicit truth semantics, agents will:
 - miss constraints,
 - or conflate unrelated decisions.
 
-### 1.2 Why existing “tracked changes” systems do not solve this
+### 2.2 Why existing “tracked changes” systems do not solve this
 
 Google Docs / Word solve human review ergonomics, but they are:
 
@@ -65,7 +71,25 @@ Google Docs / Word solve human review ergonomics, but they are:
 
 ---
 
-## 2. Target-state solution overview
+## 3. Design principles and non-goals
+
+**Design principles** (see `DECISIONS.md`, `docs/REVIEW_MODE.md`):
+
+- **Review-mode semantics**: Accepted context cannot be directly edited; all writes are proposals; only reviews can accept/reject; accepted proposals become truth only when applied. Enforced in code: `updateProposal` cannot set `status: "accepted" | "rejected"`; acceptance/rejection is via `submitReview`; `applyProposal` applies only accepted proposals (`src/store/in-memory-store.ts`).
+- **Determinism**: Same context state yields the same projection output; projection order and normalization are part of the contract (`src/markdown/projection.ts`, `src/utils/node-text.ts`).
+- **Self-hosting constraint**: All context data stays within the organization; no external cloud services for core functionality (`CONTEXT.md` constraint-005, `DECISIONS.md` decision-005).
+- **Provenance preservation**: Rejected proposals and alternatives are preserved; the system does not discard "what was considered" (`src/types/proposal.ts`, store keeps reviews and proposal history).
+
+**Non-goals:**
+
+- Markdown as canonical truth (Markdown is a projection only).
+- Replacing code review (PRs remain the place for code review).
+- Replacing execution systems (issue trackers remain for delivery workflow).
+- Real-time multi-user co-editing as the primary UX (review mode is the invariant; sync and conflict resolution support parallel work but are not "Google Docs realtime" as the core model).
+
+---
+
+## 4. System overview
 
 Context-First Docs is not “a better document editor.”
 
@@ -76,9 +100,9 @@ It is an **Agentic Collaboration Approval Layer (ACAL)** with:
 - deterministic projections into human-friendly formats (Markdown),
 - and agent-safe consumption via an explicit query API.
 
-### 2.1 Core invariant: review mode (Google Docs-style)
+### 4.1 Core invariant: review mode (Google Docs-style)
 
-The final solution enforces:
+The solution enforces (implemented in `InMemoryStore`; see `docs/REVIEW_MODE.md`):
 
 - **No direct edits to accepted context.**
 - All writes are captured as **proposals**.
@@ -87,7 +111,7 @@ The final solution enforces:
 
 This yields a strong contract: if a node is accepted, it is accepted because an explicit review accepted a proposal and that proposal was applied.
 
-### 2.2 Canonical model: a typed context graph
+### 4.2 Canonical model: a typed context graph
 
 Context is modeled as nodes and relationships, not pages and paragraphs.
 
@@ -102,7 +126,7 @@ Nodes represent semantic concepts such as:
 
 Relationships are typed (e.g., `implements`, `depends-on`, `blocks`, `references`, `parent-child`) so the system can support robust traversal and reasoning chains.
 
-### 2.3 Markdown is a projection, not truth
+### 4.3 Markdown is a projection, not truth
 
 Markdown is treated as a **projection format**:
 
@@ -117,9 +141,7 @@ But Markdown is not the canonical store. In the final system:
 
 ---
 
-## 3. Conceptual architecture (target-state)
-
-### 3.1 Components
+### 4.4 Components
 
 - **ContextStore (canonical truth)**: stores nodes, proposals, reviews, issues, and relationships.
 - **Clients**: VS Code/Cursor extension, web UI, CLI, agents. Clients capture changes and submit proposals.
@@ -127,7 +149,7 @@ But Markdown is not the canonical store. In the final system:
 - **Projection layer**: deterministic projection to Markdown (and other views).
 - **Reconciliation layer**: conflict detection, staleness checks, and merging strategies for parallel work.
 
-### 3.2 End-to-end lifecycle (proposal → review → apply → projection)
+### 4.5 End-to-end lifecycle (proposal → review → apply → projection)
 
 ```mermaid
 flowchart TD
@@ -147,7 +169,7 @@ flowchart TD
   project --> agentViews[AgentViews]
 ```
 
-### 3.2 Data model: node text fields (human-authored vs derived)
+### 4.6 Data model: node text fields (human-authored vs derived)
 
 To support both human authoring and agent-safe retrieval, nodes separate:
 
@@ -164,7 +186,17 @@ This prevents silent drift and reduces the chance that a search index becomes tr
 
 ---
 
-## 4. Differentiating primitive: proposals and reviews (not diffs)
+## 5. Core differentiators (what you don't get from alternatives)
+
+- **Review-mode invariant**: Accepted context cannot be directly edited; all change is proposals → review → apply (see `docs/REVIEW_MODE.md`, `src/store/in-memory-store.ts`: `updateProposal` vs `submitReview`).
+- **Canonical structured truth vs Markdown-as-truth**: The canonical model is a typed graph of nodes and relationships; Markdown is a projection only (see `src/types/node.ts`, `src/markdown/projection.ts`).
+- **Agent-safe querying defaults (accepted-only)**: Query API defaults to `status: ["accepted"]` so agents do not treat proposals as truth (see `src/store/core/query-nodes.ts`: `query.status || ["accepted"]`).
+- **Deterministic projection**: Same context state yields the same Markdown/output (see `src/markdown/projection.ts`, `src/utils/node-text.ts`).
+- **Provenance of rejected ideas**: Rejected proposals and review history are preserved (see `src/types/proposal.ts`, store keeps reviews).
+- **Conflict detection + optimistic locking**: Proposal-level conflict detection and base-version staleness checks (see `src/store/core/conflicts.ts`, `src/store/core/apply-proposal.ts`).
+- **Dual storage abstraction**: **Implemented**: in-memory store (`InMemoryStore`). **Planned**: file-based backend (Git-friendly) and MongoDB backend behind the same `ContextStore` interface (see `docs/STORAGE_IMPLEMENTATION_PLAN.md`, `DECISIONS.md` decision-005).
+
+### 5.1 Proposals and reviews (not diffs)
 
 Traditional systems treat change as a text diff.
 Context-First Docs treats change as a **proposal** with explicit operations:
@@ -175,7 +207,7 @@ Context-First Docs treats change as a **proposal** with explicit operations:
 - insert/delete text operations (optional fine-grained edits)
 - move nodes in hierarchical projections
 
-### 4.1 Why proposals beat diffs for durable context
+### 5.1.1 Why proposals beat diffs for durable context
 
 Proposals preserve intent:
 
@@ -188,7 +220,7 @@ Proposals preserve intent:
 
 This is fundamentally different from “a patch applied to a file.”
 
-### 4.2 Proposals enable policy
+### 5.1.2 Proposals enable policy
 
 Because the system has a structured notion of change, it can enforce:
 
@@ -198,7 +230,7 @@ Because the system has a structured notion of change, it can enforce:
 - conflict detection and resolution workflows,
 - and auditability across the entire context layer.
 
-### 4.3 Reviewer comments are anchored to nodes (Docs-style)
+### 5.1.3 Reviewer comments are anchored to nodes (Docs-style)
 
 In the target state, review does not rely on “line comments” tied to file positions.
 Reviewer feedback is modeled as **comments anchored to semantic nodes**, much like Google Docs:
@@ -211,7 +243,7 @@ This makes reviewer recommendations first-class context: they can be queried, tr
 
 ---
 
-## 5. Deterministic projections (views), not canonical documents
+### 5.2 Deterministic projections (views), not canonical documents
 
 The system can generate one or more projections:
 
@@ -220,7 +252,7 @@ The system can generate one or more projections:
 - agent-oriented projections (context chains, summaries, risk dashboards)
 - codebase projections (PR/branch/patch/plan artifacts tied to implementation work)
 
-### 5.1 Why determinism matters
+#### 5.2.1 Why determinism matters
 
 Deterministic projection means:
 
@@ -233,11 +265,11 @@ Determinism is an operational requirement, not a cosmetic preference.
 
 ---
 
-## 6. Safe concurrency: reconciliation without “text merge wars”
+### 5.3 Safe concurrency: reconciliation without “text merge wars”
 
 Parallel work is normal. The target system supports concurrency without reverting to line-level merges as the primary mechanism.
 
-### 6.1 Conflict detection and classification
+#### 5.3.1 Conflict detection and classification
 
 Conflicts are detected at the proposal level:
 
@@ -245,7 +277,7 @@ Conflicts are detected at the proposal level:
 - field-level conflicts (two proposals changing the same field)
 - non-conflicting parallel edits (mergeable)
 
-### 6.2 Staleness and optimistic locking
+#### 5.3.2 Staleness and optimistic locking
 
 Proposals can include base versions of the nodes they modify.
 
@@ -254,7 +286,7 @@ When applying a proposal:
 - if the node has changed since the proposal was authored, the proposal is stale,
 - and must be rebased/merged through an explicit workflow.
 
-### 6.3 Field-level merging
+#### 5.3.3 Field-level merging
 
 Where safe, non-overlapping changes are merged:
 
@@ -266,9 +298,9 @@ In the normalized model, `description` is the primary textual field; `content` i
 
 ---
 
-## 7. Agent-safe consumption (and why “RAG alone” is insufficient)
+### 5.4 Agent-safe consumption (and why “RAG alone” is insufficient)
 
-### 7.1 The safety contract
+#### 5.4.1 The safety contract
 
 Agents consume:
 
@@ -280,7 +312,7 @@ Agents produce:
 
 - proposals (never direct edits to accepted truth).
 
-### 7.2 Why vector search / RAG is not a truth system
+#### 5.4.2 Why vector search / RAG is not a truth system
 
 Vector search excels at “find semantically similar text.”
 It does not provide:
@@ -292,7 +324,7 @@ It does not provide:
 
 RAG can be a discovery layer, but the canonical truth layer needs explicit semantics and review mode.
 
-### 7.3 Typical agentic flow: prompts → proposals → linked context
+#### 5.4.3 Typical agentic flow: prompts → proposals → linked context
 
 This section describes a **target-state** workflow where an agent helps authors create context *by producing proposals*, and also auto-creates supporting nodes (questions, risks, tasks, plans) and links them together.
 
@@ -477,7 +509,7 @@ To avoid “agent spam,” the target workflow typically uses:
 - explicit linking so reviewers see why a node exists,
 - and reviewer feedback loops (“add a mitigation” / “split this decision” / “reject this alternative”).
 
-### 7.4 Typical agentic flow: ship a feature or fix a bug in an existing codebase
+#### 5.4.4 Typical agentic flow: ship a feature or fix a bug in an existing codebase
 
 This section describes a common target-state workflow where the agent is asked to **implement** (or help implement) a feature/bugfix in an existing codebase, while keeping context clean and reviewable.
 
@@ -845,7 +877,7 @@ This keeps the execution system (Jira/GitHub Issues) aligned with durable contex
 
 ---
 
-## 8. Comparative analysis: distinguishing elements vs alternatives
+## 6. Comparative analysis: distinguishing elements vs alternatives
 
 This section is intentionally explicit. The goal is not to claim “everything else is bad,” but to clarify what is distinct.
 
@@ -975,11 +1007,71 @@ This section is intentionally explicit. The goal is not to claim “everything e
 
 ---
 
-## 9. Storage and deployment (target-state)
+## 7. Security, privacy, and governance
 
-The final system supports multiple storage backends behind a single abstraction:
+The system is **designed for self-hosted and air-gapped deployment** (see `CONTEXT.md` constraint-005, `DECISIONS.md` decision-005). All context data stays within the organization; no external cloud services are required for core functionality.
 
-### 9.1 File-based backend (Git-friendly)
+**Implemented now:**
+
+- Self-hosting is a design constraint; the reference implementation is in-memory and can run entirely within your infrastructure.
+- Auditability: proposals, reviews, and applied state are explicit; rejected proposals are preserved for provenance (see `src/store/in-memory-store.ts`, `src/types/proposal.ts`).
+
+**Planned / roadmap:**
+
+- **Role-based permissions** (contributors vs approvers vs admins) and **auth enforcement** are not implemented in the current codebase; they are part of the intended model (see `DECISIONS.md` decision-011) and roadmap. Avoid overclaiming: do not state that "roles are enforced" today.
+- **Approval workflows** (required approvals, multi-approval, separation of duties) are design goals and documented in the whitepaper and `docs/REVIEW_MODE.md`; implementation is planned.
+- Designed so organizations can keep context and IP within their own infrastructure and can add identity integration (SSO, group sync) when backends and API layer are implemented.
+
+### 7.1 Enterprise IP and contextualized AI models
+
+Enterprises hold valuable IP in goals, decisions, constraints, risks, and rationale. Sending that context to external AI services creates leakage and compliance risk. The context store enables **building a contextualized AI model** — one that reasons using your approved context — while keeping that IP inside your organization.
+
+**How enterprise IP benefits:**
+
+1. **Single source of truth for contextualization:** The store holds only **accepted** context (default `status: ["accepted"]`). Retrieval, export for training, and prompting all use that same truth; drafts and rejected ideas are not treated as fact. So any model you contextualize (via RAG, fine-tuning, or prompting) is grounded in reviewable, approved content — not scattered chat or unreviewed docs.
+
+2. **No context leakage for retrieval or export:** Retrieval (RAG) and export for fine-tuning run **inside your perimeter** against the store. You do not need to send raw context to an external service to “contextualize” a model; you read from the store and build prompts or training datasets on your infrastructure. Training can be fully on-prem or in a private cloud; fine-tuned weights and datasets remain under your control.
+
+3. **Auditability and provenance:** The store keeps proposals, reviews, and acceptance history. You can record which context version was used for a given export or retrieval (e.g. snapshot id, query params), so you can trace how a contextualized model or answer was produced. That supports compliance and internal audit (e.g. “what context was this model trained on?” or “what context was used for this answer?”).
+
+4. **Structured, reviewable training data:** Exported context is typed (goals, decisions, risks, constraints) and linked (relationships). That gives you clean, consistent training or prompt material — and you can restrict export to accepted-only, by namespace, or by type so sensitive or obsolete context is excluded.
+
+5. **Choice of inference location:** If you use a **self-hosted or private-VPC LLM**, the full flow (store → retrieval → prompt → inference) stays in-house; no context or answers leave your perimeter. If you use a vendor LLM, only the prompt (retrieved context + user message) is sent; you control what is included and can rely on vendor DPAs and data-residency options where available.
+
+**Implementation paths (detailed in `docs/CONTEXTUALIZED_AI_MODEL.md`):**
+
+- **RAG at inference:** Retrieve accepted context from the store (and optionally a self-hosted vector index built from the store); inject into the model’s context window on each request. Context and retrieval stay in-house; inference in-house if the LLM is self-hosted.
+- **Export for fine-tuning:** Export accepted nodes (and optionally reasoning chains) to a dataset; fine-tune or instruction-tune a model on your infrastructure. Fine-tuned model and training data remain under your control.
+- **Structured prompting:** Build a context document from the store (e.g. via `projectToMarkdown` or `queryWithReasoning`) and feed it as system or user context. No training; contextualization is the prompt. All assembly from your store inside your infra.
+
+**Summary:** The context store is the substrate for contextualized AI that respects enterprise IP: retrieval and export run against your store on your infrastructure; training and inference can stay on-prem or in a private cloud so sensitive context and derived models never leave your control. See `docs/CONTEXTUALIZED_AI_MODEL.md` for data flows, APIs, and implementation steps.
+
+---
+
+## 8. Implementation status and roadmap
+
+**Implemented now** (evidence in repo):
+
+- **In-memory store** (`InMemoryStore`, `src/store/in-memory-store.ts`): full proposal/review/apply lifecycle, query with accepted-only default, conflict detection, optimistic locking (base versions), merge proposals, reasoning-chain traversal.
+- **Core store logic** (`src/store/core/`): `apply-proposal.ts`, `query-nodes.ts`, `graph.ts`, `conflicts.ts`, `node-key.ts`, `updates.ts` — provider-agnostic behavior used by the in-memory store.
+- **Proposals and operations** (`src/types/proposal.ts`, `src/store/core/apply-proposal.ts`): create, update, status-change, insert/delete, move; application to node map.
+- **Review-mode enforcement**: `updateProposal` cannot set `status: "accepted" | "rejected"`; only `submitReview` and `applyProposal` (see `docs/REVIEW_MODE.md`, `src/store/in-memory-store.ts`).
+- **Markdown projection and ctx blocks** (`src/markdown/ctx-block.ts`, `src/markdown/projection.ts`): parse ctx blocks, project accepted nodes to Markdown deterministically; `src/utils/node-text.ts` for derived `content`.
+- **Playground** (`src/playground/`): local web UI for demos and scenarios.
+
+**Planned** (not yet implemented):
+
+- **File-based backend**: Git-friendly persistence (e.g. `.context/`), reviewable in PRs (see `docs/STORAGE_IMPLEMENTATION_PLAN.md`, `DECISIONS.md` decision-005).
+- **MongoDB backend**: self-hosted production backend behind same `ContextStore` interface.
+- **API layer**: GraphQL/HTTP for multi-client operation.
+- **VS Code/Cursor extension**, **web UI**, **CLI** as first-class clients.
+- **Auth/roles enforcement**: role-based permissions and approval policies are designed but not enforced in code today.
+
+### 8.1 Storage and deployment (target-state)
+
+The system is designed to support multiple storage backends behind a single abstraction:
+
+#### 8.1.1 File-based backend (Git-friendly) — **Planned**
 
 Goal:
 - keep canonical store data self-contained in a repo (`.context/`), reviewable, and portable
@@ -989,7 +1081,7 @@ Use cases:
 - early adoption
 - air-gapped environments
 
-### 9.2 Database backend (MongoDB, self-hosted)
+#### 8.1.2 Database backend (MongoDB, self-hosted) — **Planned**
 
 Goal:
 - concurrency, scalability, and transactional apply of accepted proposals
@@ -999,7 +1091,7 @@ Use cases:
 - higher write volume
 - multi-client deployments (extension + web + agents)
 
-### 9.3 API layer
+#### 8.1.3 API layer — **Planned**
 
 The target architecture includes an API surface (GraphQL/HTTP) that:
 
@@ -1007,7 +1099,7 @@ The target architecture includes an API surface (GraphQL/HTTP) that:
 - exposes agent-safe query defaults,
 - and supports multiple clients concurrently.
 
-### 9.4 Multi-client interaction (humans + agents)
+#### 8.1.4 Multi-client interaction (humans + agents)
 
 ```mermaid
 sequenceDiagram
@@ -1048,124 +1140,71 @@ sequenceDiagram
 
 ---
 
-## 10. Distinguishing elements (explicitly)
-
-This is the “why this is not a hodgepodge” section, stated directly.
-
-1. **Review-mode invariant**: accepted context cannot be directly edited; all change is proposals + review + apply.
-2. **Structured truth, not documents**: the canonical model is a typed graph of nodes and relationships.
-3. **Explicit truth status**: accepted/proposed/rejected/superseded are first-class, queryable semantics.
-4. **Separation of authoring from indexing**: humans author Markdown in `description`; `content` is a deterministic derived index.
-5. **Deterministic projections**: reproducible Markdown/UI/agent views, safe to store in Git and safe for agents to consume.
-6. **Concurrency semantics above line merges**: detect conflicts and staleness at the proposal level; merge fields where safe.
-7. **Agent-safe defaults**: accepted-only queries by default; explicit opt-in for proposals and drafts.
-8. **Codebase projections as traceability artifacts**: PR/branch/patch/plan artifacts attach to issues created from approved proposals.
-9. **Deployment flexibility without semantic drift**: file-based and MongoDB backends behind one `ContextStore` contract.
-10. **Governance is part of the model**: roles, approvers, and required approvals enable enforceable policy.
+**Core differentiators** are summarized in **section 5**.
 
 ---
 
-## 11. Implementation plan (path to the target-state)
-
-This paper describes the end state. A pragmatic delivery path is:
-
-- **Phase A (foundation)**: provider-agnostic core logic + reference store; lock behavior with tests.
-- **Phase B (storage abstraction + configuration)**: select backends at runtime and provide lifecycle hooks.
-- **Phase C (file-based backend)**: Git-friendly persistence for small teams and repos.
-- **Phase D (MongoDB backend)**: concurrency and transactional apply for production.
-- **Phase E (API layer)**: GraphQL/HTTP for multi-client operation and centralized policy.
-- **Phase F (clients)**: extension/web/CLI flows for suggesting, reviewing, and applying.
-- **Phase G (integrations)**: Git check-in semantics, snapshots, and optional issue-tracker integration.
+(Implementation plan is in section 8.2.)
 
 ---
 
-## 12. Limitations and honest caveats (even in the target state)
+## 9. Limitations and honest caveats
 
+- **In-memory store only today**: The reference implementation (`InMemoryStore`) does not persist across process restarts; file-based and MongoDB backends are **Planned** (see section 8).
+- **Fuzzy and semantic search are simple**: Keyword and optional fuzzy search exist in the query layer; semantic similarity / embeddings are not implemented; advanced progressive accumulation is **Planned** (see `docs/STORAGE_IMPLEMENTATION_PLAN.md`).
+- **Auth/roles not enforced**: Role-based permissions and approval policies are designed (e.g. `DECISIONS.md` decision-011) but **not enforced** in the current codebase; any client can create proposals and submit reviews.
 - **Policy does not remove judgment**: acceptance and conflict resolution still require human decisions.
 - **Determinism requires discipline**: projection ordering and normalization must be treated as part of the contract.
-- **File-based persistence is inherently limited**: concurrency and transactional guarantees are weaker than a DB backend.
+- **File-based persistence is inherently limited** (when implemented): concurrency and transactional guarantees will be weaker than a DB backend.
 - **RAG remains complementary**: discovery is valuable, but must not be conflated with canonical truth.
 
----
-
-## 13. Governance, security, and auditability (target-state)
-
-The final solution is designed so organizations can:
-
-- keep context and IP within their own infrastructure,
-- enforce roles and approvals on sensitive node types,
-- and audit how context evolved (including rejected proposals).
-
-Key governance capabilities:
-
-- role-based permissions (contributors vs approvers vs admins)
-- designated approvers per node type
-- multi-approval workflows
-- policy constraints on who can apply accepted proposals
-
-### 13.1 Enterprise approval policies (roadmap)
-
-In enterprise settings, “who can approve what, when, and with what evidence” is itself part of the solution. ACAL is designed to support policy as a first-class concept.
-
-Future capabilities:
-
-- **Policy-as-code**: evaluate proposals against versioned approval policies (e.g., by node type, tags, severity/likelihood, namespace).
-- **Quorum / multi-approval**: require \(N\)-of-\(M\) approvals for specific changes (e.g., “high-risk”).
-- **Separation of duties**: prevent self-approval; enforce two-person rules for sensitive changes.
-- **Conditional gates**: require additional reviewers when proposals touch protected concepts (e.g., compliance constraints, high-severity risks).
-- **Attestations / evidence**: require structured evidence attachments (e.g., DPIA/threat model/test results) before approval.
-- **Escalation + SLAs**: time-based escalation if required approvals are not obtained.
-- **Identity integration**: SSO (OIDC/SAML) and group sync to map “approver sets” to org structure.
-- **Audit exports**: exportable, append-only event logs for regulated environments.
+**What is intentionally not solved:** Context-First Docs is not trying to replace code review (PRs remain the canonical review for code changes), execution systems (issue trackers remain for delivery workflow), or freeform note-taking for ephemeral content. It is an opinionated layer for **durable, reviewable, agent-safe solution modeling + approval**.
 
 ---
 
-## 14. What is intentionally not solved
-
-Context-First Docs is not trying to replace:
-
-- code review (PRs remain the canonical review for code changes)
-- execution systems (issue trackers remain excellent for delivery workflow)
-- freeform note-taking or wiki browsing for ephemeral content
-
-It is an opinionated layer for **durable, reviewable, agent-safe solution modeling + approval**.
+(Governance and "what is not solved" are covered in sections 7 and 9.)
 
 ---
 
-## 15. Objections (and how the architecture answers them)
 
-### “Isn’t this just documentation?”
+Enterprise approval policies (policy-as-code, quorum, separation of duties, attestations, audit exports) are design goals; see **section 7**.
+
+---
+
+## 10. FAQ / objections
+
+### "Isn't this just documentation?"
 No. The distinguishing element is **approval semantics** (review mode) plus a **structured solution graph** and an **agent-safe API**.
 
-### “Why not just do this in GitHub PR comments?”
+### "Why not just do this in GitHub PR comments?"
 PR comments are tied to code diffs and timelines. The context layer needs durable identity, explicit status, and traversal relationships independent of a specific PR.
 
-### “Why not just use RAG/vector search?”
+### "Why not just use RAG/vector search?"
 Discovery is not truth. RAG does not provide acceptance/rejection semantics, provenance, or enforceable write policy.
 
-### “Is review mode too slow?”
+### "Is review mode too slow?"
 Review mode is a safety invariant. The system supports concurrency via proposals, conflict detection, and field-level merging; it decouples authoring from acceptance.
 
-### “Do we have to give up Git and Markdown?”
+### "Do we have to give up Git and Markdown?"
 No. Markdown remains a first-class *projection* and authoring surface. Git remains valuable for code review and (optionally) for storing projections and/or a file-based canonical backend.
 
-### “Is this a wiki/Notion replacement?”
+### "Is this a wiki/Notion replacement?"
 Not primarily. Wikis are excellent for broad, page-centric knowledge. This system targets **durable organizational truth about a solution** (goals, decisions, constraints, risks, open questions) with explicit status and review semantics. Many orgs will keep both: a wiki for narrative knowledge, and an approval layer for agent-safe, reviewable truth.
 
-### “How does this integrate with Jira/GitHub Issues?”
+### "How does this integrate with Jira/GitHub Issues?"
 In the target state, issues are downstream execution artifacts. Approved proposals can create issues (and attach codebase projections like PR links), while Jira/Issues remains the execution workflow layer.
 
-### “What about regulated environments and audit?”
+### "What about regulated environments and audit?"
 The model is designed for auditability: explicit acceptance/rejection, preserved history (including rejected alternatives), and clear provenance. Self-hosted deployment supports organizations with strict data control requirements.
 
 ---
 
-## 16. Terms (Glossary)
+## 11. Glossary
 
 - **Agent**: an AI system that reads context and proposes changes; it should not directly mutate accepted truth.
 - **Agent-safe defaults**: defaults that reduce accidental misuse (e.g., queries return accepted truth unless proposals are explicitly requested).
 - **Air-gapped**: an environment without internet access (or with strict network isolation).
-- **Apply**: the act of applying an accepted proposal’s operations to update accepted truth.
+- **Apply**: the act of applying an accepted proposal's operations to update accepted truth.
 - **Approval / approver**: a governance concept where certain users/roles can accept or reject proposals (often with additional policy like multi-approval).
 - **Canonical**: the authoritative source of truth (in this system, the context store/graph, not Markdown).
 - **Change capture**: turning an edit intent (UI edits, API calls, Markdown changes) into a proposal.
@@ -1203,4 +1242,4 @@ The model is designed for auditability: explicit acceptance/rejection, preserved
 
 ## Appendix A: Scope note
 
-This whitepaper is written as a **target-state** architecture. A reference implementation may exist to validate behavior early, but the distinguishing elements described here are the end-state design goals: review-mode invariants, typed graph truth, deterministic projections, self-hosted storage options, and an agent-safe API.
+This whitepaper describes both **implemented** behavior (in-memory store, core logic, Markdown projection, review-mode enforcement) and **planned** design goals (file-based and MongoDB backends, API layer, clients, auth/roles). Sections 7–9 and 8 (Implementation status) clearly label what is real today vs roadmap. The distinguishing elements are the design goals: review-mode invariants, typed graph truth, deterministic projections, self-hosted storage options, and an agent-safe API.

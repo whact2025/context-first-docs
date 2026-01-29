@@ -357,6 +357,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 
 See [`docs/WHITEPAPER.md`](docs/WHITEPAPER.md) for a comprehensive target-state whitepaper that highlights the solution’s distinguishing elements vs hodgepodge and common alternatives.
 
+For **contextualized enterprise AI model** (RAG, fine-tuning, prompting) and **enterprise IP benefits**, see [`docs/CONTEXTUALIZED_AI_MODEL.md`](docs/CONTEXTUALIZED_AI_MODEL.md) and whitepaper section 7.1.
+
 Key architectural points:
 - **Graph Model**: Nodes with typed relationships (see [`DECISIONS.md`](DECISIONS.md) decision-015)
 - **Dual Storage (planned)**: File-based (intended default) and MongoDB (production) via `ContextStore` abstraction (see [`DECISIONS.md`](DECISIONS.md) decision-005)
