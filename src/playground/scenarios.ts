@@ -186,6 +186,57 @@ Mitigation: shared core semantics + tests.`,
   await applyAccepted(store, pSeed);
 }
 
+/** Minimal graph for the canonical hello-world walkthrough (docs/HELLO_WORLD_SCENARIO.md). */
+async function seedHelloWorldGraph(store: ContextStore): Promise<void> {
+  const g1: GoalNode = {
+    id: nodeId("g1"),
+    type: "goal",
+    status: "accepted",
+    title: "Ship a small demo",
+    description: "Ship a minimal end-to-end demo: goal → decision → task.",
+    content: "Goal: ship a small demo",
+    metadata: meta(iso(1)),
+  };
+
+  const d1: DecisionNode = {
+    id: nodeId("d1"),
+    type: "decision",
+    status: "accepted",
+    title: "Use single create proposal for seed",
+    description: "We seed the graph with one accepted proposal containing create operations.",
+    content: "Decision: use single create proposal for seed",
+    decision: "Use single create proposal for seed",
+    rationale: "Simplest way to get deterministic accepted state.",
+    metadata: meta(iso(2)),
+    relationships: [{ type: "references", target: g1.id }],
+  };
+
+  const t1: TaskNode = {
+    id: nodeId("t1"),
+    type: "task",
+    status: "accepted",
+    title: "Build playground UI",
+    description: "Task: build playground UI\n\nGoal: a small, dependency-free UI for demos.",
+    content: "Task: build playground UI",
+    state: "open",
+    metadata: meta(iso(3)),
+    relationships: [{ type: "implements", target: d1.id }],
+  };
+
+  const pSeed: Proposal = {
+    id: "p-hello-world-seed",
+    status: "accepted",
+    operations: [
+      { id: "op1", type: "create", order: 1, node: g1 },
+      { id: "op2", type: "create", order: 2, node: d1 },
+      { id: "op3", type: "create", order: 3, node: t1 },
+    ],
+    metadata: proposalMeta(iso(0)),
+  };
+
+  await applyAccepted(store, pSeed);
+}
+
 function nodeSummary(nodes: AnyNode[]) {
   return nodes.map((n) => ({
     id: n.id,
@@ -237,6 +288,125 @@ export async function runScenario(scenarioId: string): Promise<ScenarioRunResult
 }
 
 const SCENARIOS: ScenarioDefinition[] = [
+  {
+    id: "hello-world",
+    title: "Hello World (canonical end-to-end)",
+    description:
+      "Canonical walkthrough: accepted graph → proposal → review + anchored comment → accept/apply → regenerated Markdown. See docs/HELLO_WORLD_SCENARIO.md.",
+    steps: [
+      {
+        id: "seed",
+        title: "Seed minimal graph (g1, d1, t1)",
+        run: async (store) => {
+          await seedHelloWorldGraph(store);
+          return { ok: true };
+        },
+      },
+      {
+        id: "markdown-before",
+        title: "Capture Markdown projection before change",
+        run: async (store) => {
+          const markdownBefore = await projectToMarkdown(store);
+          return { markdownBefore };
+        },
+      },
+      {
+        id: "create-proposal",
+        title: "Create open proposal (update d1, create r1)",
+        run: async (store) => {
+          const proposal: Proposal = {
+            id: "p-hello-world",
+            status: "open",
+            operations: [
+              {
+                id: "op-update-d1",
+                type: "update",
+                order: 1,
+                nodeId: nodeId("d1"),
+                changes: {
+                  rationale:
+                    "Simplest way to get deterministic accepted state; also serves as the canonical hello-world for auditability.",
+                  description:
+                    "We seed the graph with one accepted proposal containing create operations. Rationale: simplest path to deterministic state and canonical hello-world auditability.",
+                  content:
+                    "Decision: use single create proposal for seed; canonical hello-world for auditability.",
+                },
+              },
+              {
+                id: "op-create-r1",
+                type: "create",
+                order: 2,
+                node: {
+                  id: nodeId("r1"),
+                  type: "risk",
+                  status: "accepted",
+                  title: "Documentation drift",
+                  description:
+                    "Docs can drift from the graph if not re-projected after apply.",
+                  content: "Risk: documentation drift",
+                  severity: "medium",
+                  likelihood: "possible",
+                  mitigation: "Run projectToMarkdown after apply and commit.",
+                  metadata: meta(iso(10)),
+                  relationships: [{ type: "blocks", target: nodeId("t1") }],
+                } as RiskNode,
+              },
+            ],
+            metadata: proposalMeta(iso(10), "demo", {
+              rationale:
+                "Hello-world: update decision rationale and add risk for doc drift.",
+            }),
+          };
+          await store.createProposal(proposal);
+          return { proposalId: proposal.id, operationCount: proposal.operations.length };
+        },
+      },
+      {
+        id: "add-comment",
+        title: "Add review comment anchored to node d1",
+        run: async (store) => {
+          await store.addProposalComment("p-hello-world", {
+            id: "comment-r1",
+            content:
+              "Good to call out auditability here; we can point new contributors to this scenario.",
+            author: "reviewer@example.com",
+            createdAt: iso(15),
+            status: "open",
+            anchor: {
+              nodeId: nodeId("d1"),
+              field: "rationale",
+              quote: "canonical hello-world for auditability",
+            },
+          });
+          return { ok: true };
+        },
+      },
+      {
+        id: "accept-apply",
+        title: "Submit review (accept) and apply proposal",
+        run: async (store) => {
+          await store.submitReview({
+            id: "review-p-hello-world",
+            proposalId: "p-hello-world",
+            reviewer: "reviewer@example.com",
+            reviewedAt: iso(15),
+            action: "accept",
+            isApproval: true,
+          });
+          await store.applyProposal("p-hello-world");
+          return { proposalId: "p-hello-world", reviewId: "review-p-hello-world" };
+        },
+      },
+      {
+        id: "markdown-after",
+        title: "Capture Markdown projection after apply",
+        run: async (store) => {
+          const markdownAfter = await projectToMarkdown(store);
+          return { markdownAfter };
+        },
+      },
+    ],
+  },
   {
     id: "query-and-traversal",
     title: "Query + traversal",

@@ -2,6 +2,8 @@
 
 This system is an **Agentic Collaboration Approval Layer (ACAL)**. You can use it to collaborate on **any solution** (not just software): policies, procurement decisions, product strategy, incident response, or engineering changes.
 
+For a **single canonical "day in the life"** with starting state, proposal JSON, review comments anchored to nodes, accept/apply, and before/after Markdown, see [Hello World scenario](HELLO_WORLD_SCENARIO.md). You can run the **hello-world** scenario in the playground (`npm run playground` → Scenario Runner) to reproduce the artifacts. For **concurrency** (conflict vs merge, staleness), see [Conflict and Merge scenario](CONFLICT_AND_MERGE_SCENARIO.md) and run **conflicts-and-merge** and **stale-proposal** in Scenario Runner.
+
 ## Basic Workflow
 
 ### 1. Create Context Files

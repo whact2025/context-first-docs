@@ -2,7 +2,10 @@
 
 This document tracks the development roadmap and milestones for context-first-docs.
 
-See `docs/UI_SPEC.md` for the clean-slate UI specification aligned to ACAL.
+- **UI**: See `docs/UI_SPEC.md` for the clean-slate UI specification aligned to ACAL.
+- **Canonical walkthroughs**: [Hello World](docs/HELLO_WORLD_SCENARIO.md) (proposal → review → apply → Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, merge, staleness) — run via playground Scenario Runner (`npm run playground`).
+- **Contextualized AI model**: Phase 5 below; full design in `docs/CONTEXTUALIZED_AI_MODEL.md` (RAG, fine-tuning, structured prompting; prompt leakage policy).
+- **Security**: Minimum secure deployment (gateway gating review/apply) and operational posture today: `docs/WHITEPAPER.md` §7.4.
 
 ```ctx
 type: plan
@@ -17,7 +20,7 @@ status: accepted
 5. ✅ Implement in-memory store
 6. ✅ Make project self-referential
 7. ✅ Define graph model with typed relationships
-8. ✅ Design comprehensive Agent API with chain-of-thought traversal
+8. ✅ Design comprehensive Agent API with decision/rationale traversal (provenance chains)
 
 **Phase 2: Persistence & Storage Implementations** (Next)
 1. ✅ Complete InMemoryStore baseline + extract reusable store core logic (`src/store/core/*`) with coverage tests (see `docs/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
@@ -25,8 +28,8 @@ status: accepted
 3. File-based storage implementation - JSON graph format (example path: `.context/graph.json`) (see Phase 3)
 4. MongoDB storage implementation - self-hosted MongoDB document database (for production/scaling) (see Phase 4)
 5. GraphQL API layer - schema definition, resolvers, type validation, authentication/authorization (see Phase 5)
-6. Conflict detection and resolution - build on the baseline (conflict detection, field-level merge, optimistic locking) with manual resolution + superseding workflow (see Phase 6)
-7. Chain-of-thought traversal - reasoning chains, context building, decision reasoning (see Phase 7)
+6. Conflict detection and resolution - build on the baseline (conflict detection, field-level merge, optimistic locking) with manual resolution + superseding workflow (see Phase 6). **Implemented**: `detectConflicts`, `mergeProposals`, `isProposalStale` in `src/store/core/conflicts.ts`; canonical walkthrough: [Conflict and Merge scenario](docs/CONFLICT_AND_MERGE_SCENARIO.md).
+7. Decision/rationale traversal (provenance chains) - typed relationship paths, context building, decision reasoning (see Phase 7)
 8. Issue creation system - create issues from approved proposals (see Phase 8)
 9. Reference tracking - bidirectional references, automatic updates (see Phase 9)
 10. Git integration - automatic commits (file-based), snapshots (MongoDB), commit tracking (see Phase 10)
@@ -54,21 +57,35 @@ status: accepted
 13. Support partial accept/reject
 14. Build review history tracking
 15. Support multi-approval workflows
+16. **Audit export**: Standard format for exporting proposals/reviews (e.g. by date range) for compliance (see whitepaper §7 table: audit export is roadmap; store holds data but no standard export today).
 
 **Phase 4: Agent APIs**
 1. Implement comprehensive query API (type, status, keyword, relationships, pagination, sorting)
-2. Implement chain-of-thought traversal APIs:
-   - traverseReasoningChain() - follow logical relationship paths
+2. Implement decision/rationale traversal APIs (provenance chains; typed relationship traversal: goal → decision → risk → task):
+   - traverseReasoningChain() - follow typed relationship paths
    - buildContextChain() - progressive context building
    - followDecisionReasoning() - understand decision rationale
    - discoverRelatedReasoning() - find related context
-   - queryWithReasoning() - query with automatic reasoning chains
+   - queryWithReasoning() - query with provenance chains attached to results
 3. Implement graph traversal APIs (relationship queries, path finding, dependencies)
 4. Implement proposal generation API
 5. Add validation and safety checks (default to accepted only, explicit opt-in for proposals)
 6. Create agent documentation (see `docs/AGENT_API.md`)
 
-**Phase 5: Installation & Integration**
+**Phase 5: Contextualized AI Model**
+
+Implement the three paths and policy layer described in `docs/CONTEXTUALIZED_AI_MODEL.md` (store as substrate for RAG, fine-tuning, structured prompting; enterprise IP stays in-house). See also whitepaper §7.1, decision-025, risk-012.
+
+1. **Retrieval module** — New module (e.g. `src/contextualize/retrieve.ts`). Input: query string and optional `startNodeId`. Use `queryNodes({ status: ["accepted"], search: query, limit })` and/or `traverseReasoningChain(startNodeId, ...)`. Output: list of nodes or a single formatted string. (Path A: RAG at inference.)
+2. **Prompt builder** — New module (e.g. `src/contextualize/prompt.ts`). Takes retrieved context string + user message; returns system + user messages (or a single prompt) for the LLM. (Path A, C.)
+3. **Context document builder (structured prompting)** — Thin wrapper: `projectToMarkdown(store)` for full context, or `queryWithReasoning` for topic-focused context. Wire into API/playground so context + user message can be sent to LLM. (Path C; easiest first step.)
+4. **LLM integration** — In API or playground: on each request, retrieve → prompt builder → call LLM. Support self-hosted and vendor LLM; document that with vendor LLM only the prompt leaves the perimeter. (Path A, C.)
+5. **Export pipeline for fine-tuning** — New module (e.g. `src/contextualize/export.ts`). Call `queryNodes({ status: ["accepted"] })` (or paginate); for each node output type, id, title, description, relationships. Optionally use `followDecisionReasoning` per decision for rich examples. Output JSONL or JSON; attach export timestamp/snapshot for audit. (Path B.)
+6. **Training format mapper** — Map exported records to instruction/response or completion format for your training stack; preserve accepted-only so model never sees drafts as truth. (Path B.)
+7. **(Optional) Vector index** — Periodically (or on write): embed accepted nodes’ text, store in self-hosted vector DB; at inference embed query, retrieve top-k, then optionally expand with `traverseReasoningChain`. (Path A at scale.)
+8. **Prompt leakage controls (policy interface)** — Sensitivity labels on nodes/namespaces; retrieval policy module with allow/deny rules (e.g. by destination: vendor_llm vs internal_only); logging of node IDs included in each prompt sent to vendor LLM. Policy layer wraps retrieval/prompt building; store stays agnostic. See `docs/CONTEXTUALIZED_AI_MODEL.md` §3.3–3.4.
+
+**Phase 6: Installation & Integration**
 1. Clean installation system - non-invasive setup for existing repositories
 2. Self-hosted Git storage setup - configure storage service for self-hosted Git repository
 3. Reverse engineering tools - extract historical context from existing merge requests/PRs
@@ -511,7 +528,7 @@ type: task
 id: task-052
 status: completed
 ---
-Implement chain-of-thought traversal - reasoning chain traversal, context chain building, decision reasoning following, semantic similarity.
+Implement decision/rationale traversal (provenance chains) - typed relationship path traversal, context chain building, decision reasoning following, semantic similarity. Not LLM chain-of-thought.
 ```
 
 ```ctx
@@ -543,7 +560,7 @@ type: task
 id: task-059
 status: completed
 ---
-Implement chain-of-thought traversal APIs - traverseReasoningChain, buildContextChain, followDecisionReasoning, discoverRelatedReasoning, queryWithReasoning.
+Implement decision/rationale traversal APIs (provenance chains) - traverseReasoningChain, buildContextChain, followDecisionReasoning, discoverRelatedReasoning, queryWithReasoning.
 ```
 
 ```ctx

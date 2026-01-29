@@ -227,7 +227,7 @@ Across Explore/Nodes:
 
 ### 6.1 Explore — Graph Explorer
 
-**Purpose**: browse accepted truth; traverse reasoning chains.
+**Purpose**: browse accepted truth; traverse provenance chains (decision/rationale traversal: goal → decision → task → risk).
 
 **Layout**
 

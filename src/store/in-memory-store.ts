@@ -817,6 +817,11 @@ export class InMemoryStore implements ContextStore {
     };
   }
 
+  /**
+   * Traverse the decision/rationale (provenance) chain from a node.
+   * Follows typed relationship paths in the graph (e.g. goal → decision → risk → task).
+   * This is graph traversal of stored rationale, not LLM chain-of-thought.
+   */
   async traverseReasoningChain(
     startNode: NodeId,
     options: ReasoningChainOptions
@@ -1092,7 +1097,7 @@ export class InMemoryStore implements ContextStore {
       constraints.push(...constraintNodes.nodes);
     }
 
-    // Build reasoning chain
+    // Build provenance chain (typed relationship path)
     let stepNumber = 1;
     if (goals.length > 0) {
       reasoningChain.push({
@@ -1156,7 +1161,7 @@ export class InMemoryStore implements ContextStore {
       relatedNodes.push(...related.nodes);
     }
 
-    // Build reasoning chains if requested
+    // Build provenance chains if requested
     if (options.buildReasoningChain) {
       for (const relType of options.relationshipTypes) {
         const chain = await this.traverseReasoningChain(nodeId, {
@@ -1219,7 +1224,7 @@ export class InMemoryStore implements ContextStore {
     const reasoningPath: ReasoningStep[] = [];
 
     if (options.reasoning.enabled) {
-      // For each result, follow reasoning chains
+      // For each result, follow provenance chains
       for (const node of primaryResults.nodes) {
         const chain = await this.traverseReasoningChain(node.id, {
           path: options.reasoning.followRelationships.map((relType) => ({

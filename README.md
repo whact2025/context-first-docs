@@ -35,6 +35,16 @@ GitHub / GitLab solve **code review**, but lose semantic intent and decision pro
 
 **There is no shared substrate for durable, reviewable, agent-safe collaboration on a solution — with enterprise-grade approval semantics — that keeps your IP secure.**
 
+### Benefits even without agents
+
+Adoption often starts with humans. Even before AI agents are in the loop, a structured, review-mode context layer delivers:
+
+- **Less decision churn** — Explicit accepted vs proposed vs rejected state reduces re-litigation of settled decisions.
+- **Faster onboarding** — New joiners get one place to see goals, decisions, risks, and rationale instead of hunting across chat, wikis, and tickets.
+- **Auditable rationale** — Why something was decided (and what was rejected) is first-class, queryable, and preserved with review history.
+- **Fewer rediscoveries of rejected alternatives** — Rejected ideas are stored and linked; teams don’t repeatedly rediscover and re-debate the same options.
+- **Stable source of truth independent of ticket lifecycles** — Truth lives in the context graph; when Jira issues close or PRs merge, rationale and relationships remain in one place.
+
 ---
 
 ## What We're Building
@@ -49,7 +59,7 @@ An **Agentic Collaboration Approval Layer (ACAL)** with:
 - **Change capture**: Can happen in clients or an API; the store enforces review-mode invariants
 - **Structured semantic nodes**: Goals, decisions, constraints, tasks, risks, questions with typed relationships
 - **Bidirectional synchronization**: Markdown ↔ context store (client/API-driven; not line-diff-based Git workflows)
-- **First-class agent APIs**: Comprehensive query API with chain-of-thought traversal for reasoning through contexts
+- **First-class agent APIs**: Comprehensive query API with decision/rationale traversal (typed relationship paths: goal → decision → task → risk) for building context from provenance
 - **Clients**: VS Code/Cursor extension, web UI, CLI, or agents (all are clients of the same store API)
 - **Pre-baked Cursor rules**: AI-assisted proposal and risk authoring
 - **Reverse engineering**: Extract historical context from merge requests/PRs
@@ -77,7 +87,7 @@ Context-First Docs focuses on **durable, agent-safe solution modeling + approval
 
 - **Canonical “why” graph**: Goals/decisions/risks/questions are first-class typed nodes with relationships (goal → decision → task → risk).
 - **Proposals + provenance**: Accepted truth vs proposed changes vs rejected ideas are explicit and reviewable (not buried in comments).
-- **Agent-safe semantics**: Agents can query accepted truth and traverse reasoning chains without guessing what’s current.
+- **Agent-safe semantics**: Agents can query accepted truth and traverse provenance chains (goal → decision → task → risk) without guessing what’s current.
 - **Privacy-first storage**: Context stays self-hosted (Git or MongoDB), supporting zero IP leakage and air-gapped use.
 
 ### Recommended division of responsibilities
@@ -165,11 +175,11 @@ They consume:
 - open proposals
 - unresolved questions
 - decision and rejection history
-- **Chain-of-thought reasoning**: Traverse reasoning chains (goal → decision → task → risk) to build context progressively
+- **Decision/rationale traversal**: Traverse typed relationship paths (goal → decision → task → risk) to build context progressively — graph traversal of rationale and provenance, not LLM chain-of-thought
 
 Agents can:
 - query context store with comprehensive API (type, status, keyword, relationships)
-- traverse graph relationships and reasoning chains
+- traverse graph relationships and provenance chains (typed relationship paths)
 - propose changes (never mutate truth directly)
 - open comment threads
 - generate plans or tasks
@@ -179,7 +189,7 @@ Agents **cannot mutate truth directly** - all changes go through proposal/review
 **Comprehensive Query API**: 
 - Query by type, status, keyword, relationships
 - Graph traversal and path finding
-- Chain-of-thought traversal for progressive reasoning
+- Decision/rationale traversal (provenance chains) for progressive context building
 - See [`docs/AGENT_API.md`](docs/AGENT_API.md) for full API documentation
 
 This eliminates hallucinated state and context drift.
@@ -199,7 +209,7 @@ This enables things that are currently fragile or impossible:
   - Agents query your context store (in your Git repo)
   - No sensitive context sent to external AI services
   - Complete control over what agents can access
-  - Chain-of-thought reasoning happens locally
+  - Decision/rationale traversal (provenance chains) happens locally — graph traversal, not LLM CoT
 
 This is a foundation for **trustworthy, privacy-preserving agentic development**.
 
@@ -341,11 +351,13 @@ A local web UI to try ACAL concepts end-to-end.
 - **Run**: `npm run playground`
 - **Open**: `http://localhost:4317`
 
+For a **single canonical walkthrough** (starting graph → proposal JSON → review with anchored comments → accept/apply → regenerated Markdown), run the **hello-world** scenario in Scenario Runner, and see [Hello World scenario](docs/HELLO_WORLD_SCENARIO.md) for the full narrative and artifacts. For **concurrency** (conflict detection, field-level merge, stale proposal), run **conflicts-and-merge** and **stale-proposal** in Scenario Runner, and see [Conflict and Merge scenario](docs/CONFLICT_AND_MERGE_SCENARIO.md).
+
 **Entry points** (home page at `/`):
 
 - **Scenario Runner** (`/scenarios`) — Run scenarios and guided flows; inspect Markdown projections from run output.
 - **ACAL Graph Viewer** (`/acal`) — Navigate the solution model: graph, nodes, proposals, reviews, projections, conflicts. Open a proposal to see:
-  - **Document view**: side-by-side “current truth” vs “proposed truth” as chain-of-thought documents (goals, decisions, tasks, risks, questions).
+  - **Document view**: side-by-side “current truth” vs “proposed truth” as provenance-ordered documents (goals, decisions, tasks, risks, questions).
   - **Diff view**: Git-style line diff with add/delete highlighting and **synchronized scrolling** between the two panes.
   - Threaded comments, Accept/Reject/Apply, and conflict/staleness indicators.
 
@@ -364,7 +376,7 @@ Key architectural points:
 - **Dual Storage (planned)**: File-based (intended default) and MongoDB (production) via `ContextStore` abstraction (see [`DECISIONS.md`](DECISIONS.md) decision-005)
 - **Review mode**: proposals are the only write primitive (see [`docs/REVIEW_MODE.md`](docs/REVIEW_MODE.md))
 - **Change capture**: proposals can be authored directly or derived from Markdown ctx blocks (see [`docs/CHANGE_DETECTION.md`](docs/CHANGE_DETECTION.md))
-- **Agent API**: Comprehensive query API with chain-of-thought traversal (see [`docs/AGENT_API.md`](docs/AGENT_API.md))
+- **Agent API**: Comprehensive query API with decision/rationale traversal — provenance chains (goal → decision → task → risk) — (see [`docs/AGENT_API.md`](docs/AGENT_API.md))
 - **Security**: All data self-hosted (Git or MongoDB), no external services (see [`CONTEXT.md`](CONTEXT.md) constraint-005)
 
 ## Implementation Status

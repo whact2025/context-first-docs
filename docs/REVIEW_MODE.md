@@ -2,6 +2,8 @@
 
 This system is an **Agentic Collaboration Approval Layer (ACAL)**. It treats all concurrent work on a **solution model** as **suggestions** that must be **accepted/rejected** — similar to Google Docs “Suggesting” mode, but anchored to semantic nodes (not line diffs).
 
+For a **concrete end-to-end walkthrough** (accepted graph → proposal → review with comments anchored to nodes → accept/apply → regenerated Markdown), see [Hello World scenario](HELLO_WORLD_SCENARIO.md).
+
 ## Core invariant
 
 - **No direct edits to accepted context.**

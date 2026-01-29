@@ -1,6 +1,6 @@
 # Project Risks
 
-This document tracks potential risks and mitigation strategies for context-first-docs.
+This document tracks potential risks and mitigation strategies for context-first-docs. Mitigations often reference implementation in `src/store/`, `src/playground/`, and `docs/` (e.g. `docs/REVIEW_MODE.md`, `docs/CONFLICT_AND_MERGE_SCENARIO.md`, whitepaper §7 for security deployment).
 
 ```ctx
 type: risk
@@ -98,6 +98,7 @@ likelihood: possible
 - Centralize provider-agnostic behavior in `src/store/core/*` (apply/query/traversal/conflicts/stale/merge).
 - Keep providers focused on persistence/indexing and reuse core functions wherever possible.
 - Maintain targeted coverage tests for core behavior to prevent regressions.
+- See `docs/CONFLICT_AND_MERGE_SCENARIO.md` for conflict/merge/stale behavior and playground scenarios.
 ```
 
 ```ctx
@@ -175,4 +176,51 @@ likelihood: possible
 - Treat policy displays as “preview” until server enforcement exists; clearly label enforcement status.
 - Centralize policy evaluation server-side and return explicit “blocked/required approvals” results to all clients.
 - Maintain an audit trail for policy evaluation and apply actions in enterprise deployments (roadmap).
+- For secure deployment today: use an external gateway to gate review/apply on identity; see `docs/WHITEPAPER.md` §7.4 (minimum secure deployment, operational posture).
+```
+
+```ctx
+type: risk
+id: risk-012
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: When using a **vendor LLM** for contextualized inference (RAG or structured prompting), sensitive context included in prompts leaves the perimeter; misconfiguration or over-retrieval can leak goals, decisions, risks, or PII.
+
+**Mitigation**:
+- Treat retrieval and prompt building as a controlled pipeline: topic-scoped retrieval, namespace/type allowlists, redaction, and a max context budget (see `docs/CONTEXTUALIZED_AI_MODEL.md` §3.3).
+- Introduce a **policy interface**: sensitivity labels on nodes/namespaces, a retrieval policy module (allow/deny by destination e.g. vendor_llm), and logging of node IDs included in each prompt (§3.4). Policy layer wraps retrieval; store remains agnostic.
+- Prefer self-hosted or private-VPC LLM when context must not leave the perimeter; use vendor LLM only with explicit policy and audit.
+- Implement retrieval policy module and sensitivity support as roadmap (see PLAN Phase 5).
+```
+
+```ctx
+type: risk
+id: risk-013
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: Fine-tuning export or RAG retrieval accidentally includes **proposed or rejected** nodes (e.g. query override or misconfiguration), so the model or answers are grounded in non-truth.
+
+**Mitigation**:
+- Export pipeline and retrieval for contextualized AI must **default to** and **enforce** `status: ["accepted"]` unless explicitly allowed by policy (e.g. "include proposed for internal-only preview").
+- Document the contract in CONTEXTUALIZED_AI_MODEL and Phase 5; add validation or assertions in export/retrieve modules that accepted-only is used for vendor/training paths.
+- Audit what was exported (node IDs, status filter) per export run; see question-030.
+```
+
+```ctx
+type: risk
+id: risk-014
+status: accepted
+severity: medium
+likelihood: possible
+---
+**Risk**: Optional **vector index** (Phase 5) becomes stale relative to the store — delay between store update and index rebuild causes retrieval to return outdated context.
+
+**Mitigation**:
+- Document rebuild policy (on-write vs periodic vs manual) and expected staleness; consider "index as of" or snapshot id in retrieval response for transparency.
+- Prefer store-as-source-of-truth: vector index is a performance optimization; critical paths can bypass index and query store directly when freshness matters.
+- See question-031.
 ```

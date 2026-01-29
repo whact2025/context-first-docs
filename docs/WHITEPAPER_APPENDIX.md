@@ -21,8 +21,10 @@ The canonical store contract is defined in `src/types/context-store.ts`. Key met
 | `detectConflicts(proposalId)` | Proposal-level conflict detection |
 | `isProposalStale(proposalId)` | Optimistic locking (base versions) |
 | `mergeProposals(proposalIds)` | Field-level merge |
-| `traverseReasoningChain` / `buildContextChain` / `followDecisionReasoning` / `discoverRelatedReasoning` | Chain-of-thought / reasoning traversal |
-| `queryWithReasoning(options)` | Query with reasoning chains |
+| `traverseReasoningChain` / `buildContextChain` / `followDecisionReasoning` / `discoverRelatedReasoning` | Decision/rationale traversal (provenance chains) — typed relationship traversal: goal → decision → risk → task. Not LLM chain-of-thought. |
+| `queryWithReasoning(options)` | Query with provenance chains (typed relationship paths) attached to results |
+
+For **concrete examples** of conflicts, merges, and staleness (two proposals same field → conflict; different fields → mergeable; stale baseVersion → rebase), see whitepaper **section 5.3.4** and the canonical walkthrough **`docs/CONFLICT_AND_MERGE_SCENARIO.md`** (day-in-the-life style, with proposal JSON and outcome shapes). Run the **conflicts-and-merge** and **stale-proposal** scenarios in the playground to reproduce.
 
 ---
 
@@ -41,6 +43,8 @@ See `docs/AGENT_API.md` for full usage and examples.
 ---
 
 ## C. Proposal and operations (excerpt)
+
+For the **Status model** (node vs proposal vocabulary and allowed transitions), see whitepaper **section 4.1**.
 
 - **Proposal** (`src/types/proposal.ts`): `id`, `status` (`open` \| `accepted` \| `rejected` \| `withdrawn`), `operations[]`, `metadata` (rationale, baseVersions, codeProjection, etc.).
 - **Operation types**: `create`, `update`, `status-change`, `insert`, `delete`, `move`.

@@ -126,8 +126,9 @@ export interface ContextStore {
   mergeProposals(proposalIds: string[]): Promise<MergeResult>;
 
   /**
-   * Traverse reasoning chain following logical relationship paths.
-   * Enables chain-of-thought reasoning for agents.
+   * Traverse the decision/rationale (provenance) chain from a node.
+   * Follows typed relationship paths in the graph (e.g. goal → decision → risk → task).
+   * This is graph traversal of stored rationale, not LLM chain-of-thought.
    */
   traverseReasoningChain(
     startNode: NodeId,
@@ -160,8 +161,8 @@ export interface ContextStore {
   ): Promise<RelatedReasoningResult>;
 
   /**
-   * Query with chain-of-thought reasoning enabled.
-   * Follows reasoning chains from query results.
+   * Query with decision/rationale (provenance) traversal enabled.
+   * Follows typed relationship chains from query results (goal → decision → risk → task).
    */
   queryWithReasoning(
     options: ReasoningQueryOptions
@@ -290,7 +291,8 @@ export interface NodeQueryResult {
 }
 
 /**
- * Options for reasoning chain traversal.
+ * Options for decision/rationale (provenance) chain traversal.
+ * Traverses typed relationships in the graph (e.g. goal → decision → risk → task); not LLM chain-of-thought.
  */
 export interface ReasoningChainOptions {
   /** Path of relationship types and target types to follow */
@@ -307,10 +309,11 @@ export interface ReasoningChainOptions {
 }
 
 /**
- * Result of reasoning chain traversal.
+ * Result of decision/rationale (provenance) chain traversal.
+ * Represents a path through typed relationships in the graph; not LLM chain-of-thought.
  */
 export interface ReasoningChainResult {
-  /** Nodes in the reasoning chain */
+  /** Nodes in the provenance chain */
   nodes: AnyNode[];
   /** The actual path taken through the graph */
   path: Array<{
@@ -322,12 +325,13 @@ export interface ReasoningChainResult {
   accumulatedContext?: {
     [key: string]: AnyNode[];
   };
-  /** Step-by-step reasoning with rationale */
+  /** Step-by-step path with rationale at each step */
   reasoningSteps?: ReasoningStep[];
 }
 
 /**
- * A single step in a reasoning chain.
+ * A single step in a decision/rationale (provenance) chain.
+ * One hop along typed relationships (e.g. goal → decision → risk → task).
  */
 export interface ReasoningStep {
   /** Step number */
@@ -370,7 +374,7 @@ export interface ContextChainOptions {
 export interface ContextChainResult {
   /** Starting node */
   startNode: AnyNode;
-  /** Reasoning chains discovered */
+  /** Provenance chains discovered (typed relationship traversal) */
   chains: ReasoningChainResult[];
   /** Accumulated context by type */
   accumulatedContext: {
@@ -419,7 +423,7 @@ export interface DecisionReasoningResult {
   risks?: AnyNode[];
   /** Constraints that apply */
   constraints?: AnyNode[];
-  /** Reasoning chain showing how these connect */
+  /** Provenance chain (typed relationship path) showing how these connect */
   reasoningChain: ReasoningStep[];
 }
 
@@ -431,7 +435,7 @@ export interface RelatedReasoningOptions {
   relationshipTypes: RelationshipType[];
   /** Include semantically similar nodes */
   includeSemanticallySimilar?: boolean;
-  /** Build reasoning chain showing relationships */
+  /** Build provenance chain (typed relationship path) for each related node */
   buildReasoningChain?: boolean;
   /** Maximum traversal depth */
   maxDepth?: number;
@@ -445,7 +449,7 @@ export interface RelatedReasoningResult {
   startNode: AnyNode;
   /** Related nodes discovered */
   relatedNodes: AnyNode[];
-  /** Reasoning chains to related nodes */
+  /** Provenance chains (typed relationship paths) to related nodes */
   reasoningChains?: ReasoningChainResult[];
   /** Semantic similarity scores (if enabled) */
   similarityScores?: Array<{
@@ -462,7 +466,7 @@ export interface ReasoningQueryOptions {
   query: NodeQuery;
   /** Reasoning options */
   reasoning: {
-    /** Enable reasoning chain traversal */
+    /** Enable decision/rationale (provenance) chain traversal */
     enabled: boolean;
     /** Relationship types to follow */
     followRelationships: RelationshipType[];
@@ -481,9 +485,9 @@ export interface ReasoningQueryOptions {
 export interface ReasoningQueryResult {
   /** Direct query results */
   primaryResults: NodeQueryResult;
-  /** Reasoning chains from each result */
+  /** Provenance chains (typed relationship paths) from each result */
   reasoningChains: ReasoningChainResult[];
-  /** All context discovered through reasoning */
+  /** All context discovered through traversal */
   accumulatedContext: {
     [key: string]: AnyNode[];
   };

@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-This document tracks key architectural decisions made during the context-first-docs project (an Agentic Collaboration Approval Layer — ACAL).
+This document tracks key architectural decisions made during the context-first-docs project (an Agentic Collaboration Approval Layer — ACAL). For **review-mode semantics** (proposal → review → apply), see `docs/REVIEW_MODE.md`. For **canonical walkthroughs** (day-in-the-life flows with concrete JSON and outcomes), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) (accept/apply/Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, field-level merge, stale proposals). For the full design narrative and status, see `docs/WHITEPAPER.md`.
 
 ```ctx
 type: decision
@@ -636,10 +636,12 @@ status: accepted
 - Global default strategy
 - Configurable auto-merge behavior
 
-**Examples**:
+**Examples** (see `docs/CONFLICT_AND_MERGE_SCENARIO.md` for full day-in-the-life walkthrough and playground scenarios `conflicts-and-merge`, `stale-proposal`):
 - Proposal A changes `content` field, Proposal B changes `status` → Auto-merge (no conflict)
 - Proposal A changes `content` to "X", Proposal B changes `content` to "Y" → Conflict, manual resolution
 - Proposal created when node version is 5, but node is now version 7 → Reject as stale
+
+**Implementation**: `src/store/core/conflicts.ts` — `detectConflictsForProposal`, `mergeProposals`, `isProposalStale`; `docs/RECONCILIATION_STRATEGIES.md`.
 
 **Alternatives Considered**:
 - Single strategy only (too rigid, doesn't fit all cases)
@@ -846,4 +848,55 @@ status: accepted
 - Projection outputs remain non-canonical views derived from truth.
 
 **Decided At**: 2026-01-28
+```
+
+```ctx
+type: decision
+id: decision-024
+status: accepted
+---
+**Decision**: Node status in proposal operations is the **status that will be written on apply**; until apply, it is not part of accepted truth.
+
+**Rationale**:
+- Avoids ambiguity between "status in the operation" and "status in the store."
+- Enables proposals to express post-apply intent (e.g. create with `status: "accepted"` so the node enters as accepted once applied).
+- Documented in whitepaper §4.1 and Hello World / Conflict and Merge scenarios.
+
+**Implementation**: No code change; semantic contract. See `docs/HELLO_WORLD_SCENARIO.md`, `docs/WHITEPAPER.md` §4.1.
+
+**Decided At**: 2026-01-29
+```
+
+```ctx
+type: decision
+id: decision-025
+status: accepted
+---
+**Decision**: The context store is the **substrate** for building a contextualized enterprise AI model (RAG, fine-tuning, structured prompting); it does not become the model. When using a **vendor LLM**, prompt leakage is controlled by a **policy interface**: sensitivity labels on nodes/namespaces, a retrieval policy module with allow/deny rules, and logging of node IDs included in prompts.
+
+**Rationale**:
+- Keeps enterprise IP and compliance concerns explicit: what may leave the perimeter is policy-driven.
+- Store remains agnostic; policy layer wraps retrieval and prompt building (see `docs/CONTEXTUALIZED_AI_MODEL.md` §3.4).
+- Enables audit trail ("which node IDs were in this prompt") for compliance.
+
+**Implementation**: Policy interface is **designed and documented**; retrieval policy module and sensitivity labels are **planned** (see PLAN Phase 4). Store today provides query/export/projection; policy enforcement is a thin layer on top.
+
+**Decided At**: 2026-01-29
+```
+
+```ctx
+type: decision
+id: decision-026
+status: accepted
+---
+**Decision**: Minimum secure deployment **today** is an **external wrapper**: API gateway (or BFF) that authenticates every request and gates `submitReview` and `applyProposal` on approver identity (e.g. JWT claim). Auth/roles inside the store or API layer are **roadmap**.
+
+**Rationale**:
+- Store does not enforce identity or roles yet; any client that can reach it can accept/apply.
+- Enterprise readers need a concrete "how to run safely today": gateway + claim-based gating gives separation of duties (proposers vs approvers) at the perimeter.
+- Operational posture (endpoints, audit logging today, approver-only apply in practice) is documented in whitepaper §7.4.
+
+**Implementation**: Documented in `docs/WHITEPAPER.md` §7.4 (minimum secure deployment, operational posture today). No in-store auth yet.
+
+**Decided At**: 2026-01-29
 ```

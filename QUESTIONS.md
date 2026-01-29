@@ -1,6 +1,6 @@
 # Open Questions
 
-This document tracks questions that need answers as the project evolves.
+This document tracks questions that need answers as the project evolves. For **contextualized AI model** (Phase 5, RAG/fine-tuning/structured prompting, prompt leakage), see also `docs/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5.
 
 ```ctx
 type: question
@@ -674,4 +674,49 @@ status: open
 - Provide a strict-mode toggle (CI vs local authoring)
 
 **Impact**: Medium - affects authoring UX and data integrity
+```
+
+```ctx
+type: question
+id: question-029
+status: open
+---
+**Question**: Where do sensitivity labels for prompt-leakage control live, and who can set them?
+
+**Context**:
+- CONTEXTUALIZED_AI_MODEL §3.4 defines sensitivity labels on nodes/namespaces (e.g. public, internal, confidential) so the retrieval policy can allow/deny by destination (e.g. vendor_llm).
+- Labels could live in node metadata (e.g. `metadata.tags` or `metadata.sensitivity`) or in a separate policy store keyed by node ID/namespace.
+- Who assigns labels? Authors at create time? Admins only? Default for unlabeled nodes (deny for vendor_llm vs allow)?
+
+**Impact**: Medium - affects Phase 5 policy interface and risk-012 mitigation
+```
+
+```ctx
+type: question
+id: question-030
+status: open
+---
+**Question**: How is fine-tuning export guaranteed to include only accepted context, and how is export versioning recorded for audit?
+
+**Context**:
+- Export pipeline (Phase 5, Path B) must not send proposed/rejected nodes to training; model must not see drafts as truth.
+- Query defaults to `status: ["accepted"]` but export code could override; need explicit contract and possibly validation.
+- CONTEXTUALIZED_AI_MODEL says attach export timestamp/snapshot so you know which context version a fine-tuned model was trained on (reproducibility and audit).
+
+**Impact**: High - affects enterprise IP and compliance (risk-012, decision-025)
+```
+
+```ctx
+type: question
+id: question-031
+status: open
+---
+**Question**: When using an optional vector index (Phase 5, Path A at scale), who triggers rebuild and how is index staleness handled?
+
+**Context**:
+- Index is built from accepted nodes’ text; store is source of truth.
+- Rebuild could be on every write, periodic, or manual; each has latency and cost tradeoffs.
+- Retrieval could return stale context if index is behind store; should retrieval response include "index as of" or "store snapshot" for transparency?
+
+**Impact**: Medium - affects RAG quality and auditability
 ```

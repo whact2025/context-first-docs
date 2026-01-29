@@ -339,13 +339,13 @@ const context = await store.buildContextChain(
 // - What goals that decision serves
 // - What other tasks this depends on
 // - What risks or constraints might block it
-// All with reasoning at each step
+// All with rationale at each step (typed relationship traversal)
 ```
 
 ### Example 10: Query with Chain-of-Thought
 
 ```typescript
-// Agent queries for tasks, then follows reasoning chains
+// Agent queries for tasks, then follows provenance chains (goal → decision → task → risk)
 const results = await store.queryWithReasoning({
   query: {
     type: ["task"],
@@ -403,17 +403,19 @@ const node = await store.getNode({ id: "decision-001" });
 console.log(node.status);                // "accepted" | "proposed" | "rejected" | "superseded"
 ```
 
-## Chain-of-Thought Traversal
+## Decision/rationale traversal (provenance chain)
 
-Agents can traverse the graph following logical reasoning chains, building up context progressively as they reason about collected contexts.
+**Terminology:** The APIs below perform **typed relationship traversal** over the graph (e.g. goal → decision → risk → task). This is **not** LLM chain-of-thought; it is graph traversal of rationale and provenance — following relationships between nodes to build a chain of *why* (goals, decisions, risks, tasks). No model internals or "CoT" are stored or logged.
 
-### Reasoning Path Traversal
+Agents can traverse the graph following these relationship paths, building up context progressively (goal → decision → task → risk).
 
-Follow logical chains of reasoning through the graph:
+### Provenance path traversal
+
+Follow typed relationship paths through the graph (e.g. goal → decision → task → risk):
 
 ```typescript
-// Traverse reasoning chain: goal → decision → task → risk
-const reasoningChain = await store.traverseReasoningChain(
+// Decision/rationale traversal: goal → decision → task → risk (typed relationship traversal)
+const chain = await store.traverseReasoningChain(
   { id: "goal-001" },
   {
     // Follow logical relationship sequence
@@ -424,16 +426,16 @@ const reasoningChain = await store.traverseReasoningChain(
     ],
     // Accumulate context as we traverse
     accumulateContext: true,
-    // Include reasoning metadata
+    // Include rationale metadata
     includeRationale: true
   }
 );
 
 // Result includes:
-// - nodes: Array of nodes in the reasoning chain
+// - nodes: Array of nodes in the provenance chain (typed relationship path)
 // - path: The actual path taken through the graph
 // - accumulatedContext: Progressive context built up during traversal
-// - reasoningSteps: Step-by-step reasoning with rationale
+// - reasoningSteps: Step-by-step traversal with rationale at each node
 ```
 
 ### Progressive Context Building
@@ -482,12 +484,12 @@ interface ReasoningStep {
 }
 ```
 
-### Follow Decision Reasoning
+### Follow decision/rationale (provenance behind a decision)
 
-Follow the reasoning behind a decision:
+Follow the provenance behind a decision (typed relationship traversal: goal → decision → task → risk):
 
 ```typescript
-// Follow decision reasoning: what goal led to it, what alternatives were considered, what tasks implement it
+// Follow decision/rationale: what goal led to it, what alternatives were considered, what tasks implement it
 const decisionReasoning = await store.followDecisionReasoning(
   { id: "decision-001" },
   {
@@ -506,7 +508,7 @@ const decisionReasoning = await store.followDecisionReasoning(
 Discover logically related context even if not directly connected:
 
 ```typescript
-// Find all context related to a topic through reasoning chains
+// Find all context related to a topic through provenance chains (typed relationship paths)
 const relatedReasoning = await store.discoverRelatedReasoning(
   { id: "decision-001" },
   {
@@ -514,7 +516,7 @@ const relatedReasoning = await store.discoverRelatedReasoning(
     relationshipTypes: ["references", "depends-on", "implements", "blocks"],
     // Include nodes that share similar context
     includeSemanticallySimilar: true,
-    // Build reasoning chain showing how they're related
+    // Build provenance chain showing how they're related (goal → decision → risk → task)
     buildReasoningChain: true,
     // Maximum traversal depth
     maxDepth: 3
@@ -522,12 +524,12 @@ const relatedReasoning = await store.discoverRelatedReasoning(
 );
 ```
 
-### Chain-of-Thought Query
+### Query with provenance chains
 
-Query with chain-of-thought reasoning:
+Query, then follow typed relationship paths from each result (decision/rationale traversal):
 
 ```typescript
-// Query with reasoning chain
+// Query then traverse provenance chains (goal → decision → task → risk) from each result
 const results = await store.queryWithReasoning({
   // Start query
   query: {
@@ -535,7 +537,7 @@ const results = await store.queryWithReasoning({
     status: ["accepted"],
     search: "authentication"
   },
-  // Follow reasoning chains from results
+  // Follow provenance chains (typed relationship paths) from results
   reasoning: {
     enabled: true,
     // Follow these relationship types
@@ -551,9 +553,9 @@ const results = await store.queryWithReasoning({
 
 // Result includes:
 // - primaryResults: Direct query results
-// - reasoningChains: Chains of reasoning from each result
-// - accumulatedContext: All context discovered through reasoning
-// - reasoningPath: Step-by-step reasoning for each chain
+// - reasoningChains: Provenance chains (typed relationship paths) from each result
+// - accumulatedContext: All context discovered through traversal
+// - reasoningPath: Step-by-step traversal for each chain
 ```
 
 ## Graph Query Capabilities
@@ -629,7 +631,7 @@ const decisionReasoning = await store.followDecisionReasoning(
   }
 );
 
-// Agent can now provide comprehensive reasoning:
+// Agent can now provide a comprehensive rationale (from the graph, not LLM CoT):
 // "Decision X was made to achieve Goal Y. 
 //  Alternatives A and B were rejected because [rationale].
 //  It's implemented by Tasks 1, 2, 3.
@@ -654,7 +656,7 @@ const impact = await store.discoverRelatedReasoning(
 // - All tasks that implement this decision
 // - All tasks that depend on those tasks
 // - Related decisions that might be affected
-// - Reasoning chains showing how they connect
+// - Provenance chains (typed relationship paths) showing how they connect
 ```
 
 ### Use Case 3: Risk Assessment
@@ -674,7 +676,7 @@ const riskAssessment = await store.traverseReasoningChain(
   }
 );
 
-// Agent builds reasoning:
+// Agent builds rationale from the provenance chain:
 // "Goal X requires Decision Y, which is implemented by Tasks A, B, C.
 //  Risk Z blocks Task B, which means Goal X might not be fully achieved.
 //  Mitigation strategy M addresses Risk Z by..."
@@ -689,4 +691,4 @@ const riskAssessment = await store.traverseReasoningChain(
 - Advanced graph algorithms (shortest path, centrality, etc.)
 - Machine learning for semantic similarity detection
 - Reasoning path optimization and pruning
-- Context summarization for long reasoning chains
+- Context summarization for long provenance chains

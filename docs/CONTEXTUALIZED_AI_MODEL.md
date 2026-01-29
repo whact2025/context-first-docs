@@ -4,7 +4,7 @@ This document describes **how the context store is used to create a contextualiz
 
 **Audience:** architects, ML/platform leads, security/compliance, and implementers.
 
-**Related:** `docs/WHITEPAPER.md` section 7.1 (Enterprise IP and contextualized AI models), `docs/AGENT_API.md` (query and reasoning APIs), `CONTEXT.md` (self-hosting constraint).
+**Related:** `docs/WHITEPAPER.md` section 7.1 (Enterprise IP and contextualized AI models), `docs/AGENT_API.md` (query and decision/rationale traversal APIs), `CONTEXT.md` (self-hosting constraint).
 
 ---
 
@@ -40,7 +40,7 @@ The **context store** is the canonical source of that context: a typed graph of 
 
 - **Explicit status:** You retrieve only `status: ["accepted"]` by default, so training or retrieval does not mix in drafts or rejected ideas as truth (see `src/store/core/query-nodes.ts`: `query.status || ["accepted"]`).
 - **Structured graph:** Nodes have type, relationships, and deterministic text (`title`, `description`, derived `content`), so you can export or format them consistently for prompts or training (see `src/types/node.ts`, `src/utils/node-text.ts`).
-- **Reasoning chains:** APIs such as `traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, and `queryWithReasoning` (see `src/types/context-store.ts`, `src/store/in-memory-store.ts`) let you build ordered, relevant context (e.g. goal → decision → risks → tasks) for injection into prompts or training examples.
+- **Decision/rationale traversal (provenance chains):** APIs such as `traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, and `queryWithReasoning` perform **typed relationship traversal** (e.g. goal → decision → risk → task) — graph traversal of rationale and provenance, not LLM chain-of-thought. They let you build ordered, relevant context for injection into prompts or training examples (see `src/types/context-store.ts`, `src/store/in-memory-store.ts`).
 - **Self-hosting:** The store is designed to run within your organization; no context need leave your perimeter for core retrieval or export (see `CONTEXT.md` constraint-005, `DECISIONS.md` decision-005).
 
 ---
@@ -65,7 +65,7 @@ The **context store** is the canonical source of that context: a typed graph of 
 - `store.getAcceptedNodes()` — all accepted nodes.
 - `store.traverseReasoningChain(startNodeId, options)` — follow relationship paths from a node (`src/store/in-memory-store.ts`).
 - `store.buildContextChain(startNodeId, options)` — build a progressive context chain.
-- `store.queryWithReasoning(options)` — run a query and attach reasoning chains to each result.
+- `store.queryWithReasoning(options)` — run a query and attach provenance chains (typed relationship paths) to each result.
 - `projectToMarkdown(store, options)` — deterministic Markdown of accepted nodes (`src/markdown/projection.ts`); can be used as a “full context document” for the model.
 
 **Implementation steps:**
@@ -87,7 +87,7 @@ The **context store** is the canonical source of that context: a typed graph of 
 
 **Data flow:**
 
-1. **Export:** Read all accepted nodes (and optionally reasoning chains) from the store; serialize to a canonical format (e.g. JSONL or instruction/response pairs).
+1. **Export:** Read all accepted nodes (and optionally provenance chains from decision/rationale traversal) from the store; serialize to a canonical format (e.g. JSONL or instruction/response pairs).
 2. **Training format:** Convert to the format your training stack expects (e.g. `{"instruction": "...", "output": "..."}` or completion pairs).
 3. **Train:** Run fine-tuning or instruction-tuning (e.g. Axolotl, LLaMA-Factory, or vendor API) on your infrastructure.
 4. **Deploy:** Use the fine-tuned model for inference; optionally still use RAG over the store for up-to-date context.
@@ -154,10 +154,35 @@ The **context store** is the canonical source of that context: a typed graph of 
 
 ### 3.2 Keeping enterprise IP inside the organization
 
-- **Store and retrieval:** The context store and all retrieval logic (query, reasoning chains, projection) run inside your infrastructure. No need to send raw context to an external service for “contextualization” — you do it by reading from the store and building prompts or export files.
+- **Store and retrieval:** The context store and all retrieval logic (query, decision/rationale traversal, projection) run inside your infrastructure. No need to send raw context to an external service for “contextualization” — you do it by reading from the store and building prompts or export files.
 - **Training:** If you export and fine-tune on your own cluster (or in a private cloud with strict access control), your context and the resulting model never leave your control. You can enforce “no context or derived data to external training APIs” as policy.
-- **Inference:** With a self-hosted or private-VPC LLM, inference stays in-house. If you use a vendor LLM, only the prompt (retrieved context + user message) is sent; you can minimize exposure by retrieving only what’s needed and by using vendor DPAs and data-residency options where available.
+- **Inference:** With a self-hosted or private-VPC LLM, inference stays in-house. If you use a **vendor LLM**, the prompt (retrieved context + user message) leaves your perimeter; you control what is included. Use the patterns in §3.3 to **minimize prompt leakage** and stay within compliance.
 - **Auditability:** The store keeps proposals, reviews, and acceptance history. You can record which context was used for which export or which retrieval (e.g. snapshot id, query params), so you can trace how a contextualized model or answer was produced.
+
+### 3.3 Minimize prompt leakage (vendor LLM): actionable patterns
+
+When the prompt is sent to a vendor LLM, every byte of context you include is exposed. The following patterns are **operational controls** you can implement on top of the store and retrieval layer to keep prompts minimal and within policy.
+
+| Pattern | What it does | How to implement |
+|--------|----------------|------------------|
+| **Topic-scoped retrieval defaults** | Never send "all accepted context" by default; always scope retrieval to the user's topic or task. | Default retrieval to `queryNodes({ status: ["accepted"], search: userTopic, limit: N })` or `queryWithReasoning({ query: { search: userTopic, status: ["accepted"], limit }, ... })`. Use a small default `limit` (e.g. 10–20 nodes). Only expand to full-project context when explicitly requested and allowed by policy. |
+| **Namespace / type allowlists** | Restrict which namespaces and node types may be included in prompts sent to the vendor. | Before building the prompt, filter retrieved nodes: allow only `namespace` in an allowlist (e.g. `["product", "public"]`) and only `type` in an allowlist (e.g. `["goal", "decision"]`); exclude `constraint` or `risk` if they are sensitive. Use `queryNodes({ status: ["accepted"], namespace: allowedNamespace, type: allowedTypes, ... })` or filter results after query. |
+| **Redaction rules** | Strip or mask sensitive fields or patterns before the prompt is sent. | After retrieval, apply redaction: e.g. remove or truncate `description` for nodes with a certain tag; mask PII or internal IDs in text; omit `metadata.createdBy` / `modifiedBy` if identity is sensitive. Implement as a pipeline step: `retrieved nodes → redact(nodes, rules) → format for prompt`. |
+| **Max context budget + sensitivity labels** | Cap total context size and forbid (or require extra approval for) high-sensitivity content in vendor prompts. | Define a **max context budget** (e.g. 4K or 8K tokens) for vendor LLM calls. Label nodes or namespaces by sensitivity (e.g. `public`, `internal`, `confidential`). Policy: when using a vendor LLM, never include nodes above a given sensitivity in the prompt, or require that the total prompt size stay under the budget and that high-sensitivity content be excluded or summarized. Enforce in the prompt builder: if the formatted context exceeds the budget or includes disallowed labels, truncate or filter before sending. |
+
+**Putting it together:** In your retrieval + prompt pipeline for a vendor LLM, apply in order: (1) **topic-scoped retrieval** with a small default limit, (2) **namespace/type allowlist** filter, (3) **redaction** pass, (4) **context budget** check and **sensitivity label** filter. Log what was included (e.g. node IDs, namespace, size) for audit. The store's `queryNodes` and `queryWithReasoning` already support `namespace`, `type`, `search`, and `limit`; the rest is policy and a thin orchestration layer.
+
+### 3.4 Prompt leakage controls: policy interface
+
+The patterns above are operational; security and compliance need an **operational hook** — a formal **policy layer** that makes prompt leakage controls auditable and enforceable. A minimal **policy interface** has three elements:
+
+| Element | Purpose | Operational hook |
+|--------|---------|-------------------|
+| **Sensitivity labels on nodes/namespaces** | Mark what may or may not leave the perimeter. | Attach a label to each node or namespace (e.g. `public`, `internal`, `confidential`). Labels can live in node metadata (e.g. `metadata.tags` or a dedicated `sensitivity` field) or in a separate policy store keyed by node ID/namespace. The retrieval pipeline consults labels before including a node in a vendor prompt: e.g. "for vendor LLM, only include nodes with sensitivity in [public, internal]." |
+| **Retrieval policy module with allow/deny rules** | Central place to enforce what can be sent where. | A thin **retrieval policy** module: input = (candidate nodes, destination e.g. "vendor_llm" | "internal_only"), output = (allowed nodes, optional deny reason per node). Rules can be config (e.g. allow only `namespace` in allowlist and `type` in allowlist for vendor; deny `type: risk` or `sensitivity: confidential` for vendor) or code. The pipeline calls this module after retrieval and before formatting the prompt; any node not allowed is dropped or redacted. |
+| **Logging of node IDs included in prompts** | Audit trail for what was sent. | For every prompt sent to a vendor LLM (and optionally for every retrieval used for a prompt), log **which node IDs** were included (and optionally namespace, type, sensitivity, token count). That gives compliance an audit trail: "this request included nodes g1, d1, t1" so you can verify that only allowed context was sent and investigate if a sensitive node ever appears. |
+
+**Interface in practice:** Before calling the vendor LLM, the pipeline (1) retrieves candidates, (2) runs them through the **retrieval policy** (allow/deny by sensitivity, namespace, type), (3) applies redaction and budget, (4) **logs** the list of node IDs (and metadata) included in the prompt, (5) sends the prompt. The store does not need to implement labels or policy; they live in a **policy layer** (config + thin module) that wraps retrieval and prompt building. This gives security readers a clear contract: sensitivity labels + policy module + logging = prompt leakage controls as a formal, auditable layer.
 
 ---
 
@@ -175,6 +200,6 @@ The **context store** is the canonical source of that context: a typed graph of 
 ## 5. References
 
 - **Whitepaper (contextualized enterprise AI model, enterprise IP benefits):** `docs/WHITEPAPER.md` — section 7 (Security, privacy, and governance) and **section 7.1 (Enterprise IP and contextualized AI models)**.
-- **Query and reasoning APIs:** `docs/AGENT_API.md`; `src/types/context-store.ts` (`queryNodes`, `traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, `queryWithReasoning`).
+- **Query and decision/rationale traversal APIs:** `docs/AGENT_API.md`; `src/types/context-store.ts` (`queryNodes`, `traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, `queryWithReasoning` — these perform typed relationship traversal / provenance chains, not LLM chain-of-thought).
 - **Projection:** `src/markdown/projection.ts` (`projectToMarkdown`).
 - **Self-hosting and IP:** `CONTEXT.md` (constraint-005), `DECISIONS.md` (decision-005).

@@ -16,6 +16,9 @@ Organizations do not have a stable substrate for **durable, reviewable solution 
 
 **Context-First Docs** proposes a different primitive: an **Agentic Collaboration Approval Layer (ACAL)** — a review‑mode store that behaves like Google Docs “Suggesting” mode, but with explicit structure and agent‑safe semantics.
 
+**The product wedge — why this is different from ADRs, Notion, or "docs + RAG":**  
+If you want to understand in one glance why this must exist, it is this combination: **(1) Truth semantics are enforceable** — the proposal/review/apply invariant: no direct edits to accepted context; all change flows through proposals → review → apply; truth is what has been explicitly accepted and applied. **(2) Agent-safe defaults** — reads default to **accepted-only**; agents do not see proposals or rejected content as truth unless they opt in, so they cannot treat drafts or rejected ideas as fact. **(3) Deterministic projection** — same context state yields the same Markdown; stable diffs, CI reproducibility. **(4) Provenance of rejected ideas** — rejected proposals and alternatives are preserved; you don't re-litigate because "what was considered" is first-class and queryable. That combination is the **"why this must exist"** kernel. ADRs are static snapshots; Notion has no enforceable truth semantics or accepted-only reads; "docs + RAG" has no proposal/review/apply invariant or deterministic projection. This system provides all four.
+
 **What is distinct:**
 
 - **Review-mode invariant**: no direct edits to accepted context; all change flows through proposals → review → apply (see `docs/REVIEW_MODE.md`).
@@ -60,7 +63,17 @@ Without explicit truth semantics, agents will:
 - miss constraints,
 - or conflate unrelated decisions.
 
-### 2.2 Why existing “tracked changes” systems do not solve this
+### 2.2 Benefits without agents
+
+Adoption often starts with humans. Even without AI agents, a structured, review-mode context layer delivers:
+
+- **Less decision churn** — Explicit accepted vs proposed vs rejected state reduces re-litigation of settled decisions.
+- **Faster onboarding** — New joiners get one place to see goals, decisions, risks, and rationale instead of hunting across chat, wikis, and tickets.
+- **Auditable rationale** — Why something was decided (and what was rejected) is first-class, queryable, and preserved with review history.
+- **Fewer rediscoveries of rejected alternatives** — Rejected ideas are stored and linked; teams don't repeatedly rediscover and re-debate the same options.
+- **Stable source of truth independent of ticket lifecycles** — Truth lives in the context graph; when Jira issues close or PRs merge, rationale and relationships remain in one place.
+
+### 2.3 Why existing “tracked changes” systems do not solve this
 
 Google Docs / Word solve human review ergonomics, but they are:
 
@@ -100,7 +113,36 @@ It is an **Agentic Collaboration Approval Layer (ACAL)** with:
 - deterministic projections into human-friendly formats (Markdown),
 - and agent-safe consumption via an explicit query API.
 
-### 4.1 Core invariant: review mode (Google Docs-style)
+### 4.1 Status model (node vs proposal)
+
+Readers often mix **node status** and **proposal status**; they refer to different entities and lifecycles. The following table and diagram fix the vocabulary early.
+
+| Entity | Statuses | Meaning |
+|--------|----------|---------|
+| **Proposal** | `open` \| `accepted` \| `rejected` \| `withdrawn` | Lifecycle of a *suggested change*. Only an **open** proposal can be reviewed; **accepted** proposals can be applied; **rejected** and **withdrawn** are terminal. |
+| **Node** | `accepted` \| `proposed` \| `rejected` \| `superseded` | Lifecycle of a *piece of context* in the graph. **Accepted** = current truth (default for query). **Proposed** = from an open proposal, not yet applied. **Rejected** / **superseded** = provenance (rejected or replaced). |
+
+**Allowed transitions:**
+
+- **Proposal:** `open` → `accepted` (via `submitReview` with action accept), `open` → `rejected` (via `submitReview` with action reject), `open` → `withdrawn` (via `updateProposal`; author withdraws). The store does not allow setting `accepted` or `rejected` via `updateProposal`; only `submitReview` changes those.
+- **Node:** Updated only when an **accepted** proposal is **applied**. New or updated nodes from that proposal get the status specified by the applied operations (e.g. create → node enters as `accepted`; status-change can set `accepted` / `proposed` / `rejected` / `superseded`). Query API defaults to `status: ["accepted"]` so agents see only current truth unless they explicitly request proposed/rejected/superseded. **Node status in proposal operations is the status that will be written on apply; until apply, it is not part of accepted truth.**
+
+```mermaid
+flowchart LR
+  subgraph Proposal
+    P_open[open]
+    P_accepted[accepted]
+    P_rejected[rejected]
+    P_withdrawn[withdrawn]
+  end
+  P_open -->|submitReview accept| P_accepted
+  P_open -->|submitReview reject| P_rejected
+  P_open -->|updateProposal withdraw| P_withdrawn
+```
+
+*(Node status changes only when a proposal is applied; no direct edits to accepted nodes.)*
+
+### 4.2 Core invariant: review mode (Google Docs-style)
 
 The solution enforces (implemented in `InMemoryStore`; see `docs/REVIEW_MODE.md`):
 
@@ -111,7 +153,7 @@ The solution enforces (implemented in `InMemoryStore`; see `docs/REVIEW_MODE.md`
 
 This yields a strong contract: if a node is accepted, it is accepted because an explicit review accepted a proposal and that proposal was applied.
 
-### 4.2 Canonical model: a typed context graph
+### 4.3 Canonical model: a typed context graph
 
 Context is modeled as nodes and relationships, not pages and paragraphs.
 
@@ -124,24 +166,75 @@ Nodes represent semantic concepts such as:
 - risks and mitigations
 - questions and answers
 
-Relationships are typed (e.g., `implements`, `depends-on`, `blocks`, `references`, `parent-child`) so the system can support robust traversal and reasoning chains.
+Relationships are typed (e.g., `implements`, `depends-on`, `blocks`, `references`, `parent-child`) so the system can support robust **decision/rationale traversal** (provenance chains: goal → decision → risk → task) — typed relationship traversal, not LLM chain-of-thought.
 
-### 4.3 Markdown is a projection, not truth
+### 4.4 Markdown is a projection, not truth
 
-Markdown is treated as a **projection format**:
+Markdown is a **projection format** (convenient for humans, compatible with repo habits, easy to review) and **ctx blocks** are an **authoring surface** — but Markdown is not the canonical store. The contract is explicit: **(1)** Edits inside ctx blocks are **suggestions**; they are captured as **proposals** and enter truth only after review and apply. **(2)** Projection from the store back into Markdown rewrites **only system-owned blocks** (the ctx blocks the system manages) **deterministically**; same context state yields the same output. **(3)** Prose outside ctx blocks (headings, paragraphs, lists between blocks) remains **human narrative** and is not canonical — the system does not claim it as truth, does not overwrite it on projection, and does not treat it as part of the graph. So: ctx blocks = authoring that flows into proposals and (when applied) into truth; projection = deterministic overwrite of those blocks only; everything else in the file stays as-is.
 
-- convenient for humans,
-- compatible with existing repo habits,
-- and easy to review in tooling that understands it.
+#### 4.4.1 Example: prose + two ctx blocks, before/after projection
 
-But Markdown is not the canonical store. In the final system:
+A concrete snippet shows how only the ctx blocks change when the store is projected back; prose and unchanged blocks stay as-is.
 
-- Markdown edits are treated as **suggestions** and converted to proposals (when `ctx` blocks are used).
-- Accepted truth is projected back into Markdown deterministically (only updating system-owned blocks).
+**1. Markdown file (before)** — prose plus two ctx blocks:
+
+```markdown
+# Project Alpha
+
+This section records our goals and the decision that followed. *(Human narrative; not in the graph.)*
+
+~~~ctx
+type: goal
+id: g1
+status: accepted
+title: Ship a small demo
+---
+Ship a minimal end-to-end demo: goal → decision → task.
+~~~
+
+~~~ctx
+type: decision
+id: d1
+status: accepted
+title: Use single create proposal for seed
+---
+We seed the graph with one accepted proposal containing create operations. Rationale: simplest way to get deterministic state.
+~~~
+```
+
+**2. A proposal** updates the decision node `d1`: change `description` (and derived `content`) to add “and canonical hello-world for auditability.” The proposal is created, reviewed (accept), and applied. The store now holds the updated description for `d1`; `g1` is unchanged.
+
+**3. Regenerated Markdown (after projection)** — e.g. via `mergeMarkdownWithContext(markdown, store)` or equivalent: only the **d1** ctx block is rewritten; the heading, the narrative paragraph, and the **g1** block are **unchanged**.
+
+```markdown
+# Project Alpha
+
+This section records our goals and the decision that followed. *(Human narrative; not in the graph.)*
+
+~~~ctx
+type: goal
+id: g1
+status: accepted
+title: Ship a small demo
+---
+Ship a minimal end-to-end demo: goal → decision → task.
+~~~
+
+~~~ctx
+type: decision
+id: d1
+status: accepted
+title: Use single create proposal for seed
+---
+We seed the graph with one accepted proposal containing create operations. Rationale: simplest path to deterministic state and canonical hello-world for auditability.
+~~~
+```
+
+**Takeaway:** Prose and the goal block did not change. Only the decision block (the one whose node was updated in the store) was overwritten deterministically. That is the projection contract in practice.
 
 ---
 
-### 4.4 Components
+### 4.5 Components
 
 - **ContextStore (canonical truth)**: stores nodes, proposals, reviews, issues, and relationships.
 - **Clients**: VS Code/Cursor extension, web UI, CLI, agents. Clients capture changes and submit proposals.
@@ -149,7 +242,7 @@ But Markdown is not the canonical store. In the final system:
 - **Projection layer**: deterministic projection to Markdown (and other views).
 - **Reconciliation layer**: conflict detection, staleness checks, and merging strategies for parallel work.
 
-### 4.5 End-to-end lifecycle (proposal → review → apply → projection)
+### 4.6 End-to-end lifecycle (proposal → review → apply → projection)
 
 ```mermaid
 flowchart TD
@@ -169,7 +262,9 @@ flowchart TD
   project --> agentViews[AgentViews]
 ```
 
-### 4.6 Data model: node text fields (human-authored vs derived)
+For a **concrete end-to-end walkthrough** with starting state, proposal JSON, review comments anchored to nodes, accept/apply, and before/after Markdown projection, see [Hello World scenario](HELLO_WORLD_SCENARIO.md). The **hello-world** scenario in the playground (`npm run playground` → Scenario Runner) runs this flow and returns the artifacts.
+
+### 4.7 Data model: node text fields (human-authored vs derived)
 
 To support both human authoring and agent-safe retrieval, nodes separate:
 
@@ -187,6 +282,8 @@ This prevents silent drift and reduces the chance that a search index becomes tr
 ---
 
 ## 5. Core differentiators (what you don't get from alternatives)
+
+The **product wedge** (why this must exist) is the combination of four properties that ADRs, Notion, and "docs + RAG" do not provide together: enforceable truth semantics, agent-safe defaults, deterministic projection, and provenance of rejected ideas. This section expands on those and related differentiators.
 
 - **Review-mode invariant**: Accepted context cannot be directly edited; all change is proposals → review → apply (see `docs/REVIEW_MODE.md`, `src/store/in-memory-store.ts`: `updateProposal` vs `submitReview`).
 - **Canonical structured truth vs Markdown-as-truth**: The canonical model is a typed graph of nodes and relationships; Markdown is a projection only (see `src/types/node.ts`, `src/markdown/projection.ts`).
@@ -296,6 +393,27 @@ Where safe, non-overlapping changes are merged:
 
 In the normalized model, `description` is the primary textual field; `content` is derived and should not be treated as the merge target.
 
+#### 5.3.4 Examples: conflict vs merge vs staleness
+
+Without concrete examples, "conflicts and merges" can sound like "merge wars 2.0." The following three cases show how the system classifies and what you get.
+
+**A. Two proposals edit the same node field → conflict**
+
+- **Setup:** Node `d1` (decision). Proposal **P1** updates `d1.decision` to "Extract core store modules." Proposal **P2** updates `d1.decision` to "Keep everything in InMemoryStore." Both touch the **same node** and the **same field**.
+- **Outcome:** `detectConflicts(P1)` reports a conflict with P2 (e.g. `conflicts: [{ proposals: [P1, P2], conflictingNodes: [d1], conflictingFields: { d1: ["decision"] }, severity: "field" }]`). `mergeProposals([P1, P2])` returns a merge result with **conflicts** (e.g. `conflicts: [{ field: "decision", nodeId: d1, proposal1Value: "...", proposal2Value: "..." }]`) — the field needs manual resolution. So: not line-diff merge wars; the system **classifies** "same field, two values" and surfaces it for human choice (accept one, combine, or reject both).
+
+**B. Two proposals edit different fields → mergeable**
+
+- **Setup:** Same node `d1`. Proposal **P1** updates `d1.decision` (short summary). Proposal **P2** updates `d1.rationale` (reasoning). **Different fields** on the same node.
+- **Outcome:** `mergeProposals([P1, P2])` can **auto-merge**: `merged` or `autoMerged` contain both changes; `conflicts` is empty. Both edits apply to different fields, so there is no overlap. The workflow can produce a single merged proposal (or apply one then the other) without manual conflict resolution. So: parallel edits on different fields are **not** treated as conflicts.
+
+**C. Stale baseVersion → requires rebase**
+
+- **Setup:** Node `d1` in the store has `metadata.version: 3`. Proposal **P** was authored when `d1` was at version 2 (`metadata.baseVersions: { d1: 2 }`). In the meantime, another proposal was applied, so `d1` is now version 3.
+- **Outcome:** `isProposalStale(P)` returns **true**. The store (or the apply workflow) can block apply until P is updated: the author (or a rebase step) must refresh P's view of `d1` (e.g. re-fetch current node, adjust operations or baseVersions, and optionally merge with the intervening change). So: **optimistic locking** — stale proposals are detected and must be rebased/merged through an explicit workflow, not silently overwriting.
+
+**Takeaway:** Same field → conflict (human resolution). Different fields → mergeable (auto-merge). Stale baseVersion → rebase required. This is why the model avoids "merge wars": conflicts are **classified** at proposal/field level, merges are **field-level** when there is no overlap, and staleness is **explicit** (rebase, don't overwrite). For a **full canonical walkthrough** in the same style as Hello World (starting state, proposal JSON, detectConflicts/mergeProposals/isProposalStale outcomes, and how to reproduce), see `docs/CONFLICT_AND_MERGE_SCENARIO.md`. Run the **conflicts-and-merge** and **stale-proposal** scenarios in the playground (`npm run playground` → Scenario Runner) to see these outcomes. See also `src/store/core/conflicts.ts`, `docs/RECONCILIATION_STRATEGIES.md`.
+
 ---
 
 ### 5.4 Agent-safe consumption (and why “RAG alone” is insufficient)
@@ -318,7 +436,7 @@ Vector search excels at “find semantically similar text.”
 It does not provide:
 
 - explicit acceptance status,
-- deterministic reasoning chains,
+- deterministic provenance chains (typed relationship paths),
 - provenance of rejected ideas,
 - or policy enforcement for writes.
 
@@ -487,7 +605,7 @@ In the target-state system, an agent can emit one proposal containing multiple o
 Notes on the structure:
 
 - The agent **does not edit accepted truth**; it emits `status: open` proposals with nodes marked `status: proposed` until reviewed.
-- The nodes are **linked** immediately so reviewers can evaluate the full chain of reasoning (goal → decision → task, plus blocking risks and open questions).
+- The nodes are **linked** immediately so reviewers can evaluate the full provenance chain (typed relationship path: goal → decision → task, plus blocking risks and open questions).
 - Additional proposals can be generated automatically as new information arrives (e.g., after a reviewer rejects an alternative or requests more detail).
 
 #### 7.3.4 Auto-generating follow-on context (questions, risks, constraints)
@@ -897,7 +1015,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 **Distinguishing elements**:
 - a single canonical context layer with explicit truth semantics
 - review mode as an invariant, not a convention
-- structured relationships enabling reasoning chains
+- structured relationships enabling provenance chains (decision/rationale traversal)
 
 ### 8.2 Git + Markdown docs/ADRs
 
@@ -976,7 +1094,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 
 **Distinguishing elements**:
 - deterministic truth semantics + review workflow
-- reasoning chains grounded in relationships, not embeddings
+- provenance chains (typed relationship paths) grounded in relationships, not embeddings
 - RAG can complement discovery; it should not replace a canonical truth layer
 
 ### 8.7 Agent memory tools
@@ -1041,10 +1159,62 @@ Enterprises hold valuable IP in goals, decisions, constraints, risks, and ration
 **Implementation paths (detailed in `docs/CONTEXTUALIZED_AI_MODEL.md`):**
 
 - **RAG at inference:** Retrieve accepted context from the store (and optionally a self-hosted vector index built from the store); inject into the model’s context window on each request. Context and retrieval stay in-house; inference in-house if the LLM is self-hosted.
-- **Export for fine-tuning:** Export accepted nodes (and optionally reasoning chains) to a dataset; fine-tune or instruction-tune a model on your infrastructure. Fine-tuned model and training data remain under your control.
+- **Export for fine-tuning:** Export accepted nodes (and optionally provenance chains from decision/rationale traversal) to a dataset; fine-tune or instruction-tune a model on your infrastructure. Fine-tuned model and training data remain under your control.
 - **Structured prompting:** Build a context document from the store (e.g. via `projectToMarkdown` or `queryWithReasoning`) and feed it as system or user context. No training; contextualization is the prompt. All assembly from your store inside your infra.
 
 **Summary:** The context store is the substrate for contextualized AI that respects enterprise IP: retrieval and export run against your store on your infrastructure; training and inference can stay on-prem or in a private cloud so sensitive context and derived models never leave your control. See `docs/CONTEXTUALIZED_AI_MODEL.md` for data flows, APIs, and implementation steps.
+
+### 7.2 Threat model (lite)
+
+Security teams often ask: who can do what, and what is the blast radius? This section summarizes the **threat model** and how mitigations map to **now** vs **later** (see policy roadmap table below).
+
+**Threat actors and assumptions:**
+
+| Threat | Description | Today | With roadmap |
+|--------|-------------|--------|--------------|
+| **Malicious proposer** | Attacker creates proposals (spam, poisoning, or social engineering) to inject bad context or exhaust reviewers. | Any client can create proposals; no auth or rate limits. | Auth at API/store boundary; optional rate limits and abuse detection. |
+| **Compromised agent** | Agent credentials or prompt injection used to propose or accept changes. | Same as malicious proposer; any client can also submit reviews and apply. | Agents use least-privilege identities; only designated approvers can accept; apply gated by policy. |
+| **Insider risk** | Trusted user (or stolen identity) accepts bad proposals or applies without proper review. | Any client can accept and apply; no separation of duties. | Role-based permissions; required approvers per node type; audit trail of who accepted/applied. |
+
+**Proposal spam and social engineering:** Today there is **no built-in rate limiting or approval gating**. Mitigations are operational (e.g. deploy the store behind an API that enforces auth and rate limits) and, on the roadmap: **auth enforcement**, **required approvers**, and optional **quorum/multi-approval** so a single account cannot accept high-impact changes. Review-mode semantics already force all changes through proposals, so nothing becomes truth without an explicit accept + apply; the gap is *who* can accept and *how many* approvals are required.
+
+**High-impact node types (architecture decisions, policy constraints):** The data model and proposal metadata support **per-node-type approvers** and **required approvers** (e.g. `Proposal.metadata.requiredApprovers`); see `DECISIONS.md` decision-011. **Today these are not enforced** — they are hints for UI and future policy. On the roadmap: **policy-as-code** and **approval gates** so that, for example, nodes of type `decision` or `constraint` in a “policy” namespace require designated approvers or multi-approval before apply.
+
+**Audit export, retention, and tamper-evidence:** Proposals, reviews, and acceptance history are **stored in the store** (in-memory today; file-based or MongoDB later). **Audit export** (e.g. “export all proposals/reviews for date range” in a standard format) is a **roadmap** feature. **Retention** is backend-dependent: with a **file-based backend** (planned), history lives in versioned files (e.g. Git); retention is whatever your repo/backup policy is. **Tamper-evidence**: with file-based storage, Git commit history and optional signing give you integrity and non-repudiation; the application layer does not today add cryptographic attestations — that is a possible future extension (e.g. signed audit log).
+
+### 7.3 Policy roadmap: mitigations now vs later
+
+| Mitigation | Now | Later (roadmap) |
+|------------|-----|------------------|
+| **Self-hosting / IP control** | Design constraint; in-memory store runs in your infra. | File-based (Git-friendly) and MongoDB backends; all data stays in your perimeter. |
+| **No direct edits to truth** | Enforced: all writes are proposals; only review + apply change truth. | Same. |
+| **Provenance (rejected proposals kept)** | Implemented: rejected proposals and review history preserved. | Same; exportable for audit. |
+| **Who can propose** | Not enforced; any client can create proposals. | Auth at API/store; contributor role; optional rate limits. |
+| **Who can accept/review** | Not enforced; any client can submit review (accept/reject) and apply. | Approver role; only designated approvers can accept; apply gated by policy. |
+| **Proposal spam / abuse** | No rate limiting or abuse detection. | Optional rate limits, abuse detection; social engineering mitigated by required approvers and separation of duties. |
+| **High-impact node types** | Metadata only (e.g. requiredApprovers); not enforced. | Policy-as-code; required approvers per node type/namespace; quorum/multi-approval. |
+| **Separation of duties** | Not enforced; one identity can propose, accept, and apply. | Configurable: proposer ≠ approver; multi-approval for sensitive types. |
+| **Audit export** | Not implemented; data is in store but no standard export format. | Audit export (format TBD: e.g. JSON/CSV with proposals, reviews, apply events); retention and retention policies. |
+| **File-based tamper-evidence** | N/A (in-memory only). | File backend: Git history + optional signing; optional signed audit log. |
+| **Attestations / evidence** | Not implemented. | Optional attestations (e.g. “approved after reading evidence X”) for compliance. |
+
+### 7.4 Minimum secure deployment (external wrapper today)
+
+The threat model makes it explicit: today, **any client** that can reach the store can create proposals, submit reviews (accept/reject), and apply. So for enterprise readers the question is sharp: **if anyone can accept/apply, how is this safer than docs?** The answer is that the *store* does not enforce identity or roles yet — but you can run it safely by putting enforcement in an **external wrapper**. A **minimum secure deployment** looks like this:
+
+1. **Deploy the store behind an API gateway.** Do not expose the store (or the API that wraps it) directly to clients. All traffic goes through a gateway (or BFF) that authenticates and authorizes every request.
+2. **Gate review/apply on identity.** At the gateway (or in a thin API layer in front of the store): allow `submitReview` and `applyProposal` only for identities that you treat as **approvers** (e.g. a dedicated role or group from SSO). All other callers can be allowed to read (query, getProposal, getReviewHistory) and to create/update proposals (createProposal, updateProposal, addProposalComment), but **not** to submitReview(accept) or applyProposal. That gives you separation of duties today: proposers and reviewers are different principals, enforced at the perimeter.
+3. **Use SSO / JWT claims.** Authenticate users (and agents) with your existing SSO; pass identity and roles in JWT claims (or equivalent). The gateway or API layer checks claims before forwarding to the store (e.g. "approver" or "context-approvers" group required for POST /review/accept and POST /apply). The store remains unaware of identity; it just executes. Audit logs at the gateway record who called what, so you have an audit trail of who accepted and who applied.
+
+**Operational posture today (reference implementation).** To pass a security review, the following is accurate as of the current codebase:
+
+- **Endpoints (reference implementation).** The playground server (`src/playground/server.ts`) exposes a local HTTP API. The ACAL-relevant endpoints are: **read** — `GET /api/acal/summary`, `GET /api/acal/nodes`, `GET /api/acal/node`, `GET /api/acal/related`, `GET /api/acal/proposals`, `GET /api/acal/proposal`, `GET /api/acal/reviews`, `GET /api/acal/conflicts`, `GET /api/acal/stale`, `GET /api/acal/comments`, `GET /api/acal/commentsTree`, `GET /api/acal/projection/markdown`, `GET /api/acal/projection/preview`, `GET /api/acal/projection/currentForProposal`, `GET /api/acal/projection/previewForProposal`; **write (proposer)** — `POST /api/acal/proposeUpdate`, `POST /api/acal/comment`; **write (approver-only)** — `POST /api/acal/review`, `POST /api/acal/apply`. The latter two are the only ones that change truth (review sets proposal status; apply writes to the accepted graph). There is also `POST /api/acal/reset` (dev-only; should be disabled or restricted in a secure deployment). No authentication or authorization is enforced in the reference server; it is local/demo only.
+
+- **Audit logging today.** **Store:** Proposals and reviews carry metadata (`createdBy`, `modifiedAt`, `reviewer`, `reviewedAt`, etc.) and review history is persisted and queryable via `getProposal` / `getReviewHistory` — so you have *provenance* (who created, who reviewed, when). There is no dedicated audit log stream or standard export format; data is in the store. **Gateway:** In a minimum secure deployment, the gateway (or BFF) in front of the store is where you get *request-level* audit: identity (from JWT), method, path, timestamp, and optionally response status. That gives you "who called submitReview/apply and when" for compliance; the store gives you "what was accepted/rejected and by whom" as structured data.
+
+- **Approver-only apply in practice.** At the gateway, configure: (1) Authenticate every request (e.g. validate JWT, reject unauthenticated). (2) For `POST /api/acal/review` and `POST /api/acal/apply`, allow only if the request identity has an approver claim (e.g. `role: "approver"` or group `context-approvers` in JWT). Return 403 for others. (3) Allow all other ACAL endpoints (reads + `POST /api/acal/proposeUpdate`, `POST /api/acal/comment`) for any authenticated user, or further restrict by role if desired. (4) Do not expose `POST /api/acal/reset` in production, or restrict it to a separate admin endpoint. Result: proposers and commenters can create/update proposals and comment; only approvers can accept/reject and apply, so separation of duties is enforced at the perimeter.
+
+So: **today**, enforcement is "external wrapper" — gateway + claim-based gating on review/apply. The store still gives you review-mode semantics (no direct edits to truth; proposals → review → apply), provenance (rejected proposals kept), and a single graph of truth; the wrapper adds *who* can accept/apply. When auth/roles move into the store or API layer (roadmap), the same policy (approvers-only for review/apply) can be enforced inside the stack; the minimum secure deployment pattern remains valid.
 
 ---
 
@@ -1052,7 +1222,7 @@ Enterprises hold valuable IP in goals, decisions, constraints, risks, and ration
 
 **Implemented now** (evidence in repo):
 
-- **In-memory store** (`InMemoryStore`, `src/store/in-memory-store.ts`): full proposal/review/apply lifecycle, query with accepted-only default, conflict detection, optimistic locking (base versions), merge proposals, reasoning-chain traversal.
+- **In-memory store** (`InMemoryStore`, `src/store/in-memory-store.ts`): full proposal/review/apply lifecycle, query with accepted-only default, conflict detection, optimistic locking (base versions), merge proposals, decision/rationale traversal (provenance chains).
 - **Core store logic** (`src/store/core/`): `apply-proposal.ts`, `query-nodes.ts`, `graph.ts`, `conflicts.ts`, `node-key.ts`, `updates.ts` — provider-agnostic behavior used by the in-memory store.
 - **Proposals and operations** (`src/types/proposal.ts`, `src/store/core/apply-proposal.ts`): create, update, status-change, insert/delete, move; application to node map.
 - **Review-mode enforcement**: `updateProposal` cannot set `status: "accepted" | "rejected"`; only `submitReview` and `applyProposal` (see `docs/REVIEW_MODE.md`, `src/store/in-memory-store.ts`).

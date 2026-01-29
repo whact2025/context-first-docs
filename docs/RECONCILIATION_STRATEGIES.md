@@ -1,6 +1,6 @@
 # Reconciliation Strategies for Concurrent Work
 
-This document outlines reconciliation options for handling conflicts when multiple people (and/or agents) propose changes to the same part of the shared solution model.
+This document outlines reconciliation options for handling conflicts when multiple people (and/or agents) propose changes to the same part of the shared solution model. For a **canonical day-in-the-life walkthrough** (starting state, proposal JSON, detectConflicts/mergeProposals/isProposalStale outcomes), see **`docs/CONFLICT_AND_MERGE_SCENARIO.md`**.
 
 ## Problem Statement
 
