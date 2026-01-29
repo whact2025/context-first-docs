@@ -1,10 +1,10 @@
 # Examples
 
-This directory contains examples of using context-first-docs.
+This directory contains examples of using TruthLayer.
 
 ## Example Project
 
-See [`example-project/`](example-project/) for a simple example of how to structure your project documentation using context-first-docs.
+See [`example-project/`](example-project/) for a simple example of how to structure your project documentation using TruthLayer.
 
 The example includes:
 - `CONTEXT.md` - Project context and goals

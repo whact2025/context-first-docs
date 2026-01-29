@@ -5,7 +5,7 @@
   "jest.autoRun": "off",
   "jest.showCoverageOnLoad": false,
   // Use an explicit absolute path to avoid cwd resolution bugs in Test Explorer / vscode-jest
-  "jest.rootPath": "c:\\\\Users\\\\richf\\\\context-first-docs",
+  "jest.rootPath": "c:\\\\Users\\\\richf\\\\truth-layer",
   "jest.testExplorer": {
     "enabled": true,
     "showCoverageOnLoad": false

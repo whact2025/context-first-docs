@@ -29,7 +29,7 @@ Node.js is required to run this project. npm (Node Package Manager) comes bundle
 4. **Install Project Dependencies**
    - Navigate to the project directory:
      ```powershell
-     cd c:\Users\richf\context-first-docs
+     cd c:\Users\richf\truth-layer
      ```
    - Run the install script:
      ```powershell

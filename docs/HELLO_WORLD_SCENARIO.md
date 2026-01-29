@@ -1,6 +1,6 @@
 # Hello World: End-to-End Day in the Life
 
-This is the **canonical walkthrough** for Context-First Docs: one coherent path from accepted graph → change request → proposal → review (with comments anchored to nodes) → accept/apply → regenerated Markdown. All artifacts below are real shapes used by the system; you can reproduce them by running the **`hello-world`** scenario in the playground (`npm run playground` → Scenario Runner → **hello-world**).
+This is the **canonical walkthrough** for TruthLayer: one coherent path from accepted graph → change request → proposal → review (with comments anchored to nodes) → accept/apply → regenerated Markdown. All artifacts below are real shapes used by the system; you can reproduce them by running the **`hello-world`** scenario in the playground (`npm run playground` → Scenario Runner → **hello-world**).
 
 ## Flow overview
 

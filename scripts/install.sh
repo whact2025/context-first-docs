@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installation script for context-first-docs (Bash)
+# Installation script for TruthLayer (Bash)
 # Manages all dependencies and verifies the installation
 
 set -e  # Exit on error
@@ -60,7 +60,7 @@ log_info() {
 }
 
 echo -e "\n${BOLD}${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}${CYAN}║${NC}  ${BOLD}Context-First Docs - Installation Script${NC}              ${BOLD}${CYAN}║${NC}"
+echo -e "${BOLD}${CYAN}║${NC}  ${BOLD}TruthLayer - Installation Script${NC}              ${BOLD}${CYAN}║${NC}"
 echo -e "${BOLD}${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
 
 # Step 1: Check Node.js version

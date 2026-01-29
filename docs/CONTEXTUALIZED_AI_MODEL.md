@@ -19,6 +19,17 @@ This document describes **how the context store is used to create a contextualiz
 
 Even at v0, the **prompt-leakage policy layer** is the formal hook security and compliance can point to: labels + policy module + logging = auditable, enforceable control over prompt leakage. See §3.3 (operational controls) and §3.4 (policy interface) below.
 
+### Implementation language: TypeScript and Python (each where best suited)
+
+Use **TypeScript** for store-facing orchestration: retrieval that calls the store, prompt builder, export pipeline that reads from the store, and the prompt-leakage policy layer (e.g. `src/contextualize/`). Use **Python** where it is best suited: **embeddings**, **vector index** (build and query), and **fine-tuning pipelines** (training stacks, format mappers, training runs). The ML ecosystem (embedding models, vector DBs, Axolotl/LLaMA-Factory, etc.) is Python-native; the Contextualize design uses Python for those parts by default, not as an optional add-on.
+
+**Integration contract:**
+
+- **Store remains source of truth.** Python does not replace the store; it consumes data produced by or from the store.
+- **Data in:** Accepted context is supplied to Python via **export** (e.g. JSON/JSONL from the TS export pipeline or from a small HTTP API that calls `queryNodes({ status: ["accepted"] })` and returns nodes). No direct store dependency in Python required.
+- **Data out:** Python returns embeddings, index updates, or training artifacts; the TS side (or your orchestration) uses them (e.g. populate a vector DB, trigger retrieval).
+- **Policy:** The prompt-leakage policy layer (labels, allow/deny, logging) stays in one place: either in TS before data is sent to Python, or in a thin Python wrapper that enforces the same rules. Document which component applies policy so auditability is clear.
+
 ---
 
 ## Contextualized enterprise AI model: how enterprise IP benefits
@@ -90,7 +101,7 @@ The **context store** is the canonical source of that context: a typed graph of 
 | 1 | **Retrieval module** | New module (e.g. `src/contextualize/retrieve.ts`). Input: query string and optional `startNodeId`. Use `queryNodes({ status: ["accepted"], search: query, limit })` and/or `traverseReasoningChain(startNodeId, ...)`. Output: list of nodes or a single formatted string. |
 | 2 | **Prompt builder** | New module (e.g. `src/contextualize/prompt.ts`). Takes retrieved context string + user message; returns system + user messages (or a single prompt) for the LLM. |
 | 3 | **LLM integration** | In API or playground: on each request, call retrieve → prompt builder → call LLM. All runs inside your infra if the store and LLM are self-hosted. |
-| 4 | **(Optional) Vector index** | Periodically (or on write): take accepted nodes’ `content` (or title+description), compute embeddings, store in a self-hosted vector DB. At inference: embed query, retrieve top-k, then optionally expand with `traverseReasoningChain` from those nodes. Keeps retrieval scalable while still using the store as the source of truth. |
+| 4 | **Vector index** | **Python** (best suited): periodically (or on write) take accepted nodes’ `content` (or title+description), compute embeddings, store in a self-hosted vector DB. At inference: embed query, retrieve top-k; TS (or Python) then optionally expands with `traverseReasoningChain` from those nodes. Data in from TS export/API; store remains source of truth. |
 
 **Enterprise IP:** Context never leaves your perimeter. Retrieval and prompt construction run against your store; if the LLM is also self-hosted or in a private VPC, the full pipeline stays in-house.
 
@@ -118,9 +129,9 @@ The **context store** is the canonical source of that context: a typed graph of 
 | Step | Description | Where / how |
 |------|-------------|-------------|
 | 1 | **Export pipeline** | New module (e.g. `src/contextualize/export.ts`). Call `getAcceptedNodes()` (or paginate with `queryNodes`). For each node, output type, id, title, description, relationship targets. Optionally for each decision call `followDecisionReasoning` and export one example per decision (context + summary). Write JSONL or JSON. |
-| 2 | **Training format** | Map exported records to instruction/response or completion format. E.g. “Given this project context: [nodes]. What is the decision on X?” → “Decision: … Rationale: …”. Preserve only accepted status so the model never sees drafts/rejected as truth. |
+| 2 | **Training format** | **Python** (best suited): map exported records to instruction/response or completion format. E.g. “Given this project context: [nodes]. What is the decision on X?” → “Decision: … Rationale: …”. Preserve only accepted status so the model never sees drafts/rejected as truth. |
 | 3 | **Versioning** | Attach metadata (e.g. export timestamp, store snapshot id if available) so you know which context version a fine-tuned model was trained on. Enables reproducibility and audit. |
-| 4 | **Train** | Run training on your infra (e.g. on-prem GPU cluster or private cloud). No need to send raw context to a third-party training API if you keep training in-house. |
+| 4 | **Train** | **Python** (best suited): run training on your infra (e.g. Axolotl, LLaMA-Factory, on-prem GPU cluster or private cloud). No need to send raw context to a third-party training API if you keep training in-house. |
 
 **Enterprise IP:** Export runs inside your perimeter. Training can be fully on-prem or in a private cloud; fine-tuned weights and datasets remain under your control. You can enforce that no context or derived data is sent to external training services.
 

@@ -1,6 +1,6 @@
 # Documentation
 
-This folder contains the main documentation for Context-First Docs (ACAL).
+This folder contains the main documentation for TruthLayer (ACAL).
 
 ## Canonical scenario files (include in any doc deliverable)
 

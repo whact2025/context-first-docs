@@ -1,6 +1,6 @@
 # Development Plan
 
-This document tracks the development roadmap and milestones for context-first-docs.
+This document tracks the development roadmap and milestones for TruthLayer.
 
 - **UI**: See `docs/UI_SPEC.md` for the clean-slate UI specification aligned to ACAL.
 - **Canonical walkthroughs**: [Hello World](docs/HELLO_WORLD_SCENARIO.md) (proposal → review → apply → Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, merge, staleness) — run via playground Scenario Runner (`npm run playground`).
@@ -76,6 +76,8 @@ status: accepted
 **Phase 5: Contextualize module (contextualized AI)**
 
 Implement the **Contextualize** module (first-class component) as described in `docs/CONTEXTUALIZED_AI_MODEL.md`: retrieval, prompt building, export for fine-tuning, optional vector index; **prompt-leakage policy layer** (policy-as-code: labels, retrieval policy module, logging). Store remains substrate; enterprise IP stays in-house. See also whitepaper §7.1, decision-025, risk-012.
+
+**Implementation language:** TypeScript for store-facing pieces (retrieval orchestration, prompt builder, export pipeline, policy layer in `src/contextualize/*`). **Python** for the parts where it is best suited: embeddings, vector index (build/query), and fine-tuning pipelines (training stacks, format mappers). Integration contract (store as source of truth, data in/out via export or API) in `docs/CONTEXTUALIZED_AI_MODEL.md` (§ Position in architecture → Implementation language).
 
 1. **Retrieval module** — New module (e.g. `src/contextualize/retrieve.ts`). Input: query string and optional `startNodeId`. Use `queryNodes({ status: ["accepted"], search: query, limit })` and/or `traverseReasoningChain(startNodeId, ...)`. Output: list of nodes or a single formatted string. (Path A: RAG at inference.)
 2. **Prompt builder** — New module (e.g. `src/contextualize/prompt.ts`). Takes retrieved context string + user message; returns system + user messages (or a single prompt) for the LLM. (Path A, C.)

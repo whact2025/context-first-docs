@@ -1,6 +1,8 @@
 # Architecture Overview
 
-This system is an **Agentic Collaboration Approval Layer (ACAL)**: it lets humans and AI agents collaborate on a **solution model** (a typed graph of goals/decisions/constraints/tasks/risks/questions) and converge on **approved truth** via review-mode proposals.
+**TruthLayer** is an **Agentic Collaboration Approval Layer (ACAL)**: it lets humans and AI agents collaborate on a **solution model** (a typed graph of goals/decisions/constraints/tasks/risks/questions) and converge on **approved truth** via review-mode proposals.
+
+**For builders:** Canonical walkthroughs — [Hello World](HELLO_WORLD_SCENARIO.md) (proposal → review → apply → Markdown), [Conflict and Merge](CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, field-level merge, staleness). Full design and product wedge: `docs/WHITEPAPER.md`. Status model (node vs proposal): whitepaper §4.1. Security posture (production today, enterprise roadmap): whitepaper §7.4, §7.5.
 
 ## System Components
 
@@ -23,7 +25,7 @@ Key principles:
 - Changes are proposals, not direct mutations
 - Status is explicit (accepted, proposed, rejected, superseded)
 - Nodes support normalized text fields: optional `title` (short label), optional `description` (canonical long-form Markdown body), and required `content` as a deterministic derived plain-text index used for search/similarity/snippets
-- Graph format enables efficient relationship queries and chain-of-thought reasoning
+- Graph format enables efficient relationship queries and decision/rationale traversal (provenance chains; see `docs/AGENT_API.md`)
 
 ### 2. Markdown Projection (`src/markdown/`) - Optional projection format
 
@@ -44,7 +46,7 @@ The canonical source of truth (the “approval layer”):
 
 - Stores all nodes (accepted, proposed, rejected) in graph format (the solution model)
 - Manages proposals and reviews
-- Provides comprehensive query interface for agents with chain-of-thought traversal
+- Provides comprehensive query interface for agents with decision/rationale traversal (provenance chains)
 - Manages role-based access control
 - Handles conflict detection and resolution
 - Creates issues automatically when proposals are approved
@@ -61,9 +63,9 @@ Planned additions:
 
 ### 4. Contextualize module (contextualized AI + prompt-leakage policy)
 
-A **first-class component** that turns the context store into the substrate for RAG, fine-tuning, and structured prompting. Even at v0 it is a **thin wrapper** over the store; the **prompt-leakage policy layer** is the named, policy-as-code hook for controlling what leaves the perimeter when using a vendor LLM.
+A **first-class component** that turns the context store into the substrate for RAG, fine-tuning, and structured prompting. Store-facing orchestration (retrieval, prompt builder, export pipeline, policy layer) is **TypeScript** (`src/contextualize/*`); **Python** is used where best suited: embeddings, vector index (build/query), and fine-tuning pipelines (see `docs/CONTEXTUALIZED_AI_MODEL.md` § Position in architecture → Implementation language).
 
-- **Scope:** Retrieval from the store, prompt building, export for fine-tuning, optional vector index. Sits between the context store and any LLM (self-hosted or vendor).
+- **Scope:** Retrieval from the store, prompt building, export for fine-tuning, vector index. Sits between the context store and any LLM (self-hosted or vendor).
 - **Prompt-leakage policy layer:** Policy-as-code with three elements: **sensitivity labels** on nodes/namespaces, a **retrieval policy module** (allow/deny by destination, e.g. vendor_llm vs internal_only), and **logging of node IDs** included in each prompt sent to a vendor LLM. Wraps retrieval and prompt building; the store stays agnostic.
 - **Operational controls (same doc):** Topic-scoped retrieval, namespace/type allowlists, redaction, max context budget — see `docs/CONTEXTUALIZED_AI_MODEL.md` §3.3–3.4.
 
@@ -91,12 +93,7 @@ A **first-class component** that turns the context store into the substrate for 
 3. Context store returns accepted nodes + open proposals (default: accepted only for safety)
 4. Agent can distinguish truth from proposals (explicit status indicators)
 5. Agent can create new proposals (stored in central context store)
-6. **Chain-of-Thought Traversal**: Agents can traverse reasoning chains:
-   - Follow logical paths: goal → decision → task → risk
-   - Build context progressively as they reason
-   - Understand decision rationale (goals, alternatives, implementations, risks, constraints)
-   - Discover related context through multiple hops
-   - Query with automatic reasoning chain traversal
+6. **Decision/rationale traversal (provenance chains):** Agents can traverse typed relationship paths (goal → decision → task → risk), build context progressively, understand decision rationale, and discover related context; see `docs/AGENT_API.md` (not LLM chain-of-thought).
 7. **Comprehensive Query API**: Query by type, status, keyword, relationships, with pagination and sorting
 8. See `docs/AGENT_API.md` for full API documentation
 
@@ -104,11 +101,11 @@ A **first-class component** that turns the context store into the substrate for 
 
 1. Proposal is created (from Markdown edit or agent)
 2. **Conflict Detection**: System checks for conflicts with open proposals
-3. **Field-Level Merging**: Non-conflicting fields auto-merged, conflicts flagged
+3. **Field-Level Merging**: Non-conflicting fields auto-merged, same-field conflicts flagged (v1 default: see `docs/RECONCILIATION_STRATEGIES.md`)
 4. **Optimistic Locking**: Node versions checked to prevent stale updates
 5. Reviewers comment and review (including anchored, Docs-style feedback on specific node fields)
 6. **Multi-Approval (roadmap)**: Some proposals require multiple approvals / quorum policies
-7. Proposal is accepted or rejected
+7. Proposal is accepted or rejected (v1 default: block approval on conflicts for decision/constraint-type nodes)
 8. If accepted:
    - Operations are applied to store (with version validation)
    - **Issues are automatically created** (if configured - see `decision-012`; broader “action item creation” applies beyond software)
@@ -143,8 +140,7 @@ A **first-class component** that turns the context store into the substrate for 
 ### Why Graph Model? (see `decision-015`)
 
 - More flexible than strict hierarchies
-- Enables efficient relationship queries and traversal
-- Supports chain-of-thought reasoning for agents
+- Enables efficient relationship queries and decision/rationale traversal (provenance chains)
 - Can represent complex multi-dimensional relationships
 - Hierarchical views can be projected when needed
 
@@ -156,13 +152,11 @@ A **first-class component** that turns the context store into the substrate for 
 - All data stays within organization (self-hosted)
 - No external services required
 
-### Why Hybrid Conflict Reconciliation? (see `decision-014`)
+### Why Hybrid Conflict Reconciliation? (see `decision-014`, `docs/RECONCILIATION_STRATEGIES.md`)
 
-- No single strategy fits all use cases
+- **V1 default policy:** Field-level merge + optimistic locking + manual resolution for same-field conflicts; block approval on conflicts for decision/constraint-type nodes; last-write-wins only when explicitly configured for low-stakes text.
 - Balance between automation and control
-- Field-level conflicts often resolvable automatically
 - True conflicts require human judgment
-- Optimistic locking prevents stale updates
 
 ## Agent Safety
 
@@ -172,18 +166,13 @@ Agents never:
 - Guess at intent from unstructured text
 
 Agents always:
-- Query the context store (comprehensive API with chain-of-thought traversal)
+- Query the context store (comprehensive API with decision/rationale traversal — provenance chains)
 - Create proposals for changes
 - Distinguish accepted truth from proposals (default: accepted only)
 - Respect review workflows
-- Follow reasoning chains to understand context progressively
+- Use provenance chains (typed relationship paths) to understand context progressively
 
-**Chain-of-Thought Reasoning**:
-- Agents can traverse logical reasoning chains (goal → decision → task → risk)
-- Build context progressively as they reason
-- Understand decision rationale and alternatives
-- Discover related context through graph traversal
-- See `docs/AGENT_API.md` for full API documentation
+**Decision/rationale traversal (provenance chains):** Goal → decision → task → risk; not LLM chain-of-thought. See `docs/AGENT_API.md` for full API documentation.
 
 ## Clients (not coupled to a specific UI)
 
@@ -203,9 +192,10 @@ Any client can participate as long as it follows review-mode semantics:
 - **Designated Approvers**: Per-node-type approvers, multi-approval workflows
 - **Role-Based Markdown Editing**: Read-only vs **suggesting** based on permissions (accept/reject requires approver role)
 
-### Conflict Reconciliation (see `decision-014`)
+### Conflict Reconciliation (see `decision-014`, `docs/RECONCILIATION_STRATEGIES.md`)
 
-- **Conflict Detection**: Detect conflicts at proposal creation time
+- **V1 default:** Field-level merge + optimistic locking + manual resolution for same-field conflicts; block approval on conflicts for decision/constraint node types; last-write-wins only when explicitly configured.
+- **Conflict Detection**: At proposal creation time
 - **Field-Level Merging**: Auto-merge non-conflicting fields
 - **Optimistic Locking**: Track node versions, reject stale proposals
 - **Manual Resolution**: True conflicts require human review
@@ -219,12 +209,13 @@ Any client can participate as long as it follows review-mode semantics:
 - **Traceability**: Issues reference originating proposals
 - **Codebase projection**: Issues may carry an optional `codeProjection` (PR/branch/patch/plan) to show the expected/actual code changes that implement the approved proposal
 
-### Security & Privacy (see `constraint-005`)
+### Security & Privacy (see `constraint-005`, `docs/WHITEPAPER.md` §7.4, §7.5)
 
 - **Self-Hosted**: All data stays within your organization (Git-friendly file backend and/or self-hosted DB), no external services required
 - **No Data Leak**: All context stays within organization
 - **Air-Gapped Support**: Can work in air-gapped environments
 - **Full Control**: Complete control over data location and access
+- **Production posture today** (condensed): whitepaper §7.4 (gateway, approvers-only for review/apply, disable reset, log vendor prompts, audit). **Enterprise-grade roadmap**: whitepaper §7.5.
 
 ## Future Extensions
 

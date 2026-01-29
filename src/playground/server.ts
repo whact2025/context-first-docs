@@ -686,7 +686,7 @@ function htmlPage(): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Context-First Docs – Scenario Runner</title>
+    <title>TruthLayer – Scenario Runner</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -1120,7 +1120,7 @@ function homePage(): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Context-First Docs – Playground</title>
+    <title>TruthLayer – Playground</title>
     <style>
       :root {
         color-scheme: light dark;

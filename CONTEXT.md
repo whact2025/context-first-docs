@@ -1,6 +1,6 @@
 # Project Context
 
-This document contains the core context and background for the context-first-docs project itself (an Agentic Collaboration Approval Layer — ACAL).
+This document contains the core context and background for the TruthLayer project itself (an Agentic Collaboration Approval Layer — ACAL).
 
 ```ctx
 type: context

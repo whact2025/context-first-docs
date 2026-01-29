@@ -1,5 +1,5 @@
 /**
- * Main entry point for context-first-docs.
+ * Main entry point for TruthLayer.
  */
 
 export * from "./types/index.js";

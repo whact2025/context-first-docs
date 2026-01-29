@@ -34,7 +34,7 @@ export type NodeStatus = "accepted" | "proposed" | "rejected" | "superseded";
 When you edit a ctx block, import the changes:
 
 ```typescript
-import { importFromMarkdown } from "context-first-docs";
+import { importFromMarkdown } from "truth-layer";
 import { readFileSync } from "fs";
 
 const markdown = readFileSync("DECISIONS.md", "utf-8");
@@ -101,7 +101,7 @@ await store.applyProposal("proposal-001");
 Generate Markdown from accepted truth:
 
 ```typescript
-import { projectToMarkdown } from "context-first-docs";
+import { projectToMarkdown } from "truth-layer";
 
 const markdown = await projectToMarkdown(store);
 await writeFileSync("DECISIONS.md", markdown);
@@ -128,7 +128,7 @@ const node = await store.getNode({ id: "decision-001" });
 ### Creating Proposals
 
 ```typescript
-import { Proposal, CreateOperation } from "context-first-docs";
+import { Proposal, CreateOperation } from "truth-layer";
 
 const proposal: Proposal = {
   id: "proposal-001",

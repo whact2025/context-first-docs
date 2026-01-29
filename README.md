@@ -1,4 +1,4 @@
-# Context-First Docs
+# TruthLayer
 
 ## Agentic Collaboration Approval Layer (ACAL) for solution modeling
 
@@ -98,7 +98,7 @@ This is infrastructure for **long-lived, multi-human, multi-agent systems** wher
 
 Jira is excellent at **execution management**: backlogs, boards, workflows, reporting, and cross-team coordination.
 
-Context-First Docs focuses on **durable, agent-safe solution modeling + approval** that Jira tickets often fail to preserve:
+TruthLayer focuses on **durable, agent-safe solution modeling + approval** that Jira tickets often fail to preserve:
 
 - **Canonical “why” graph**: Goals/decisions/risks/questions are first-class typed nodes with relationships (goal → decision → task → risk).
 - **Proposals + provenance**: Accepted truth vs proposed changes vs rejected ideas are explicit and reviewable (not buried in comments).
@@ -108,7 +108,7 @@ Context-First Docs focuses on **durable, agent-safe solution modeling + approval
 ### Recommended division of responsibilities
 
 - **Use Jira for**: execution management (planning, assignment, SLAs, workflows/automation, delivery reporting).
-- **Use Context-First Docs for**: solution modeling (decisions/constraints/risks/questions), review-mode approval, and structured context that links to code *or* to non-development artifacts.
+- **Use TruthLayer for**: solution modeling (decisions/constraints/risks/questions), review-mode approval, and structured context that links to code *or* to non-development artifacts.
 
 In practice: a Jira issue can reference a stable node ID (e.g., `decision-015`, `risk-001`), and approved proposals can auto-create issues—letting Jira manage execution while this system manages truth and reasoning.
 

@@ -1,4 +1,4 @@
-# Context-First Docs
+# TruthLayer
 ## Agentic Collaboration Approval Layer (ACAL): review‑mode solution modeling for human + agent collaboration
 
 **Version**: v1  
@@ -14,7 +14,7 @@ Organizations do not have a stable substrate for **durable, reviewable solution 
 - **Truth status** is ambiguous: drafts, proposals, outdated decisions, and open questions are often indistinguishable.
 - As AI agents become participants in knowledge work, this ambiguity becomes operational risk: agents can **hallucinate** or apply outdated context because the system cannot reliably distinguish **accepted truth** from **suggestions**.
 
-**Context-First Docs** proposes a different primitive: an **Agentic Collaboration Approval Layer (ACAL)** — a review‑mode store that behaves like Google Docs “Suggesting” mode, but with explicit structure and agent‑safe semantics.
+**TruthLayer** proposes a different primitive: an **Agentic Collaboration Approval Layer (ACAL)** — a review‑mode store that behaves like Google Docs “Suggesting” mode, but with explicit structure and agent‑safe semantics.
 
 **The product wedge — why this is different from ADRs, Notion, or "docs + RAG":**  
 If you want to understand in one glance why this must exist, it is this combination: **(1) Truth semantics are enforceable** — the proposal/review/apply invariant: no direct edits to accepted context; all change flows through proposals → review → apply; truth is what has been explicitly accepted and applied. **(2) Agent-safe defaults** — reads default to **accepted-only**; agents do not see proposals or rejected content as truth unless they opt in, so they cannot treat drafts or rejected ideas as fact. **(3) Deterministic projection** — same context state yields the same Markdown; stable diffs, CI reproducibility. **(4) Provenance of rejected ideas** — rejected proposals and alternatives are preserved; you don't re-litigate because "what was considered" is first-class and queryable. That combination is the **"why this must exist"** kernel. ADRs are static snapshots; Notion has no enforceable truth semantics or accepted-only reads; "docs + RAG" has no proposal/review/apply invariant or deterministic projection. This system provides all four.
@@ -104,7 +104,7 @@ Google Docs / Word solve human review ergonomics, but they are:
 
 ## 4. System overview
 
-Context-First Docs is not “a better document editor.”
+TruthLayer is not “a better document editor.”
 
 It is an **Agentic Collaboration Approval Layer (ACAL)** with:
 
@@ -304,7 +304,7 @@ The **product wedge** (why this must exist) is the combination of four propertie
 ### 5.1 Proposals and reviews (not diffs)
 
 Traditional systems treat change as a text diff.
-Context-First Docs treats change as a **proposal** with explicit operations:
+TruthLayer treats change as a **proposal** with explicit operations:
 
 - create node
 - update fields (`title`, `description`, typed fields, relationships)
@@ -1373,7 +1373,7 @@ sequenceDiagram
 - **File-based persistence is inherently limited** (when implemented): concurrency and transactional guarantees will be weaker than a DB backend.
 - **RAG remains complementary**: discovery is valuable, but must not be conflated with canonical truth.
 
-**What is intentionally not solved:** Context-First Docs is not trying to replace code review (PRs remain the canonical review for code changes), execution systems (issue trackers remain for delivery workflow), or freeform note-taking for ephemeral content. It is an opinionated layer for **durable, reviewable, agent-safe solution modeling + approval**.
+**What is intentionally not solved:** TruthLayer is not trying to replace code review (PRs remain the canonical review for code changes), execution systems (issue trackers remain for delivery workflow), or freeform note-taking for ephemeral content. It is an opinionated layer for **durable, reviewable, agent-safe solution modeling + approval**.
 
 ---
 

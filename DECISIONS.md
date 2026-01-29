@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-This document tracks key architectural decisions made during the context-first-docs project (an Agentic Collaboration Approval Layer — ACAL). For **review-mode semantics** (proposal → review → apply), see `docs/REVIEW_MODE.md`. For **canonical walkthroughs** (day-in-the-life flows with concrete JSON and outcomes), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) (accept/apply/Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, field-level merge, stale proposals). For the full design narrative and status, see `docs/WHITEPAPER.md`.
+This document tracks key architectural decisions made during the TruthLayer project (an Agentic Collaboration Approval Layer — ACAL). For **review-mode semantics** (proposal → review → apply), see `docs/REVIEW_MODE.md`. For **canonical walkthroughs** (day-in-the-life flows with concrete JSON and outcomes), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) (accept/apply/Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, field-level merge, stale proposals). For the full design narrative and status, see `docs/WHITEPAPER.md`.
 
 ```ctx
 type: decision
@@ -319,7 +319,7 @@ status: accepted
 - Installation CLI should be simple and reversible
 
 **Installation Process**:
-1. Run `npx context-first-docs init` (or similar)
+1. Run `npx truth-layer init` (or similar)
 2. Creates `.context/` directory structure
 3. Installs pre-baked Cursor rules to `.cursor/rules/` directory
 4. Optionally creates template context files
@@ -398,7 +398,7 @@ status: accepted
 6. Import into context store
 
 **Use Cases**:
-- Migrating existing projects to the context-first approach (ACAL)
+- Migrating existing projects to TruthLayer (ACAL)
 - Building context graph from historical PR/MR discussions
 - Capturing decisions that were made in PR comments but never documented
 - Extracting risks and concerns raised during code review

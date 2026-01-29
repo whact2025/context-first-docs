@@ -19,7 +19,7 @@ export default {
   testLocationInResults: true,
   // Display name for better test explorer experience
   displayName: {
-    name: "Context-First Docs",
+    name: "TruthLayer",
     color: "blue",
   },
   // Enforce a minimum baseline in CI (run with --coverage).

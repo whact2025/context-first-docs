@@ -1,4 +1,4 @@
-# Multi-Platform UI Specification — Context-First Docs (ACAL)
+# Multi-Platform UI Specification — TruthLayer (ACAL)
 
 This document is the **clean-slate UI spec** for building the ACAL user interface(s).
 

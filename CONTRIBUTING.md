@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in contributing to context-first-docs!
+Thank you for your interest in contributing to TruthLayer!
 
 ## Self-Referential Development
 

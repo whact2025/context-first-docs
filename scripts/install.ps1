@@ -1,4 +1,4 @@
-# Installation script for context-first-docs (PowerShell)
+# Installation script for TruthLayer (PowerShell)
 # Manages all dependencies and verifies the installation
 
 param(
@@ -35,7 +35,7 @@ function Write-Info {
 }
 
 Write-Host "`n╔═══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  Context-First Docs - Installation Script              ║" -ForegroundColor Cyan
+Write-Host "║  TruthLayer - Installation Script              ║" -ForegroundColor Cyan
 Write-Host "╚═══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 
 # Step 1: Check Node.js version

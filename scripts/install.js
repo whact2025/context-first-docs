@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Installation script for context-first-docs
+ * Installation script for TruthLayer
  * Manages all dependencies and verifies the installation
  */
 
@@ -191,7 +191,7 @@ function runTests() {
 
 function main() {
   log(`\n${colors.bright}${colors.cyan}╔═══════════════════════════════════════════════════════════╗${colors.reset}`);
-  log(`${colors.bright}${colors.cyan}║${colors.reset}  ${colors.bright}Context-First Docs - Installation Script${colors.reset}  ${colors.bright}${colors.cyan}║${colors.reset}`);
+  log(`${colors.bright}${colors.cyan}║${colors.reset}  ${colors.bright}TruthLayer - Installation Script${colors.reset}  ${colors.bright}${colors.cyan}║${colors.reset}`);
   log(`${colors.bright}${colors.cyan}╚═══════════════════════════════════════════════════════════╝${colors.reset}`);
   
   // Parse command line arguments

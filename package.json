@@ -1,7 +1,7 @@
 {
-  "name": "context-first-docs",
+  "name": "truth-layer",
   "version": "0.1.0",
-  "description": "Context-first collaboration system for agentic development - a self-referential implementation",
+  "description": "TruthLayer - agentic collaboration approval layer (ACAL) for solution modeling - a self-referential implementation",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -29,12 +29,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/whact2025/context-first-docs.git"
+    "url": "https://github.com/whact2025/truth-layer.git"
   },
   "bugs": {
-    "url": "https://github.com/whact2025/context-first-docs/issues"
+    "url": "https://github.com/whact2025/truth-layer/issues"
   },
-  "homepage": "https://github.com/whact2025/context-first-docs#readme",
+  "homepage": "https://github.com/whact2025/truth-layer#readme",
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",

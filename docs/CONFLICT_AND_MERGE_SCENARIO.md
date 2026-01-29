@@ -1,6 +1,6 @@
 # Conflict and Merge: Day in the Life (Concurrency)
 
-This is the **canonical walkthrough** for concurrency in Context-First Docs: one coherent path from accepted graph → parallel open proposals → **conflict detection**, **field-level merge** (mergeable vs conflicting), and **stale proposal** (optimistic locking). All artifacts below match the shapes used by the system; you can reproduce them by running the **`conflicts-and-merge`** and **`stale-proposal`** scenarios in the playground (`npm run playground` → Scenario Runner).
+This is the **canonical walkthrough** for concurrency in TruthLayer: one coherent path from accepted graph → parallel open proposals → **conflict detection**, **field-level merge** (mergeable vs conflicting), and **stale proposal** (optimistic locking). All artifacts below match the shapes used by the system; you can reproduce them by running the **`conflicts-and-merge`** and **`stale-proposal`** scenarios in the playground (`npm run playground` → Scenario Runner).
 
 ## Flow overview
 

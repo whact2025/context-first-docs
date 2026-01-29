@@ -93,7 +93,7 @@ The store can support safe concurrency with:
 ## Minimal example
 
 ```ts
-import { InMemoryStore, importFromMarkdown } from "context-first-docs";
+import { InMemoryStore, importFromMarkdown } from "truth-layer";
 
 const store = new InMemoryStore();
 const proposals = await importFromMarkdown(store, markdown, "alice", "DECISIONS.md");
