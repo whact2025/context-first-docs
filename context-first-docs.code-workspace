@@ -34,8 +34,8 @@
     // Use direct Node invocation (avoids spawning cmd.exe on Windows)
     "jest.jestCommandLine": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
     "jest.autoRun": "off",
-    // Use an explicit absolute path to avoid cwd resolution bugs in Test Explorer / vscode-jest
-    "jest.rootPath": "c:\\\\Users\\\\richf\\\\truth-layer",
+    // Use workspace folder to avoid cmd.exe ENOENT when extension spawns (Windows)
+    "jest.rootPath": "${workspaceFolder}",
     
     // TypeScript settings
     "typescript.tsdk": "node_modules/typescript/lib",

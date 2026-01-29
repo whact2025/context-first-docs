@@ -1,11 +1,11 @@
 {
-  // Jest Extension Settings (for Jest extension)
-  // Use direct Node invocation (avoids spawning cmd.exe on Windows)
+  // Jest Extension Settings (orta.vscode-jest)
+  // On Windows, "run tests with coverage" from the extension may fail with: spawn cmd.exe ENOENT.
+  // Workaround: use Terminal > Run Task > "Tests: run with coverage", or run: npm run test:coverage
   "jest.jestCommandLine": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
   "jest.autoRun": "off",
   "jest.showCoverageOnLoad": false,
-  // Use an explicit absolute path to avoid cwd resolution bugs in Test Explorer / vscode-jest
-  "jest.rootPath": "c:\\\\Users\\\\richf\\\\truth-layer",
+  "jest.rootPath": "${workspaceFolder}",
   "jest.testExplorer": {
     "enabled": true,
     "showCoverageOnLoad": false
@@ -14,6 +14,7 @@
     "NODE_OPTIONS": "--experimental-vm-modules"
   },
   "jest.jestConfigPath": "jest.config.js",
+  "jest.runMode": "on-demand",
   
   // Jest Runner Extension Settings (alternative test runner)
   "jestRunner.jestCommand": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
