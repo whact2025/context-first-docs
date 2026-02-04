@@ -1,6 +1,6 @@
 # Open Questions
 
-This document tracks questions that need answers as the project evolves. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **contextualized AI model** (Phase 5, RAG/fine-tuning/structured prompting, prompt leakage), see `docs/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5. For **production security posture** (enterprise summary: gateway, approvers-only, disable reset, audit), see `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade).
+This document tracks questions that need answers as the project evolves. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **contextualized AI model** (Phase 5, RAG/fine-tuning/structured prompting, prompt leakage), see `docs/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5. For **production security posture** (enterprise summary: gateway, approvers-only, disable reset, audit), see `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade). For **doc suite feature set** (when to use TruthLayer vs Office/Google Docs + Copilot/Gemini — document-centric truth, consumption across suite and messaging, drafting discussions/emails), see whitepaper §2.4, §8.9, decision-027.
 
 ```ctx
 type: question
@@ -586,7 +586,7 @@ status: resolved
   - Export: JSON format (same as file-based)
   - Full export: Export entire database to JSON
   - Incremental: Git snapshots provide incremental history
-- **Export Formats**: JSON (primary), YAML (optional), Markdown (projection only)
+- **Export Formats**: JSON (primary), YAML (optional), Markdown and DOCX (projection only)
 - **Backup Frequency**: Configurable (daily, milestone-based, manual)
 - **Retention**: Git history provides long-term retention
 - **Disaster Recovery**: Restore from Git (file-based) or Git snapshots + MongoDB backups
@@ -704,6 +704,20 @@ status: open
 - CONTEXTUALIZED_AI_MODEL says attach export timestamp/snapshot so you know which context version a fine-tuned model was trained on (reproducibility and audit).
 
 **Impact**: High - affects enterprise IP and compliance (risk-012, decision-025)
+```
+
+```ctx
+type: question
+id: question-032
+status: resolved
+---
+**Question**: When should we use TruthLayer vs Office/Google Docs + Copilot/Gemini (doc suite)?
+
+**Answer**: TruthLayer is complementary to the doc suite feature set; we do not replace it. Use the doc suite + Copilot/Gemini for **document-centric** truth (policy, contracts, SOPs, strategy playbooks) and consumption across the full suite and messaging (Teams, Chat, Slack, email), including drafting discussions and emails. Use TruthLayer for **solution modeling** and **agent-safe structured truth**: typed graph (goals, decisions, risks, tasks), proposal/review/apply semantics, accepted-only reads, deterministic projection, provenance, self-hosted contextualized AI with prompt-leakage policy. Many organizations use both.
+
+**Resolution**: See `DECISIONS.md` decision-027, `docs/WHITEPAPER.md` §2.4 (use cases), §8.9 (comparison), and FAQ "When should we use Office or Google Docs with Copilot/Gemini instead of TruthLayer?". PLAN Phase 6 includes documenting "when to use which" for adopters.
+
+**Resolved At**: 2026-01-29
 ```
 
 ```ctx

@@ -8,6 +8,7 @@
     "install:all": "node scripts/install.js",
     "install:deps": "node scripts/install.js --skip-build --skip-tests",
     "build": "tsc",
+    "build:whitepaper-docx": "node scripts/build-whitepaper-docx.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "dev": "tsc --watch",
@@ -36,6 +37,7 @@
   },
   "homepage": "https://github.com/whact2025/truth-layer#readme",
   "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.0.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",

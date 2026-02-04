@@ -60,6 +60,38 @@ For Windows PowerShell users.
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
+### Whitepaper DOCX build
+**File**: `build-whitepaper-docx.js`
+
+Builds **one DOCX per document** from the whitepaper and supporting docs (`docs/WHITEPAPER.md`, `WHITEPAPER_APPENDIX.md`, `ARCHITECTURE.md`, `STORAGE_ARCHITECTURE.md`, `CONTEXTUALIZED_AI_MODEL.md`, `HELLO_WORLD_SCENARIO.md`, `CONFLICT_AND_MERGE_SCENARIO.md`, `STORAGE_IMPLEMENTATION_PLAN.md`). All Mermaid diagrams are rendered to **high-resolution PNG** images (default 2× scale) via `@mermaid-js/mermaid-cli`; each document is written as an intermediate `.md` and converted to DOCX with **Pandoc**. For easy navigation:
+
+- **Table of contents**: Each DOCX is built with `--toc` so you can jump to sections within the document.
+- **Cross-document links**: References like `[Hello World](HELLO_WORLD_SCENARIO.md)` are rewritten to point to `truth-layer-hello-world-scenario.docx`, so links between documents work when all DOCX files are in the same folder.
+- **Index document**: `truth-layer-docs-index.docx` is generated with a list of links to all DOCX files; open it first to jump to any document.
+
+**Requirements**:
+- `npm install` (installs optional `@mermaid-js/mermaid-cli`, which uses Puppeteer for rendering; if mmdc fails with "Cannot find package 'puppeteer'", run `npm install` again without `--no-optional`)
+- **Pandoc** installed on your PATH for DOCX output: [pandoc.org/installing](https://pandoc.org/installing.html)
+
+**Usage**:
+```bash
+# Full build: render Mermaid to PNG + produce one DOCX per document (requires Pandoc)
+npm run build:whitepaper-docx
+
+# Or run the script directly
+node scripts/build-whitepaper-docx.js
+
+# Only render Mermaid to PNG and write .md files (skip Pandoc)
+node scripts/build-whitepaper-docx.js --skip-pandoc
+
+# Higher resolution PNG (e.g. 3× scale)
+node scripts/build-whitepaper-docx.js --scale 3
+```
+
+**Output**: In `dist/whitepaper-docx/`, one `.md` and one `.docx` per source document (e.g. `truth-layer-whitepaper.docx`, `truth-layer-architecture.docx`), plus **truth-layer-docs-index.docx** (master index with links to all documents), `mermaid-*.png`, and `*.mmd` for diagrams.
+
+If Pandoc is not installed, run with `--skip-pandoc` and then run pandoc per `.md` file in that folder, e.g. `pandoc -f markdown -t docx whitepaper.md -o truth-layer-whitepaper.docx`.
+
 ### Bash Script (macOS/Linux)
 **File**: `install.sh`
 

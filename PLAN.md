@@ -6,7 +6,8 @@ This document tracks the development roadmap and milestones for TruthLayer.
 - **Canonical walkthroughs**: [Hello World](docs/HELLO_WORLD_SCENARIO.md) (proposal → review → apply → Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, merge, staleness) — run via playground Scenario Runner (`npm run playground`).
 - **Contextualize module** (contextualized AI): Phase 5 below; first-class component—full design in `docs/CONTEXTUALIZED_AI_MODEL.md` (RAG, fine-tuning, structured prompting; **prompt-leakage policy layer** = policy-as-code for prompt leakage).
 - **Security**: Production posture today (condensed enterprise "stop sign") and enterprise-grade posture: `docs/WHITEPAPER.md` §7.4 (Production posture today table: repo = demo/no auth, gateway, approvers-only for review/apply, disable reset, log vendor prompts, audit split) and §7.5 (enterprise-grade table and roadmap).
-- **Decisions**: Key decisions (e.g. node status = post-apply intent, contextualized AI policy, minimum secure deployment) in `DECISIONS.md` (decision-024, decision-025, decision-026).
+- **Decisions**: Key decisions (e.g. node status = post-apply intent, contextualized AI policy, minimum secure deployment, doc suite complementary) in `DECISIONS.md` (decision-024, decision-025, decision-026, decision-027).
+- **Doc suite feature set**: When to use TruthLayer vs Office/Google Docs + Copilot/Gemini (document-centric truth, consumption across suite and messaging including drafting discussions/emails) is in `docs/WHITEPAPER.md` §2.4, §8.9. TruthLayer does not replace doc suites; many orgs use both.
 
 ```ctx
 type: plan
@@ -16,7 +17,7 @@ status: accepted
 **Phase 1: Core Infrastructure** (Current)
 1. ✅ Define node types and proposal system
 2. ✅ Implement context store interface
-3. ✅ Build Markdown projection system (ctx blocks)
+3. ✅ Build Markdown projection system (ctx blocks); DOCX export for distribution (see `scripts/build-whitepaper-docx.js`, `scripts/README.md`)
 4. ✅ Create import/export functionality
 5. ✅ Implement in-memory store
 6. ✅ Make project self-referential
@@ -81,7 +82,7 @@ Implement the **Contextualize** module (first-class component) as described in `
 
 1. **Retrieval module** — New module (e.g. `src/contextualize/retrieve.ts`). Input: query string and optional `startNodeId`. Use `queryNodes({ status: ["accepted"], search: query, limit })` and/or `traverseReasoningChain(startNodeId, ...)`. Output: list of nodes or a single formatted string. (Path A: RAG at inference.)
 2. **Prompt builder** — New module (e.g. `src/contextualize/prompt.ts`). Takes retrieved context string + user message; returns system + user messages (or a single prompt) for the LLM. (Path A, C.)
-3. **Context document builder (structured prompting)** — Thin wrapper: `projectToMarkdown(store)` for full context, or `queryWithReasoning` for topic-focused context. Wire into API/playground so context + user message can be sent to LLM. (Path C; easiest first step.)
+3. **Context document builder (structured prompting)** — Thin wrapper: `projectToMarkdown(store)` for full context (Markdown; DOCX via build script), or `queryWithReasoning` for topic-focused context. Wire into API/playground so context + user message can be sent to LLM. (Path C; easiest first step.)
 4. **LLM integration** — In API or playground: on each request, retrieve → prompt builder → call LLM. Support self-hosted and vendor LLM; document that with vendor LLM only the prompt leaves the perimeter. (Path A, C.)
 5. **Export pipeline for fine-tuning** — New module (e.g. `src/contextualize/export.ts`). Call `queryNodes({ status: ["accepted"] })` (or paginate); for each node output type, id, title, description, relationships. Optionally use `followDecisionReasoning` per decision for rich examples. Output JSONL or JSON; attach export timestamp/snapshot for audit. (Path B.)
 6. **Training format mapper** — Map exported records to instruction/response or completion format for your training stack; preserve accepted-only so model never sees drafts as truth. (Path B.)
@@ -92,18 +93,19 @@ Implement the **Contextualize** module (first-class component) as described in `
 1. Clean installation system - non-invasive setup for existing repositories
 2. Self-hosted Git storage setup - configure storage service for self-hosted Git repository
 3. Reverse engineering tools - extract historical context from existing merge requests/PRs
-4. VS Code/Cursor extension (client) - in-editor review, context awareness, and proposal authoring/preview
-5. Extension features:
+4. **Positioning and doc suite**: Document "when to use TruthLayer vs doc suite" (Office/Docs + Copilot/Gemini) for adopters; optional future: integration points (e.g. export context to Doc for Copilot/Gemini consumption). See whitepaper §2.4, §8.9, decision-027.
+5. VS Code/Cursor extension (client) - in-editor review, context awareness, and proposal authoring/preview
+6. Extension features:
    - Client-side change capture (on save or real-time) that produces proposals (review mode enforced by store)
    - Proposal creation and management UI
    - Context awareness while coding
    - Role-based authoring modes (read-only vs suggesting)
-6. Pre-baked Cursor rules - AI-assisted proposal and risk authoring
-7. GitHub/GitLab integration (for code repository, not context store)
-8. Reverse engineering MRs/PRs - extract historical context from existing repositories
-9. CLI tools for installation and management
-10. CI/CD integration
-11. Security/privacy validation - ensure zero IP leakage, all data in self-hosted Git
+7. Pre-baked Cursor rules - AI-assisted proposal and risk authoring
+8. GitHub/GitLab integration (for code repository, not context store)
+9. Reverse engineering MRs/PRs - extract historical context from existing repositories
+10. CLI tools for installation and management
+11. CI/CD integration
+12. Security/privacy validation - ensure zero IP leakage, all data in self-hosted Git
 ```
 
 ```ctx

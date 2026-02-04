@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-This document tracks key architectural decisions made during the TruthLayer project (an Agentic Collaboration Approval Layer — ACAL). For **review-mode semantics** (proposal → review → apply), see `docs/REVIEW_MODE.md`. For **canonical walkthroughs** (day-in-the-life flows with concrete JSON and outcomes), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) (accept/apply/Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, field-level merge, stale proposals). For the full design narrative and status, see `docs/WHITEPAPER.md`.
+This document tracks key architectural decisions made during the TruthLayer project (an Agentic Collaboration Approval Layer — ACAL). For **review-mode semantics** (proposal → review → apply), see `docs/REVIEW_MODE.md`. For **canonical walkthroughs** (day-in-the-life flows with concrete JSON and outcomes), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) (accept/apply/Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, field-level merge, stale proposals). For the full design narrative and status, see `docs/WHITEPAPER.md`. For **when to use TruthLayer vs Office/Google Docs + Copilot/Gemini** (doc suite feature set: document-centric truth, consumption across suite and messaging, drafting discussions/emails), see whitepaper §2.4 and §8.9.
 
 ```ctx
 type: decision
@@ -897,6 +897,40 @@ status: accepted
 - Operational posture (endpoints, audit logging today, approver-only apply in practice) is documented in whitepaper §7.4.
 
 **Implementation**: Documented in `docs/WHITEPAPER.md` §7.4 (minimum secure deployment, operational posture today). No in-store auth yet.
+
+**Decided At**: 2026-01-29
+```
+
+```ctx
+type: decision
+id: decision-027
+status: accepted
+---
+**Decision**: TruthLayer is **complementary** to the **doc suite feature set** (Office/Google Docs + Copilot/Gemini). We do not replace document-centric truth or consumption across the full document suite and messaging apps (Teams, Chat, Slack, email), including using truth to draft discussions, emails, and similar artifacts.
+
+**Rationale**:
+- Office/Docs + Copilot/Gemini establish and consume truth well for **document-centric** workflows: policy, contracts, SOPs, strategy playbooks; consumption spans the entire suite and messaging; AI can draft discussions, emails, etc. from that truth (whitepaper §2.4, §8.9).
+- TruthLayer targets **solution modeling** and **agent-safe structured truth**: typed graph (goals, decisions, risks, tasks), enforceable proposal/review/apply semantics, accepted-only reads by default, deterministic projection, provenance of rejected ideas, self-hosted contextualized AI with prompt-leakage policy.
+- Many organizations use **both**: doc suite + AI for narrative/policy/messaging; TruthLayer for technical decisions, solution graph, and agent-heavy workflows where structured truth and agent-safe consumption matter.
+
+**Implementation**: Positioning and use cases documented in `docs/WHITEPAPER.md` §2.4 (use cases where Office/Docs + Copilot/Gemini establish and consume truth), §8.9 (comparison), and FAQ ("When should we use Office or Google Docs with Copilot/Gemini instead of TruthLayer?"). No requirement to integrate TruthLayer with Office/Google; adopters choose the right tool per use case.
+
+**Decided At**: 2026-01-29
+```
+
+```ctx
+type: decision
+id: decision-028
+status: accepted
+---
+**Decision**: DOCX is a **projection format** alongside Markdown: export-only, for distribution (whitepapers, reports). Markdown remains the primary authoring and bidirectional projection; DOCX is generated from Markdown (Mermaid→images, then Pandoc).
+
+**Rationale**:
+- Markdown is the canonical projection for authoring and ctx-block sync; DOCX serves stakeholders who consume Word/Office.
+- Same truth yields deterministic Markdown; DOCX is produced from that Markdown (or from store via Markdown), so it is a derived projection.
+- Build: `node scripts/build-whitepaper-docx.js`; output: per-document DOCX in `dist/whitepaper-docx/`. Requires Pandoc and (for Mermaid) mermaid-cli (see `scripts/README.md`).
+
+**Implementation**: Documented in `docs/ARCHITECTURE.md` § Projections; script and usage in `scripts/README.md`.
 
 **Decided At**: 2026-01-29
 ```

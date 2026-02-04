@@ -28,7 +28,7 @@ In the architecture (implemented and planned):
 
 - The canonical source of truth is a **typed solution graph**, not unstructured documents.
 - The system enforces the **review-mode invariant**: all changes are captured as **proposals** and move into truth only via **review** (accept/reject) and **apply**.
-- Markdown is an **optional projection** and authoring surface (e.g., via lightweight `ctx` blocks), never the authoritative store (see `src/markdown/ctx-block.ts`, `src/markdown/projection.ts`).
+- Markdown is an **optional projection** and authoring surface (e.g., via lightweight `ctx` blocks), never the authoritative store (see `src/markdown/ctx-block.ts`, `src/markdown/projection.ts`). DOCX is an **export-only projection** for distribution (see `scripts/build-whitepaper-docx.js`, `scripts/README.md`).
 - Agents (and humans) read a **queryable API** that defaults to accepted truth for safety, and they write only by creating proposals (see `src/store/core/query-nodes.ts`: `query.status || ["accepted"]`).
 - Storage is designed for self-hosting: **Implemented**: in-memory store; **Planned**: file-based backend (Git-friendly) and database backend (MongoDB) behind the same `ContextStore` interface (see `docs/STORAGE_IMPLEMENTATION_PLAN.md`).
 - **Enterprise IP and contextualized AI:** The context store is the substrate for a **contextualized AI model** — one that reasons using your organization's approved goals, decisions, constraints, and risks — while keeping that IP inside your infrastructure. This is packaged as a first-class **Contextualize** module (retrieval, prompt building, export; **prompt-leakage policy layer** = policy-as-code). Retrieval (RAG), export for fine-tuning, and structured prompting run against the store; training and inference can stay on-prem or in a private cloud. See `docs/CONTEXTUALIZED_AI_MODEL.md` and section 7.1.
@@ -82,6 +82,33 @@ Google Docs / Word solve human review ergonomics, but they are:
 - often cloud-bound (problematic for sensitive repos),
 - and not integrated as a first-class layer in domain workflows (engineering, policy, operations, procurement, etc.).
 
+### 2.4 Use cases where Office and Google Docs (with Copilot and Gemini) establish and consume truth
+
+**Microsoft Office (Word, etc.) with Copilot** and **Google Docs with Gemini** can be used for both **establishing truth** (human review, suggest mode, accept/reject changes) and **consuming it**. Truth consumption applies to the **entire document suite** (all Office or Google Workspace documents) as well as **messaging apps** (e.g. Microsoft Teams, Outlook; Google Chat, Gmail; Slack): Copilot and Gemini read across that surface to answer questions, summarize, suggest edits, and **use truth to draft discussions, emails, and similar artifacts**. The following use cases are a good fit for Office/Docs + AI:
+
+| Use case | Establishing truth | Consuming truth (Copilot / Gemini) |
+|----------|---------------------|-------------------------------------|
+| **Policy and HR docs** | Authors and reviewers use suggest mode; approved text is "truth." Version history and comments capture who changed what. | Copilot/Gemini consume across the **document suite** and **messaging** (Teams, Chat, Slack, email) to answer ("What is our leave policy?"), draft updates, **draft discussions or emails** grounded in approved content, or summarize. |
+| **Contract and legal drafting** | Tracked changes and review workflows establish agreed wording; final accepted version is the truth. | AI surfaces clauses, compares to templates, or suggests edits; truth can be used to **draft emails, discussion threads, or follow-up docs**; consumption spans the full doc set and relevant threads. |
+| **Marketing and comms** | Copy is reviewed in Docs/Word; approved messaging is the source of truth. | AI generates variants, checks tone, or reuses approved phrases from the suite and from messaging context. |
+| **Standard operating procedures (SOPs)** | SOPs are written and reviewed in Office/Docs; the published document is the truth. | Copilot/Gemini answer "How do we do X?" from the **entire document suite** and, where integrated, from **messaging apps**. |
+| **Cross-functional narratives** | Long-form docs (strategy, playbooks) where human review defines truth; no need for a typed graph or agent API. | AI consumes the **document suite** and **messaging** for Q&A, summarization, or **drafting discussions, emails, and similar artifacts** from truth. |
+
+**When Office/Docs + Copilot/Gemini is enough:**
+
+- Truth is **document-centric** (the approved document *is* the truth), not a graph of typed nodes (goals, decisions, risks, tasks) with explicit status and relationships.
+- You are **comfortable with vendor AI** reading and generating from that content (Microsoft/Google DPAs and data residency apply).
+- You do **not** need an **agent-safe API** that returns only accepted truth by default, deterministic projection for CI/Git, or first-class **provenance of rejected ideas** (rejected suggestions are in history but not queryable as structured context).
+- Workflows are **human-led**; agents assist by reading/writing across the **document suite** and **messaging apps** (Teams, Chat, Slack, email), not by querying a structured store with accepted-only defaults.
+
+**When to add TruthLayer (or use it instead):**
+
+- You need **enforceable truth semantics** (proposal → review → apply; no direct edits to accepted context) and **agent-safe defaults** (reads default to accepted-only so agents cannot treat drafts or rejected ideas as fact).
+- You need a **typed solution graph** (goal → decision → task → risk) with explicit status and relationships, deterministic projection, and **provenance of rejected ideas** as first-class, queryable context.
+- You need **self-hosted** storage and optional **contextualized AI** (RAG/fine-tuning/prompting) that keeps IP in your perimeter, with a **prompt-leakage policy layer** when using vendor LLMs.
+
+In practice, many organizations use **both**: Office/Docs + Copilot/Gemini for narrative and policy documents (and messaging) where document-as-truth and vendor AI consumption across the **entire suite and messaging apps** are acceptable; TruthLayer (or a similar ACAL) for solution modeling, technical decisions, and agent-heavy workflows where structured truth and agent-safe consumption matter.
+
 ---
 
 ## 3. Design principles and non-goals
@@ -110,7 +137,7 @@ It is an **Agentic Collaboration Approval Layer (ACAL)** with:
 
 - a canonical **solution model store** (typed graph),
 - a proposal and review workflow (review mode),
-- deterministic projections into human-friendly formats (Markdown),
+- deterministic projections into human-friendly formats (Markdown, DOCX),
 - and agent-safe consumption via an explicit query API.
 
 ### 4.1 Status model (node vs proposal)
@@ -174,9 +201,9 @@ Nodes represent semantic concepts such as:
 
 Relationships are typed (e.g., `implements`, `depends-on`, `blocks`, `references`, `parent-child`) so the system can support robust **decision/rationale traversal** (provenance chains: goal → decision → risk → task) — typed relationship traversal, not LLM chain-of-thought.
 
-### 4.4 Markdown is a projection, not truth
+### 4.4 Markdown and DOCX are projections, not truth
 
-Markdown is a **projection format** (convenient for humans, compatible with repo habits, easy to review) and **ctx blocks** are an **authoring surface** — but Markdown is not the canonical store. The contract is explicit: **(1)** Edits inside ctx blocks are **suggestions**; they are captured as **proposals** and enter truth only after review and apply. **(2)** Projection from the store back into Markdown rewrites **only system-owned blocks** (the ctx blocks the system manages) **deterministically**; same context state yields the same output. **(3)** Prose outside ctx blocks (headings, paragraphs, lists between blocks) remains **human narrative** and is not canonical — the system does not claim it as truth, does not overwrite it on projection, and does not treat it as part of the graph. So: ctx blocks = authoring that flows into proposals and (when applied) into truth; projection = deterministic overwrite of those blocks only; everything else in the file stays as-is.
+Markdown is the **primary projection format** (convenient for humans, compatible with repo habits, easy to review) and **ctx blocks** are an **authoring surface** — but Markdown is not the canonical store. **DOCX** is an **export-only projection** for distribution (e.g. whitepapers, reports): generated from Markdown (Mermaid diagrams rendered to images, then Pandoc); build script: `scripts/build-whitepaper-docx.js` (see `scripts/README.md`). The contract is explicit: **(1)** Edits inside ctx blocks are **suggestions**; they are captured as **proposals** and enter truth only after review and apply. **(2)** Projection from the store back into Markdown rewrites **only system-owned blocks** (the ctx blocks the system manages) **deterministically**; same context state yields the same output. **(3)** Prose outside ctx blocks (headings, paragraphs, lists between blocks) remains **human narrative** and is not canonical — the system does not claim it as truth, does not overwrite it on projection, and does not treat it as part of the graph. So: ctx blocks = authoring that flows into proposals and (when applied) into truth; projection = deterministic overwrite of those blocks only; everything else in the file stays as-is.
 
 #### 4.4.1 Example: prose + two ctx blocks, before/after projection
 
@@ -245,7 +272,7 @@ We seed the graph with one accepted proposal containing create operations. Ratio
 - **ContextStore (canonical truth)**: stores nodes, proposals, reviews, issues, and relationships.
 - **Clients**: VS Code/Cursor extension, web UI, CLI, agents. Clients capture changes and submit proposals.
 - **API layer**: optional HTTP/GraphQL endpoints that expose ContextStore operations.
-- **Projection layer**: deterministic projection to Markdown (and other views).
+- **Projection layer**: deterministic projection to Markdown and DOCX (and other views).
 - **Reconciliation layer**: conflict detection, staleness checks, and merging strategies for parallel work.
 
 ### 4.6 End-to-end lifecycle (proposal → review → apply → projection)
@@ -264,9 +291,12 @@ flowchart TD
 
   truth --> project[DeterministicProjection]
   project --> markdown[MarkdownProjection]
+  project --> docx[DOCXExport]
   project --> ui[UIProjection]
   project --> agentViews[AgentViews]
 ```
+
+(DOCX is export-only, generated from Markdown via `scripts/build-whitepaper-docx.js`.)
 
 For a **concrete end-to-end walkthrough** with starting state, proposal JSON, review comments anchored to nodes, accept/apply, and before/after Markdown projection, see [Hello World scenario](HELLO_WORLD_SCENARIO.md). The **hello-world** scenario in the playground (`npm run playground` → Scenario Runner) runs this flow and returns the artifacts.
 
@@ -1131,6 +1161,22 @@ This section is intentionally explicit. The goal is not to claim “everything e
 | Deterministic_projection | No | N_A | N_A | N_A | N_A | No | No | Yes_required |
 | Self_hosting | Mixed | Yes | Mixed | Mixed | Mixed | Mixed | Mixed | Designed_for_self_hosted |
 
+### 8.9 Office and Google Docs (with Copilot and Gemini)
+
+**Strengths:**
+
+- **Establishing truth:** Suggest/tracked-changes mode and human review define approved content; version history and comments capture who changed what. The approved document is the truth.
+- **Consuming truth:** **Microsoft Copilot** (Office) and **Google Gemini** (Docs) consume truth across the **entire document suite** (all Office or Workspace documents) and **messaging apps** (e.g. Teams, Outlook; Google Chat, Gmail; Slack). One surface — docs plus messaging — for both human review and AI consumption: questions, summarization, suggestions, and **using truth to draft discussions, emails, and similar artifacts**.
+
+**Good fit (see §2.4):** Policy/HR docs, contracts, marketing copy, SOPs, strategy/playbook narratives where document-as-truth and vendor AI (Microsoft/Google DPAs, data residency) are acceptable.
+
+**When TruthLayer is the better fit:**
+
+- You need a **typed solution graph** (goals, decisions, risks, tasks) with explicit status and relationships, **agent-safe defaults** (accepted-only reads), **deterministic projection**, and **provenance of rejected ideas** as queryable context.
+- You need **self-hosted** storage and a **prompt-leakage policy layer** for contextualized AI; or agent-heavy workflows where agents must not treat drafts or rejected content as fact.
+
+**Summary:** Office/Docs + Copilot/Gemini establish and consume truth well for document-centric, human-led workflows with vendor AI; consumption spans the **full document suite and messaging apps**. TruthLayer targets solution modeling and agent-safe, structured truth where document-centric tools and vendor AI are insufficient. Many orgs use both.
+
 ---
 
 ## 7. Security, privacy, and governance
@@ -1405,6 +1451,9 @@ No. Markdown remains a first-class *projection* and authoring surface. Git remai
 
 ### "Is this a wiki/Notion replacement?"
 Not primarily. Wikis are excellent for broad, page-centric knowledge. This system targets **durable organizational truth about a solution** (goals, decisions, constraints, risks, open questions) with explicit status and review semantics. Many orgs will keep both: a wiki for narrative knowledge, and an approval layer for agent-safe, reviewable truth.
+
+### "When should we use Office or Google Docs with Copilot/Gemini instead of TruthLayer?"
+When truth is **document-centric** (the approved document is the truth) and you are comfortable with **vendor AI** (Microsoft Copilot, Google Gemini) reading and generating from that content: policy/HR docs, contracts, marketing copy, SOPs, strategy playbooks. Those tools establish truth via suggest/tracked-changes and human review, and consume it via Copilot/Gemini. Use **TruthLayer** when you need a **typed solution graph**, **agent-safe defaults** (accepted-only reads), **deterministic projection**, **provenance of rejected ideas**, or **self-hosted** contextualized AI. See **§2.4** (use cases) and **§8.9** (comparison).
 
 ### "How does this integrate with Jira/GitHub Issues?"
 In the target state, issues are downstream execution artifacts. Approved proposals can create issues (and attach codebase projections like PR links), while Jira/Issues remains the execution workflow layer.

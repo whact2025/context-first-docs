@@ -16,7 +16,7 @@ Both implementations satisfy the same `ContextStore` interface, allowing users t
 Nodes now support normalized, UI-friendly text fields:
 
 - `title` (optional): short label for display/search
-- `description` (optional): canonical long-form Markdown body used for projections
+- `description` (optional): canonical long-form Markdown body used for Markdown and DOCX projections
 - `content` (required today): deterministic derived plain-text index used for search/similarity/snippets (computed from `description` + key typed fields)
 
 Storage backends must persist `title` + `description`. `content` may be stored for performance, but should be treated as derived and safe to recompute.
@@ -59,7 +59,7 @@ graph TB
     
     subgraph "File-Based Implementation"
         FileStore[File-Based Store]
-        GraphJSON[graph.json (example path)]
+        GraphJSON[graph.json - example path]
         NodeFiles[.context/nodes/]
         FileStore --> GraphJSON
         FileStore --> NodeFiles
@@ -131,7 +131,7 @@ graph TB
     
     subgraph "UI Layer"
         UI
-        Markdown[Markdown (optional projection)<br/>may be in repo or client]
+        Markdown[Markdown/DOCX - optional projections<br/>may be in repo or client]
         Suggest[Suggesting mode → proposals]
         UI -.-> Markdown
         UI -.-> Suggest

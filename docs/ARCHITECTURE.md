@@ -27,18 +27,20 @@ Key principles:
 - Nodes support normalized text fields: optional `title` (short label), optional `description` (canonical long-form Markdown body), and required `content` as a deterministic derived plain-text index used for search/similarity/snippets
 - Graph format enables efficient relationship queries and decision/rationale traversal (provenance chains; see `docs/AGENT_API.md`)
 
-### 2. Markdown Projection (`src/markdown/`) - Optional projection format
+### 2. Projections (Markdown and DOCX) (`src/markdown/`, `scripts/`)
 
-Bidirectional synchronization between Markdown and the context store (one possible client format):
+**Markdown** is the primary projection format: bidirectional sync with the context store (authoring and export). **DOCX** is an export-only projection for distribution (e.g. whitepapers, reports).
 
-- **ctx Blocks**: Lightweight syntax for embedding semantic nodes inside Markdown
-- **Import**: Converts ctx block edits into proposals (`importFromMarkdown`)
-- **Export**: Projects accepted nodes into ctx blocks deterministically (`projectToMarkdown`)
+- **Markdown** (`src/markdown/`):
+  - **ctx Blocks**: Lightweight syntax for embedding semantic nodes inside Markdown
+  - **Import**: Converts ctx block edits into proposals (`importFromMarkdown`)
+  - **Export**: Projects accepted nodes into ctx blocks deterministically (`projectToMarkdown`)
+- **DOCX**: Generated from Markdown (or from store via Markdown); Mermaid diagrams rendered to images, then Pandoc converts to DOCX. Build: `node scripts/build-whitepaper-docx.js` (see `scripts/README.md`). Output: per-document DOCX files in `dist/whitepaper-docx/`.
 
 Key principles:
 - **Review mode (no direct edits)**: clients submit proposals; reviewers accept/reject into truth (see `docs/REVIEW_MODE.md`)
-- **Markdown is a projection, not truth**: whether Markdown lives in Git or only in a UI is a deployment choice; it’s never the canonical store
-- **Only ctx blocks are managed**: other Markdown content is preserved when merging (`mergeMarkdownWithContext`)
+- **Markdown and DOCX are projections, not truth**: whether Markdown lives in Git or only in a UI is a deployment choice; it’s never the canonical store
+- **Only ctx blocks are managed** (in Markdown): other Markdown content is preserved when merging (`mergeMarkdownWithContext`)
 
 ### 3. Context Store (reference implementation + planned persistence)
 
@@ -79,7 +81,7 @@ A **first-class component** that turns the context store into the substrate for 
 2. **Store records proposal**: proposal remains `open` and does not change accepted truth
 3. **Reviewers accept/reject**: approval is explicit (see `docs/REVIEW_MODE.md`)
 4. **Apply**: accepted proposals are applied to become truth (`applyProposal`)
-5. **Optional projections**: clients can render Markdown projections and/or show diffs/overlays
+5. **Optional projections**: clients can render Markdown (and/or DOCX) projections and show diffs/overlays
 
 ### Reading Context
 
@@ -88,7 +90,7 @@ A **first-class component** that turns the context store into the substrate for 
    - Storage backend is transparent to agents
    - Optional API layers (GraphQL/HTTP) can be added later; the contract is `ContextStore`
 2. **Humans**: View projections in a client (editor extension, web UI, CLI)
-   - Projections can be generated on-demand from accepted truth
+   - Projections can be generated on-demand from accepted truth (Markdown for authoring/editing; DOCX for distribution)
    - Markdown may be client-side or committed in a repo; either way it is a projection, not canonical truth
 3. Context store returns accepted nodes + open proposals (default: accepted only for safety)
 4. Agent can distinguish truth from proposals (explicit status indicators)
@@ -111,7 +113,7 @@ A **first-class component** that turns the context store into the substrate for 
    - **Issues are automatically created** (if configured - see `decision-012`; broader “action item creation” applies beyond software)
    - Issues can be created as task nodes
    - Referencing nodes updated
-9. Markdown is regenerated from accepted truth
+9. Markdown (and optionally DOCX) is regenerated from accepted truth
 10. **Conflict Resolution**: True conflicts require manual resolution by reviewers
 
 ## Key Design Decisions
@@ -132,7 +134,7 @@ A **first-class component** that turns the context store into the substrate for 
 
 ### Why Deterministic Projection?
 
-- Same context = same Markdown (deterministic; enables reproducible projections and clean diffs when Markdown is versioned)
+- Same context = same Markdown (and same DOCX when regenerated); deterministic output enables reproducible projections and clean diffs when Markdown is versioned
 - Enables validation and drift detection
 - Predictable behavior for agents
 - Supports reproducible builds

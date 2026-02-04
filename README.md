@@ -2,7 +2,7 @@
 
 **Agentic Collaboration Approval Layer (ACAL)** — a structured, review-mode **solution model** (typed graph of goals, decisions, tasks, risks, questions) that humans and AI agents collaborate on and **approve into truth**. Not a document editor; not just for software.
 
-- **Looks like** Markdown. **Feels like** Google Docs “Suggesting” mode. **Behaves like** proposal → review → apply; Markdown is a projection, not the store.
+- **Looks like** Markdown. **Feels like** Google Docs “Suggesting” mode. **Behaves like** proposal → review → apply; Markdown (and DOCX export) are projections, not the store.
 - **🔒 IP stays in your organization** — file-based (Git) or self-hosted MongoDB; no external services.
 
 ---
@@ -34,7 +34,7 @@ Context is scattered (chat, PRs, wikis, tickets); **truth status** is ambiguous 
 
 - **Solution model store** — Typed graph (goal → decision → task → risk → question); nodes and relationships; status (accepted / proposed / rejected).
 - **Review mode** — No direct edits to accepted context; all changes are **proposals** → review → **apply**. See [REVIEW_MODE.md](docs/REVIEW_MODE.md).
-- **Markdown as projection** — Optional authoring via `ctx` blocks; deterministic `projectToMarkdown`; store is source of truth.
+- **Markdown and DOCX as projections** — Optional authoring via `ctx` blocks; deterministic `projectToMarkdown`; DOCX export for distribution (`scripts/build-whitepaper-docx.js`); store is source of truth.
 - **Storage** — In-memory (today); file-based JSON graph (planned default); self-hosted MongoDB (planned production). Same `ContextStore` interface; all data in your perimeter.
 - **Agent API** — Query by type, status, keyword, relationships; **decision/rationale traversal** (provenance chains: goal → decision → task → risk). Default: accepted-only reads. [AGENT_API.md](docs/AGENT_API.md).
 - **Conflict reconciliation** — V1 default: field-level merge + optimistic locking + manual resolution for same-field conflicts; block approval on conflicts for decision/constraint nodes. [RECONCILIATION_STRATEGIES.md](docs/RECONCILIATION_STRATEGIES.md).

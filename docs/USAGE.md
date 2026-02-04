@@ -107,6 +107,8 @@ const markdown = await projectToMarkdown(store);
 await writeFileSync("DECISIONS.md", markdown);
 ```
 
+For **DOCX export** (e.g. whitepapers, reports), use the build script: `node scripts/build-whitepaper-docx.js`. It renders Mermaid diagrams to images and converts Markdown to DOCX via Pandoc. See `scripts/README.md`.
+
 ## Agent Usage
 
 ### Querying Context
@@ -220,4 +222,4 @@ The system is designed to work with Git:
 3. Apply accepted proposals into truth
 4. Persist truth via your chosen storage backend (file-based/MongoDB/other)
 
-If you choose a file-based storage backend, the canonical store can be persisted as structured data in a Git repo. Markdown is a projection format and can be committed or kept client-side — it is not canonical truth either way.
+If you choose a file-based storage backend, the canonical store can be persisted as structured data in a Git repo. Markdown (and DOCX export) are projection formats and can be committed or kept client-side — they are not canonical truth either way.
