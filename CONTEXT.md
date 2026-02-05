@@ -34,6 +34,8 @@ Create an agentic collaboration approval layer (ACAL) that enables:
 - Role-based Markdown editing (read-only vs editable)
 - Bidirectional sync - Markdown edits sync back to context store and referencing nodes
 - Hybrid reconciliation for concurrent edits - conflict detection, field-level merging, optimistic locking, manual resolution
+- Bidirectional flow with Word/Google - create, modify, comment, and review proposals from Word or Google Docs (see docs/DOCX_REVIEW_INTEGRATION.md)
+- Clear visualization of context relationships - context map (diagram or table) and optional graph/tree view in Office Add-in task pane
 ```
 
 ```ctx

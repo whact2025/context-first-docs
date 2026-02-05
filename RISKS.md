@@ -1,6 +1,6 @@
 # Project Risks
 
-This document tracks potential risks and mitigation strategies for TruthLayer. Mitigations often reference implementation in `src/store/`, `src/playground/`, and `docs/`. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **production security posture** (condensed enterprise summary): `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade posture and roadmap). For **doc suite feature set** (when to use TruthLayer vs Office/Google Docs + Copilot/Gemini), see whitepaper §2.4, §8.9.
+This document tracks potential risks and mitigation strategies for TruthLayer. Mitigations often reference implementation in `src/store/`, `src/playground/`, and `docs/`. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **production security posture** (condensed enterprise summary): `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade posture and roadmap). For **doc suite feature set** (when to use TruthLayer vs Office/Google Docs + Copilot/Gemini), see whitepaper §2.4, §6.9. For **Word/Excel/Google review** (bidirectional flow, context visualization), see `docs/DOCX_REVIEW_INTEGRATION.md`.
 
 ```ctx
 type: risk
@@ -235,6 +235,6 @@ likelihood: possible
 **Risk**: Adopters confuse TruthLayer with the **doc suite feature set** (Office/Google Docs + Copilot/Gemini) or expect TruthLayer to replace document-centric truth and consumption across the full suite and messaging apps (Teams, Chat, Slack, email), including drafting discussions and emails.
 
 **Mitigation**:
-- Document clear positioning: doc suite + Copilot/Gemini establish and consume truth for **document-centric** workflows (policy, contracts, SOPs, strategy; consumption across suite and messaging; drafting discussions/emails). TruthLayer targets **solution modeling** and **agent-safe structured truth** (typed graph, proposal/review/apply, accepted-only reads, deterministic projection, provenance). Many orgs use both (whitepaper §2.4, §8.9, decision-027).
+- Document clear positioning: doc suite + Copilot/Gemini establish and consume truth for **document-centric** workflows (policy, contracts, SOPs, strategy; consumption across suite and messaging; drafting discussions/emails). TruthLayer targets **solution modeling** and **agent-safe structured truth** (typed graph, proposal/review/apply, accepted-only reads, deterministic projection, provenance). Many orgs use both (whitepaper §2.4, §6.9, decision-027).
 - In PLAN Phase 6: document "when to use which" for adopters; optional future integration points (e.g. export context to Doc for Copilot/Gemini) if needed.
 ```

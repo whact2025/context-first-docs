@@ -18,7 +18,7 @@
 | **Whitepaper + Appendix** (why, contract, product wedge) | [WHITEPAPER.md](docs/WHITEPAPER.md) · [WHITEPAPER_APPENDIX.md](docs/WHITEPAPER_APPENDIX.md) |
 | **Contextualized AI** (RAG, fine-tuning, prompt-leakage policy) | [CONTEXTUALIZED_AI_MODEL.md](docs/CONTEXTUALIZED_AI_MODEL.md) |
 
-Full system design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Full system design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). **More:** [Storage](docs/STORAGE_ARCHITECTURE.md), [Implementation plan](docs/STORAGE_IMPLEMENTATION_PLAN.md), [DOCX/Word–Excel review](docs/DOCX_REVIEW_INTEGRATION.md), [UI spec](docs/UI_SPEC.md), [Full doc index](docs/README.md).
 
 ---
 

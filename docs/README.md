@@ -18,6 +18,20 @@ Run **hello-world**, **conflicts-and-merge**, and **stale-proposal** in the play
 ## Other key docs
 
 - **WHITEPAPER.md** — Full design, product wedge, implementation status, security (§7), status model (§4.1).
+- **WHITEPAPER_APPENDIX.md** — Deep technical excerpts and API references; glossary and comparison in main whitepaper (§11, §6.9).
 - **CONTEXTUALIZED_AI_MODEL.md** — **Contextualize module** (first-class): RAG, fine-tuning, structured prompting; **prompt-leakage policy layer** (policy-as-code: labels, retrieval policy, logging); accepted-only = same safety contract as collaboration.
 - **REVIEW_MODE.md** — Proposal → review → apply invariant.
 - **AGENT_API.md**, **RECONCILIATION_STRATEGIES.md**, **UI_SPEC.md**, **USAGE.md** — API, conflict strategies, UI, usage.
+
+## Storage, change detection, and reference
+
+| File | Purpose |
+|------|---------|
+| **[CHANGE_DETECTION.md](CHANGE_DETECTION.md)** | How ctx-block and Markdown edits become proposals; diffing and import. |
+| **[STORAGE_ARCHITECTURE.md](STORAGE_ARCHITECTURE.md)** | Dual storage options (file-based vs MongoDB), abstraction layer, node text fields. |
+| **[STORAGE_IMPLEMENTATION_PLAN.md](STORAGE_IMPLEMENTATION_PLAN.md)** | Gap analysis, implementation tasks, and timeline for storage backends. |
+| **[DOCX_REVIEW_INTEGRATION.md](DOCX_REVIEW_INTEGRATION.md)** | Using DOCX/Word/Excel as a review surface (native vs Office Add-in). |
+| **[SELF-REFERENCE.md](SELF-REFERENCE.md)** | How this project uses ACAL to document itself (CONTEXT.md, DECISIONS.md, etc.). |
+| **[DOCS_ANALYSIS.md](DOCS_ANALYSIS.md)** | Inconsistencies and gaps analysis; link convention and index. |
+
+**Link convention:** From within `docs/`, link to other docs in this folder by filename only (e.g. `[Whitepaper](WHITEPAPER.md)`). Link to repo-root files with `../` (e.g. `../DECISIONS.md`, `../CONTEXT.md`). This keeps links valid whether the reader is at repo root or serving from `docs/`.

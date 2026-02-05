@@ -1,6 +1,6 @@
 # Open Questions
 
-This document tracks questions that need answers as the project evolves. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **contextualized AI model** (Phase 5, RAG/fine-tuning/structured prompting, prompt leakage), see `docs/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5. For **production security posture** (enterprise summary: gateway, approvers-only, disable reset, audit), see `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade). For **doc suite feature set** (when to use TruthLayer vs Office/Google Docs + Copilot/Gemini — document-centric truth, consumption across suite and messaging, drafting discussions/emails), see whitepaper §2.4, §8.9, decision-027.
+This document tracks questions that need answers as the project evolves. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **contextualized AI model** (Phase 5, RAG/fine-tuning/structured prompting, prompt leakage), see `docs/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5. For **production security posture** (enterprise summary: gateway, approvers-only, disable reset, audit), see `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade). For **doc suite feature set** (when to use TruthLayer vs Office/Google Docs + Copilot/Gemini — document-centric truth, consumption across suite and messaging, drafting discussions/emails), see whitepaper §2.4, §6.9, decision-027. For **Word/Google bidirectional flow and context visualization** (create, modify, comment, review from Word/Google; context map and graph view), see `docs/DOCX_REVIEW_INTEGRATION.md` §5–7, decision-029.
 
 ```ctx
 type: question
@@ -715,7 +715,21 @@ status: resolved
 
 **Answer**: TruthLayer is complementary to the doc suite feature set; we do not replace it. Use the doc suite + Copilot/Gemini for **document-centric** truth (policy, contracts, SOPs, strategy playbooks) and consumption across the full suite and messaging (Teams, Chat, Slack, email), including drafting discussions and emails. Use TruthLayer for **solution modeling** and **agent-safe structured truth**: typed graph (goals, decisions, risks, tasks), proposal/review/apply semantics, accepted-only reads, deterministic projection, provenance, self-hosted contextualized AI with prompt-leakage policy. Many organizations use both.
 
-**Resolution**: See `DECISIONS.md` decision-027, `docs/WHITEPAPER.md` §2.4 (use cases), §8.9 (comparison), and FAQ "When should we use Office or Google Docs with Copilot/Gemini instead of TruthLayer?". PLAN Phase 6 includes documenting "when to use which" for adopters.
+**Resolution**: See `DECISIONS.md` decision-027, `docs/WHITEPAPER.md` §2.4 (use cases), §6.9 (comparison), and FAQ "When should we use Office or Google Docs with Copilot/Gemini instead of TruthLayer?". PLAN Phase 6 includes documenting "when to use which" for adopters.
+
+**Resolved At**: 2026-01-29
+```
+
+```ctx
+type: question
+id: question-033
+status: resolved
+---
+**Question**: How will review and authoring from Word/Google work, and how do we visualize context relationships?
+
+**Answer**: Bidirectional flow (create, modify, comment, review) from Word/Google is supported by mapping doc actions to the store API; preferred path is an Office Add-in (direct API), with export/import + sync as fallback. Context relationships are visualized via a context map (diagram or table of nodes/edges) in or alongside docs; with an Add-in, a graph/tree view in the task pane gives an interactive, up-to-date view.
+
+**Resolution**: See `docs/DOCX_REVIEW_INTEGRATION.md` §5 (bidirectional flow), §6 (visualization), §7 (summary); `DECISIONS.md` decision-029; PLAN Phase 3 items 17–18, Phase 6 item 5; tasks task-066, task-067.
 
 **Resolved At**: 2026-01-29
 ```

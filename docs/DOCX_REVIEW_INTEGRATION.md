@@ -2,7 +2,7 @@
 
 This document analyzes what is needed to use **DOCX (and Word/Excel)** as a **means for review and acceptance** in TruthLayer — i.e., reviewers performing accept/reject in Word or Excel rather than (or in addition to) the web UI, VS Code extension, or API.
 
-**Current state:** DOCX is an **export-only projection** for distribution (whitepaper, reports). The **canonical review path** is: `submitReview({ proposalId, action: "accept" | "reject", ... })` and `applyProposal(proposalId)` on the context store (see `docs/REVIEW_MODE.md`, `src/types/context-store.ts`). No DOCX or Office round-trip exists today.
+**Current state (see also [ARCHITECTURE.md](ARCHITECTURE.md) § Projections):** DOCX is an **export-only projection** for distribution (whitepaper, reports). The **canonical review path** is: `submitReview({ proposalId, action: "accept" | "reject", ... })` and `applyProposal(proposalId)` on the context store (see `docs/REVIEW_MODE.md`, `src/types/context-store.ts`). No DOCX or Office round-trip exists today.
 
 ---
 
@@ -102,7 +102,64 @@ The **document** (DOCX or workbook) can still be a **projection view** (e.g. “
 
 ---
 
-## 5. Summary and recommendation
+## 5. Bidirectional flow: create, modify, comment, and review from Word/Google
+
+**Requirement:** Data must flow in **both directions**. Users should be able to **create** proposals, **modify** proposals, **comment** on proposals, and **review** (accept/reject) from within Word or Google Docs, with all changes syncing back to the context store. The document (or companion surface) should also reflect the **current state** from the store (accepted nodes, open proposals, comments).
+
+### 5.1 Store → Word/Google (export / refresh)
+
+| What | How it flows |
+|------|----------------|
+| **Accepted context** | Export a DOC/Docx (or section) that represents the current accepted graph as narrative or structured content (e.g. one section per node, or a table). |
+| **Open proposals** | List or embed each proposal in the doc (e.g. as comments, or a “Proposals” section with tagged entries). Include proposalId, nodeId, summary, proposed text, author, so the reviewer sees what’s pending. |
+| **Comments** | Export proposal comments (and optionally anchored reviewer feedback) into the doc — e.g. as comment threads attached to the right proposal, or as a sidebar/list. |
+| **Refresh** | Re-export or “Sync from TruthLayer” so the doc reflects the latest store state (after others accept/reject or add comments). |
+
+So the **document** (or an Add-in pane) is a **projection** of the store: accepted truth + open proposals + comments.
+
+### 5.2 Word/Google → Store (create, modify, comment, review)
+
+| Action | How it flows back | Store contract |
+|--------|-------------------|----------------|
+| **Create proposal** | User adds new content (e.g. a new “proposal” comment, or a new row/section) that represents “I propose to add/change node X.” Import or Add-in maps that to `createProposal(...)`. | `createProposal(proposal)` |
+| **Modify proposal** | User edits the proposed text or metadata in the doc (e.g. edits the comment body or a tracked change). Import or Add-in maps that to `updateProposal(proposalId, updates)`. | `updateProposal(proposalId, updates)` |
+| **Comment** | User replies to a proposal comment or adds an anchored comment. Import or Add-in maps that to `addProposalComment(proposalId, comment)` (and optionally anchor to node/field). | `addProposalComment` (see `ContextStore`) |
+| **Review (accept/reject)** | User marks the proposal as Accept or Reject (e.g. resolves comment with “Accept”/“Reject,” or fills a cell in a table). Import or Add-in calls `submitReview({ proposalId, action, reviewer, comment })` and, on accept, `applyProposal(proposalId)`. | `submitReview(review)`, `applyProposal(proposalId)` |
+
+So **every authoring action** in the doc (create, edit, comment, accept/reject) has a **defined mapping** to the store API. That can be implemented by:
+
+- **Add-in / extension:** Task pane and in-doc actions call the API directly; no need to “import” the document.
+- **Native doc only:** Export a structured doc (e.g. comments tagged with proposalId); user works in Word/Google; then an **import/sync** step (upload doc or run a job) parses the doc and calls the API (createProposal, updateProposal, addProposalComment, submitReview, applyProposal). Conflict handling and idempotency (e.g. “already applied”) need to be part of the import logic.
+
+### 5.3 Sync and conflict handling
+
+- **Refresh (store → doc):** Re-export or sync so the doc shows latest proposals and comments. If the user has local edits not yet sent to the store, either merge (e.g. “last write wins” for a given proposal) or prompt to resolve (e.g. “Your draft comment was superseded by a reply in the store; overwrite or keep?”).
+- **Push (doc → store):** On “Sync to TruthLayer” or on Add-in submit, send create/update/comment/review to the API. Use proposalId and (where applicable) version/baseVersion so the store can reject stale updates (optimistic locking).
+- **Clear semantics:** Document for users whether the doc is “live” (Add-in, always in sync) or “snapshot + sync later” (export → edit → import), and what happens when the store changes between export and import.
+
+---
+
+## 6. Visualization of context relationships
+
+**Requirement:** Users need a **clear visualization of context relationships** — the typed graph (goal → decision → task → risk, dependencies, references) — when working in Word or Google Docs, so they see how nodes relate, not just a flat list.
+
+### 6.1 Options
+
+| Option | Where it lives | How relationships are shown |
+|--------|----------------|-----------------------------|
+| **Embedded diagram in the doc** | Inside the same DOC/Docx (e.g. first section or appendix). | Export a **graph diagram** (e.g. Mermaid rendered to image, or a simple “context map” graphic) showing nodes and edges (implements, depends-on, references, etc.). Update the image when re-exporting/syncing. |
+| **Outline / navigation pane** | Doc structure (headings, bookmarks) or Add-in pane. | Use headings or a tree (e.g. “Goal g1 → Decision d1, d2 → Task t1”) so the doc structure mirrors the graph. Add-in can show a **tree or mini-graph** (e.g. D3 or Mermaid in a task pane) driven by store data. |
+| **Companion “context map” document** | Separate DOC/Docx or sheet (or Add-in tab). | One document/sheet is the “relationship view”: table (From, EdgeType, To) or a diagram. Link from the main doc (“See context map”) or open side-by-side. |
+| **Add-in / extension pane** | Task pane in Word/Google or sidebar. | **Graph view** in the pane: nodes as boxes, edges as arrows (goal → decision → task → risk). Clicking a node scrolls to or highlights that node’s content in the doc. Data from store (queryNodes, graph traversal); no need to embed the full graph in the doc body. |
+
+### 6.2 Recommended direction
+
+- **Short term (export-only):** Add an **“Context map”** section or **appendix** to the exported DOC/Docx: a single diagram (or table) of nodes and key relationships, generated at export time from the store. Re-generate when re-exporting. No interactivity, but relationships are visible in the doc.
+- **With Add-in:** Provide a **graph/tree view** in the task pane (or a dedicated tab) that queries the store and renders the relationship graph. Optionally “Click node → jump to that node’s section in the doc” if the doc body is structured by node (e.g. one heading per node). That gives a clear, up-to-date visualization of context relationships while editing in Word/Google.
+
+---
+
+## 7. Summary and recommendation
 
 | Method | Extension? | Integrates with default Word/Excel? | Complexity | Use case |
 |--------|------------|-------------------------------------|------------|----------|
@@ -112,9 +169,11 @@ The **document** (DOCX or workbook) can still be a **projection view** (e.g. “
 
 **Recommendation:**
 
-1. **Short term (no extension):** Add **Excel-based review**: define export format (CSV/XLSX with ProposalId, Summary, Accept/Reject, Comment), and an **import script** (or API) that reads the file and calls `submitReview` / `applyProposal`. Document in USAGE and ARCHITECTURE. This gives “DOCX/Excel as a means for review” for the Excel path without any Add-in.
-2. **Medium term (optional extension):** Build a **Word or Excel Add-in** that uses the TruthLayer API for review (task pane: proposals → Accept/Reject → API). DOCX export stays as today (distribution); review is done in the Add-in, not by re-importing DOCX.
-3. **Optional (later):** If there is strong need for “review entirely inside Word with Track Changes and no Add-in”, invest in the **DOCX round-trip** (export with tagged revisions/comments, import parser, mapping to proposals). Design doc first (export schema, OOXML mapping, edge cases).
+1. **Bidirectional flow:** Support **create, modify, comment, and review** from Word/Google by mapping doc actions to the store API (`createProposal`, `updateProposal`, `addProposalComment`, `submitReview`, `applyProposal`). Prefer an Add-in for direct API calls; without it, use a defined export/import format and sync step (see §5).
+2. **Context visualization:** Provide a **context map** (diagram or table of nodes and edges) in or alongside the doc (e.g. appendix or companion doc). With an Add-in, add a **graph/tree view** in the task pane for an interactive, up-to-date view of the context graph (see §6).
+3. **Short term (no extension):** Add **Excel-based review**: define export format (CSV/XLSX with ProposalId, Summary, Accept/Reject, Comment), and an **import script** (or API) that reads the file and calls `submitReview` / `applyProposal`. Document in USAGE and ARCHITECTURE. This gives “DOCX/Excel as a means for review” for the Excel path without any Add-in.
+4. **Medium term (optional extension):** Build a **Word or Excel Add-in** that uses the TruthLayer API for review (task pane: proposals → Accept/Reject → API). DOCX export stays as today (distribution); review is done in the Add-in, not by re-importing DOCX.
+5. **Optional (later):** If there is strong need for “review entirely inside Word with Track Changes and no Add-in”, invest in the **DOCX round-trip** (export with tagged revisions/comments, import parser, mapping to proposals). Design doc first (export schema, OOXML mapping, edge cases).
 
 **Is it an extension or default behavior?**
 
@@ -123,7 +182,7 @@ The **document** (DOCX or workbook) can still be a **projection view** (e.g. “
 
 ---
 
-## 6. References
+## 8. References
 
 - Review contract: `docs/REVIEW_MODE.md`, `src/types/context-store.ts` (`submitReview`, `applyProposal`), `src/types/proposal.ts` (`Review`).
 - DOCX export today: `scripts/build-whitepaper-docx.js`, `scripts/README.md`, `docs/ARCHITECTURE.md` § Projections (Markdown and DOCX).

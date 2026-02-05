@@ -1037,7 +1037,7 @@ This keeps the execution system (Jira/GitHub Issues) aligned with durable contex
 
 This section is intentionally explicit. The goal is not to claim “everything else is bad,” but to clarify what is distinct.
 
-### 8.1 “Hodgepodge” workflows (Slack + PR comments + wiki + tickets)
+### 6.1 “Hodgepodge” workflows (Slack + PR comments + wiki + tickets)
 
 **Strengths**:
 - low friction
@@ -1055,7 +1055,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 - review mode as an invariant, not a convention
 - structured relationships enabling provenance chains (decision/rationale traversal)
 
-### 8.2 Git + Markdown docs/ADRs
+### 6.2 Git + Markdown docs/ADRs
 
 **Strengths**:
 - Git-native review and history
@@ -1072,7 +1072,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 - explicit accepted/proposed/rejected statuses
 - structured query API
 
-### 8.3 Notion/Confluence/wiki systems
+### 6.3 Notion/Confluence/wiki systems
 
 **Strengths**:
 - easy collaboration and browsing
@@ -1089,7 +1089,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 - review-mode invariant for accepted truth
 - self-hosted-first architecture and integration with code workflows
 
-### 8.4 Issue trackers (Jira/GitHub Issues/Linear) as “truth”
+### 6.4 Issue trackers (Jira/GitHub Issues/Linear) as “truth”
 
 **Strengths**:
 - execution management, workflows, assignment, reporting
@@ -1104,7 +1104,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 - explicit proposal/review provenance
 - issues as downstream artifacts created from accepted proposals, not the canonical context itself
 
-### 8.5 Generic knowledge graphs (Neo4j/RDF/ontology tools)
+### 6.5 Generic knowledge graphs (Neo4j/RDF/ontology tools)
 
 **Strengths**:
 - powerful graph queries
@@ -1120,7 +1120,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 - Markdown projection is a core workflow (not an add-on)
 - explicit node lifecycle designed for human + agent collaboration
 
-### 8.6 Vector DB / RAG knowledge bases
+### 6.6 Vector DB / RAG knowledge bases
 
 **Strengths**:
 - great discovery and retrieval of relevant text
@@ -1135,7 +1135,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 - provenance chains (typed relationship paths) grounded in relationships, not embeddings
 - RAG can complement discovery; it should not replace a canonical truth layer
 
-### 8.7 Agent memory tools
+### 6.7 Agent memory tools
 
 **Strengths**:
 - fast local recall for agents
@@ -1149,7 +1149,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 - shared, reviewable, organization-owned context substrate
 - durable provenance and explicit policy for writes
 
-### 8.8 Comparison matrix (structural differences)
+### 6.8 Comparison matrix (structural differences)
 
 | Axis | Hodgepodge | Git+Markdown | Wiki/Notion | IssueTracker | KnowledgeGraph | RAG_VectorDB | AgentMemory | ContextFirstDocs_TargetState |
 |---|---|---|---|---|---|---|---|---|
@@ -1161,7 +1161,7 @@ This section is intentionally explicit. The goal is not to claim “everything e
 | Deterministic_projection | No | N_A | N_A | N_A | N_A | No | No | Yes_required |
 | Self_hosting | Mixed | Yes | Mixed | Mixed | Mixed | Mixed | Mixed | Designed_for_self_hosted |
 
-### 8.9 Office and Google Docs (with Copilot and Gemini)
+### 6.9 Office and Google Docs (with Copilot and Gemini)
 
 **Strengths:**
 
@@ -1453,7 +1453,7 @@ No. Markdown remains a first-class *projection* and authoring surface. Git remai
 Not primarily. Wikis are excellent for broad, page-centric knowledge. This system targets **durable organizational truth about a solution** (goals, decisions, constraints, risks, open questions) with explicit status and review semantics. Many orgs will keep both: a wiki for narrative knowledge, and an approval layer for agent-safe, reviewable truth.
 
 ### "When should we use Office or Google Docs with Copilot/Gemini instead of TruthLayer?"
-When truth is **document-centric** (the approved document is the truth) and you are comfortable with **vendor AI** (Microsoft Copilot, Google Gemini) reading and generating from that content: policy/HR docs, contracts, marketing copy, SOPs, strategy playbooks. Those tools establish truth via suggest/tracked-changes and human review, and consume it via Copilot/Gemini. Use **TruthLayer** when you need a **typed solution graph**, **agent-safe defaults** (accepted-only reads), **deterministic projection**, **provenance of rejected ideas**, or **self-hosted** contextualized AI. See **§2.4** (use cases) and **§8.9** (comparison).
+When truth is **document-centric** (the approved document is the truth) and you are comfortable with **vendor AI** (Microsoft Copilot, Google Gemini) reading and generating from that content: policy/HR docs, contracts, marketing copy, SOPs, strategy playbooks. Those tools establish truth via suggest/tracked-changes and human review, and consume it via Copilot/Gemini. Use **TruthLayer** when you need a **typed solution graph**, **agent-safe defaults** (accepted-only reads), **deterministic projection**, **provenance of rejected ideas**, or **self-hosted** contextualized AI. See **§2.4** (use cases) and **§6.9** (comparison).
 
 ### "How does this integrate with Jira/GitHub Issues?"
 In the target state, issues are downstream execution artifacts. Approved proposals can create issues (and attach codebase projections like PR links), while Jira/Issues remains the execution workflow layer.

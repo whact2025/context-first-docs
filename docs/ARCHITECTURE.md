@@ -35,7 +35,7 @@ Key principles:
   - **ctx Blocks**: Lightweight syntax for embedding semantic nodes inside Markdown
   - **Import**: Converts ctx block edits into proposals (`importFromMarkdown`)
   - **Export**: Projects accepted nodes into ctx blocks deterministically (`projectToMarkdown`)
-- **DOCX**: Generated from Markdown (or from store via Markdown); Mermaid diagrams rendered to images, then Pandoc converts to DOCX. Build: `node scripts/build-whitepaper-docx.js` (see `scripts/README.md`). Output: per-document DOCX files in `dist/whitepaper-docx/`.
+- **DOCX**: Generated from Markdown (or from store via Markdown); Mermaid diagrams rendered to images, then Pandoc converts to DOCX. Build: `node scripts/build-whitepaper-docx.js` (see `scripts/README.md`). Output: per-document DOCX files in `dist/whitepaper-docx/`. For using DOCX/Word/Excel as a review surface, see [DOCX_REVIEW_INTEGRATION.md](DOCX_REVIEW_INTEGRATION.md).
 
 Key principles:
 - **Review mode (no direct edits)**: clients submit proposals; reviewers accept/reject into truth (see `docs/REVIEW_MODE.md`)

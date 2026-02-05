@@ -236,3 +236,5 @@ So the **concrete “what changed”** in the projection is:
 - **Code:** See `src/playground/scenarios.ts` (scenario `hello-world`) and `src/markdown/projection.ts` (`projectToMarkdown`). Proposal and comment shapes are in `src/types/proposal.ts`; node shapes in `src/types/node.ts`.
 
 This single end-to-end flow is the **canonical “hello world”** referenced from the whitepaper, REVIEW_MODE, and USAGE.
+
+**See also:** [REVIEW_MODE.md](REVIEW_MODE.md) (invariant and status transitions), [RECONCILIATION_STRATEGIES.md](RECONCILIATION_STRATEGIES.md) (conflict policy), [WHITEPAPER.md](WHITEPAPER.md) (full design).

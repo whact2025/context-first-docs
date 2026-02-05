@@ -6,8 +6,9 @@ This document tracks the development roadmap and milestones for TruthLayer.
 - **Canonical walkthroughs**: [Hello World](docs/HELLO_WORLD_SCENARIO.md) (proposal → review → apply → Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, merge, staleness) — run via playground Scenario Runner (`npm run playground`).
 - **Contextualize module** (contextualized AI): Phase 5 below; first-class component—full design in `docs/CONTEXTUALIZED_AI_MODEL.md` (RAG, fine-tuning, structured prompting; **prompt-leakage policy layer** = policy-as-code for prompt leakage).
 - **Security**: Production posture today (condensed enterprise "stop sign") and enterprise-grade posture: `docs/WHITEPAPER.md` §7.4 (Production posture today table: repo = demo/no auth, gateway, approvers-only for review/apply, disable reset, log vendor prompts, audit split) and §7.5 (enterprise-grade table and roadmap).
-- **Decisions**: Key decisions (e.g. node status = post-apply intent, contextualized AI policy, minimum secure deployment, doc suite complementary) in `DECISIONS.md` (decision-024, decision-025, decision-026, decision-027).
-- **Doc suite feature set**: When to use TruthLayer vs Office/Google Docs + Copilot/Gemini (document-centric truth, consumption across suite and messaging including drafting discussions/emails) is in `docs/WHITEPAPER.md` §2.4, §8.9. TruthLayer does not replace doc suites; many orgs use both.
+- **Decisions**: Key decisions (e.g. node status = post-apply intent, contextualized AI policy, minimum secure deployment, doc suite complementary, DOCX projection, Word/Google bidirectional flow and visualization) in `DECISIONS.md` (decision-024 through decision-029).
+- **Doc suite feature set**: When to use TruthLayer vs Office/Google Docs + Copilot/Gemini (document-centric truth, consumption across suite and messaging including drafting discussions/emails) is in `docs/WHITEPAPER.md` §2.4, §6.9. TruthLayer does not replace doc suites; many orgs use both.
+- **Word/Excel/Google review**: Bidirectional flow (create, modify, comment, review from Word/Google) and context relationship visualization are designed in `docs/DOCX_REVIEW_INTEGRATION.md` (§5, §6, §7); tasks and decisions updated accordingly.
 
 ```ctx
 type: plan
@@ -60,6 +61,8 @@ status: accepted
 14. Build review history tracking
 15. Support multi-approval workflows
 16. **Audit export**: Standard format for exporting proposals/reviews (e.g. by date range) for compliance (see whitepaper §7 table: audit export is roadmap; store holds data but no standard export today).
+17. **Bidirectional flow (Word/Google)**: Support create, modify, comment, and review from Word/Google — map doc actions to store API (`createProposal`, `updateProposal`, `addProposalComment`, `submitReview`, `applyProposal`). Prefer Office Add-in for direct API; fallback: defined export/import + sync (see `docs/DOCX_REVIEW_INTEGRATION.md` §5, §7).
+18. **Context relationship visualization**: Provide a context map (diagram or table of nodes/edges) in or alongside projections (e.g. appendix, companion doc). With Add-in: graph/tree view in task pane for interactive, up-to-date context graph (see `docs/DOCX_REVIEW_INTEGRATION.md` §6, §7).
 
 **Phase 4: Agent APIs**
 1. Implement comprehensive query API (type, status, keyword, relationships, pagination, sorting)
@@ -93,19 +96,20 @@ Implement the **Contextualize** module (first-class component) as described in `
 1. Clean installation system - non-invasive setup for existing repositories
 2. Self-hosted Git storage setup - configure storage service for self-hosted Git repository
 3. Reverse engineering tools - extract historical context from existing merge requests/PRs
-4. **Positioning and doc suite**: Document "when to use TruthLayer vs doc suite" (Office/Docs + Copilot/Gemini) for adopters; optional future: integration points (e.g. export context to Doc for Copilot/Gemini consumption). See whitepaper §2.4, §8.9, decision-027.
-5. VS Code/Cursor extension (client) - in-editor review, context awareness, and proposal authoring/preview
-6. Extension features:
+4. **Positioning and doc suite**: Document "when to use TruthLayer vs doc suite" (Office/Docs + Copilot/Gemini) for adopters; optional future: integration points (e.g. export context to Doc for Copilot/Gemini consumption). See whitepaper §2.4, §6.9, decision-027.
+5. **Word/Excel/Google integration** (see `docs/DOCX_REVIEW_INTEGRATION.md`): Excel-based review (export table + import script) short term; optional Word/Excel Add-in for task-pane review + context graph view; optional DOCX round-trip (tagged Track Changes/Comments) later.
+6. VS Code/Cursor extension (client) - in-editor review, context awareness, and proposal authoring/preview
+7. Extension features:
    - Client-side change capture (on save or real-time) that produces proposals (review mode enforced by store)
    - Proposal creation and management UI
    - Context awareness while coding
    - Role-based authoring modes (read-only vs suggesting)
-7. Pre-baked Cursor rules - AI-assisted proposal and risk authoring
-8. GitHub/GitLab integration (for code repository, not context store)
-9. Reverse engineering MRs/PRs - extract historical context from existing repositories
-10. CLI tools for installation and management
-11. CI/CD integration
-12. Security/privacy validation - ensure zero IP leakage, all data in self-hosted Git
+8. Pre-baked Cursor rules - AI-assisted proposal and risk authoring
+9. GitHub/GitLab integration (for code repository, not context store)
+10. Reverse engineering MRs/PRs - extract historical context from existing repositories
+11. CLI tools for installation and management
+12. CI/CD integration
+13. Security/privacy validation - ensure zero IP leakage, all data in self-hosted Git
 ```
 
 ```ctx
@@ -643,4 +647,20 @@ id: task-057
 status: open
 ---
 Create comprehensive test suite - unit tests for all storage implementations, integration tests, performance tests, >80% coverage.
+```
+
+```ctx
+type: task
+id: task-066
+status: open
+---
+Support bidirectional flow from Word/Google: create, modify, comment, and review proposals via store API (createProposal, updateProposal, addProposalComment, submitReview, applyProposal). Prefer Office Add-in; fallback: defined export/import format and sync step. See docs/DOCX_REVIEW_INTEGRATION.md §5, §7.
+```
+
+```ctx
+type: task
+id: task-067
+status: open
+---
+Provide context relationship visualization: context map (diagram or table of nodes/edges) in or alongside projections; with Office Add-in, add graph/tree view in task pane for interactive context graph. See docs/DOCX_REVIEW_INTEGRATION.md §6, §7.
 ```

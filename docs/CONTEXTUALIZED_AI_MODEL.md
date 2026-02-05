@@ -4,7 +4,7 @@ This document describes **how the context store is used to create a contextualiz
 
 **Audience:** architects, ML/platform leads, security/compliance, and implementers.
 
-**Related:** `docs/WHITEPAPER.md` section 7.1 (Enterprise IP and contextualized AI models), `docs/AGENT_API.md` (query and decision/rationale traversal APIs), `CONTEXT.md` (self-hosting constraint).
+**Related:** [WHITEPAPER.md](WHITEPAPER.md) section 7.1 (Enterprise IP and contextualized AI models), [AGENT_API.md](AGENT_API.md) (query and decision/rationale traversal APIs), [CONTEXT.md](../CONTEXT.md) (self-hosting constraint).
 
 ---
 
@@ -46,7 +46,7 @@ Enterprises hold valuable IP in goals, decisions, constraints, risks, and ration
 
 Accepted-only retrieval is the same safety contract that prevents agent hallucinations in collaboration; we reuse it to prevent data poisoning in training/prompting.
 
-**Implementation paths:** RAG at inference (§2.1), export for fine-tuning (§2.2), structured prompting (§2.3). All run against the store on your infrastructure; training and inference can stay on-prem or in a private cloud. See also `docs/WHITEPAPER.md` section 7.1.
+**Implementation paths:** RAG at inference (§2.1), export for fine-tuning (§2.2), structured prompting (§2.3). All run against the store on your infrastructure; training and inference can stay on-prem or in a private cloud. See also [WHITEPAPER.md](WHITEPAPER.md) section 7.1.
 
 ---
 
@@ -67,7 +67,7 @@ The **context store** is the canonical source of that context: a typed graph of 
 - **Explicit status:** You retrieve only `status: ["accepted"]` by default, so training or retrieval does not mix in drafts or rejected ideas as truth (see `src/store/core/query-nodes.ts`: `query.status || ["accepted"]`).
 - **Structured graph:** Nodes have type, relationships, and deterministic text (`title`, `description`, derived `content`), so you can export or format them consistently for prompts or training (see `src/types/node.ts`, `src/utils/node-text.ts`).
 - **Decision/rationale traversal (provenance chains):** APIs such as `traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, and `queryWithReasoning` perform **typed relationship traversal** (e.g. goal → decision → risk → task) — graph traversal of rationale and provenance, not LLM chain-of-thought. They let you build ordered, relevant context for injection into prompts or training examples (see `src/types/context-store.ts`, `src/store/in-memory-store.ts`).
-- **Self-hosting:** The store is designed to run within your organization; no context need leave your perimeter for core retrieval or export (see `CONTEXT.md` constraint-005, `DECISIONS.md` decision-005).
+- **Self-hosting:** The store is designed to run within your organization; no context need leave your perimeter for core retrieval or export (see [CONTEXT.md](../CONTEXT.md) constraint-005, [DECISIONS.md](../DECISIONS.md) decision-005).
 
 ---
 
@@ -226,7 +226,7 @@ The patterns above are operational; security and compliance need an **operationa
 ## 5. References
 
 - **Architecture (Contextualize as first-class module):** `docs/ARCHITECTURE.md` — System Components §4 (Contextualize module).
-- **Whitepaper (contextualized enterprise AI model, enterprise IP benefits):** `docs/WHITEPAPER.md` — section 7 (Security, privacy, and governance) and **section 7.1 (Enterprise IP and contextualized AI models)**.
-- **Query and decision/rationale traversal APIs:** `docs/AGENT_API.md`; `src/types/context-store.ts` (`queryNodes`, `traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, `queryWithReasoning` — these perform typed relationship traversal / provenance chains, not LLM chain-of-thought).
+- **Whitepaper (contextualized enterprise AI model, enterprise IP benefits):** [WHITEPAPER.md](WHITEPAPER.md) — section 7 (Security, privacy, and governance) and **section 7.1 (Enterprise IP and contextualized AI models)**.
+- **Query and decision/rationale traversal APIs:** [AGENT_API.md](AGENT_API.md); `src/types/context-store.ts` (`queryNodes`, `traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, `queryWithReasoning` — these perform typed relationship traversal / provenance chains, not LLM chain-of-thought).
 - **Projection:** `src/markdown/projection.ts` (`projectToMarkdown`).
-- **Self-hosting and IP:** `CONTEXT.md` (constraint-005), `DECISIONS.md` (decision-005).
+- **Self-hosting and IP:** [CONTEXT.md](../CONTEXT.md) (constraint-005), [DECISIONS.md](../DECISIONS.md) (decision-005).

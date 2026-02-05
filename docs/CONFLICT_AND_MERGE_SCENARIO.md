@@ -241,3 +241,5 @@ This is why the model avoids “merge wars”: conflicts are **classified** at p
 - **Code:** See `src/playground/scenarios.ts` (scenarios `conflicts-and-merge` and `stale-proposal`) and `src/store/core/conflicts.ts` (`detectConflictsForProposal`, `mergeProposals`, `isProposalStale`). Types: `src/types/conflicts.ts`.
 
 This walkthrough is the **canonical “conflict and merge” day in the life** referenced from the whitepaper (§5.3.4), WHITEPAPER_APPENDIX, and RECONCILIATION_STRATEGIES.
+
+**See also:** [REVIEW_MODE.md](REVIEW_MODE.md) (invariant), [RECONCILIATION_STRATEGIES.md](RECONCILIATION_STRATEGIES.md) (v1 policy and options), [WHITEPAPER.md](WHITEPAPER.md) (§5.3, §5.3.4).

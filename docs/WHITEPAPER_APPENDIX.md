@@ -1,6 +1,6 @@
 # Whitepaper Appendix
 
-This appendix provides deep technical excerpts and API references that support the main whitepaper (`docs/WHITEPAPER.md`). For the **Glossary**, see **section 11** of the whitepaper. For **using the context store to create a contextualized AI model** (RAG, fine-tuning, structured prompting) and **enterprise IP benefits**, see `docs/CONTEXTUALIZED_AI_MODEL.md` and whitepaper section 7.1.
+This appendix provides deep technical excerpts and API references that support the main whitepaper ([WHITEPAPER.md](WHITEPAPER.md)). For the **Glossary**, see **section 11** of the whitepaper. For **using the context store to create a contextualized AI model** (RAG, fine-tuning, structured prompting) and **enterprise IP benefits**, see [CONTEXTUALIZED_AI_MODEL.md](CONTEXTUALIZED_AI_MODEL.md) and whitepaper section 7.1.
 
 ---
 
@@ -24,7 +24,7 @@ The canonical store contract is defined in `src/types/context-store.ts`. Key met
 | `traverseReasoningChain` / `buildContextChain` / `followDecisionReasoning` / `discoverRelatedReasoning` | Decision/rationale traversal (provenance chains) — typed relationship traversal: goal → decision → risk → task. Not LLM chain-of-thought. |
 | `queryWithReasoning(options)` | Query with provenance chains (typed relationship paths) attached to results |
 
-For **concrete examples** of conflicts, merges, and staleness (two proposals same field → conflict; different fields → mergeable; stale baseVersion → rebase), see whitepaper **section 5.3.4** and the canonical walkthrough **`docs/CONFLICT_AND_MERGE_SCENARIO.md`** (day-in-the-life style, with proposal JSON and outcome shapes). Run the **conflicts-and-merge** and **stale-proposal** scenarios in the playground to reproduce.
+For **concrete examples** of conflicts, merges, and staleness (two proposals same field → conflict; different fields → mergeable; stale baseVersion → rebase), see whitepaper **section 5.3.4** and the canonical walkthrough **[CONFLICT_AND_MERGE_SCENARIO.md](CONFLICT_AND_MERGE_SCENARIO.md)** (day-in-the-life style, with proposal JSON and outcome shapes). Run the **conflicts-and-merge** and **stale-proposal** scenarios in the playground to reproduce.
 
 ---
 
@@ -66,4 +66,4 @@ See `docs/REVIEW_MODE.md` for the invariant and status transitions.
 
 ## E. Glossary
 
-For the full glossary of terms (node, relationship, proposal, review, accepted truth, projection, ctx block, etc.), see **section 11 (Glossary)** of `docs/WHITEPAPER.md`.
+For the full glossary of terms (node, relationship, proposal, review, accepted truth, projection, ctx block, etc.), see **section 11 (Glossary)** of [WHITEPAPER.md](WHITEPAPER.md).
