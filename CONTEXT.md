@@ -129,7 +129,7 @@ The system must keep all context data within the organization with no data leak 
 - Zero IP leakage - all context stays within organization
 - Air-gapped deployment support
 
-**Note**: See `docs/STORAGE_ARCHITECTURE.md` for detailed comparison of file-based vs GraphQL + document DB approaches.
+**Note**: See `docs/engineering/storage/STORAGE_ARCHITECTURE.md` for detailed comparison of file-based vs GraphQL + document DB approaches.
 ```
 
 ```ctx
@@ -144,9 +144,7 @@ itself. The Markdown files in the project root contain ctx blocks that embed sem
 nodes. As the system matures, these will be automatically synchronized with the
 canonical context store in `.context/`.
 
-Currently, the files are committed for demonstration/self-reference. The repo already includes
-Markdown import/projection utilities and a review-mode store for demos/tests; persistent
-file-based storage is still planned, at which point synchronization can be automated end-to-end.
+Currently, the files are committed for demonstration/self-reference. The repo includes a **Rust server** (server/) as the context store for the playground and scenarios; Markdown import/projection and apply/graph helpers remain in TS. Persistent file-based storage is still planned; synchronization can be automated end-to-end once that is in place.
 
 See `docs/SELF-REFERENCE.md` for more details.
 ```

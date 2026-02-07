@@ -21,3 +21,6 @@ coverage/
 
 # Temporary working files
 _tmp/
+
+# Rust (server crate)
+server/target/

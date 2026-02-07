@@ -57,6 +57,8 @@ Valuable for implementers and evaluators; not part of the core pitch.
 
 For builders; not required for "what is this and why should I care."
 
+- **Running**: From the repo root run **`npm run playground`**, then open http://localhost:4317. In Cursor/VS Code: **Run Task → "Playground (run both servers)"**. See [../README.md](../README.md).
+
 | Doc | Content |
 |-----|---------|
 | [engineering/storage/STORAGE_ARCHITECTURE.md](engineering/storage/STORAGE_ARCHITECTURE.md) | Storage backends, file vs database |

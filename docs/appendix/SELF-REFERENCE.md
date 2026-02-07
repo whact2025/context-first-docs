@@ -17,3 +17,5 @@ The canonical nodes track:
 
 This creates a tight loop:
 Accepted truth → projections → edits → proposals → review/apply → new truth
+
+Run the playground: **`npm run playground`** then open http://localhost:4317 (see repo README).

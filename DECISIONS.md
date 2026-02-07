@@ -81,7 +81,29 @@ status: accepted
 - JavaScript (less type safety)
 - Rust/Go (higher barrier to entry, overkill for v1)
 
+**Update (2026)**: The **context store server** is implemented in **Rust** (server/) for a clear API boundary and performance; it exposes the ContextStore contract via HTTP. TypeScript remains the primary language for the playground, Markdown projection, agent-facing tooling, and the API client (src/api-client.ts). Apply and graph helpers stay in TS for preview and tests.
+
 **Decided At**: 2026-01-26
+```
+
+```ctx
+type: decision
+id: decision-032
+status: accepted
+---
+**Decision**: Implement the context store server in Rust; keep TypeScript for clients and projection.
+
+**Rationale**:
+- Single authoritative store API (Rust server) with a clear contract (ContextStore)
+- TypeScript client (RustServerClient) and playground talk to the server; no duplicate store logic in TS
+- Apply-proposal and graph logic retained in TS for preview flows and coverage tests (applyAcceptedProposalToNodeMap, buildEdgeIndex, traverseRelatedKeys, etc.)
+- Enables future file/MongoDB backends and RBAC in the server without rewriting clients
+
+**Alternatives Considered**:
+- All-TypeScript server (kept for optional in-process use; Rust chosen for the primary server)
+- All-Rust clients (higher effort; TS playground and tooling sufficient for v1)
+
+**Decided At**: 2026-02
 ```
 
 ```ctx
@@ -637,7 +659,7 @@ status: accepted
 - Proposal A changes `content` to "X", Proposal B changes `content` to "Y" → Conflict, manual resolution
 - Proposal created when node version is 5, but node is now version 7 → Reject as stale
 
-**Implementation**: `src/store/core/conflicts.ts` — `detectConflictsForProposal`, `mergeProposals`, `isProposalStale`; `docs/appendix/RECONCILIATION_STRATEGIES.md`.
+**Implementation**: Design in `docs/appendix/RECONCILIATION_STRATEGIES.md`. Conflict/stale/merge behavior to be implemented or extended in the **Rust server** (server/); TS no longer holds conflict logic (removed during Rust migration).
 
 **Alternatives Considered**:
 - Single strategy only (too rigid, doesn't fit all cases)
@@ -719,6 +741,8 @@ status: accepted
 - Proposal application (`applyAcceptedProposalToNodeMap`)
 - Querying/filtering/sorting/pagination + graph traversal (`queryNodesInMemory`, `graph` helpers)
 - Conflict detection + stale checks + merge (`detectConflictsForProposal`, `isProposalStale`, `mergeProposals`)
+
+**Update (2026)**: The **canonical store** is now the **Rust server** (server/). TS `src/store/core/*` retains **apply-proposal**, **graph**, and **node-key** for preview and coverage tests; query and conflict logic were removed from TS and live (or will be extended) in the server. See decision-032.
 
 **Decided At**: 2026-01-27
 ```

@@ -17,6 +17,8 @@ Workspace roles (baseline):
 - `Applier`: apply
 - `Admin`: manage roles/policies
 
+**Role assignment** is deployment-specific. A clear **RBAC provider abstraction** supplies who has which role: Git/GitLab use their native roles; enterprise deployments can use Azure AD, DLs (distribution lists), or any external system configured as the RBAC provider. The system consumes a unified role model above; see `question-007` in QUESTIONS.md.
+
 Principle: **agents never receive Reviewer or Applier.**
 
 ## Policy engine

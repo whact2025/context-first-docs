@@ -1,6 +1,24 @@
 # Open Questions
 
-This document tracks questions that need answers as the project evolves. TruthLayer is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. For **canonical walkthroughs**, see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md). For **agent loop and Contextualize** (Phase 5), see `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5. For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9, decision-027. For **Word/Google** (optional), `docs/appendix/DOCX_REVIEW_INTEGRATION.md` §5–7, decision-029.
+This document tracks questions that need answers as the project evolves. Each question is in a **ctx block** (fenced code block with language `ctx`) for machine-readable structure.
+
+- **Product:** TruthLayer = **Ratify truth. AI with Guardrails for Security & Compliance**; we build **The Agent** (reads truth, creates proposals; humans ratify). One minimal governance UI required; rich UIs optional.
+- **Walkthroughs:** [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md), [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md).
+- **The Agent (Phase 5):** `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`, PLAN Phase 5.
+- **Security & Compliance:** `docs/WHITEPAPER.md`, `docs/reference/SECURITY_GOVERNANCE.md`.
+- **Doc suite / Word:** whitepaper §2.4, §6.9, decision-027; `docs/appendix/DOCX_REVIEW_INTEGRATION.md` §5–7, decision-029.
+
+## Before Phase 2 (Persistence & Storage)
+
+- **question-038** resolved: server-centric config root (storage, RBAC, runtime) in a predefined location relative to the server. **question-007** (roles) resolved: deployment-specific; RBAC provider abstraction (Git/GitLab, Azure AD, DLs, or any configured provider).
+- **question-006** (issue creation) resolved: explicit optional path; approval blocked until issues created or user retries.
+- **question-011** (namespaces) can be deferred: implement workspaceId-only first.
+
+---
+
+## Questions (ctx blocks)
+
+Each question is in a **ctx block** (metadata + body after `---`). Use the **Cursor/VS Code extension** in this repo to render ctx blocks in the markdown preview (bold, lists, etc.).
 
 ```ctx
 type: question
@@ -30,7 +48,7 @@ status: resolved
 
 **Answer**: Hybrid approach combining conflict detection, field-level merging, manual resolution, optimistic locking, and proposal superseding.
 
-**Resolution** (see `docs/RECONCILIATION_STRATEGIES.md`):
+**Resolution** (see `docs/appendix/RECONCILIATION_STRATEGIES.md`):
 - **Conflict Detection**: Detect conflicts at proposal creation time
 - **Field-Level Merging**: Auto-merge non-conflicting fields, flag conflicting fields
 - **Manual Resolution**: Require human review for true conflicts
@@ -46,7 +64,6 @@ status: resolved
 6. System applies resolution with version checking
 
 **Impact**: High - affects collaboration model
-```
 
 ```ctx
 type: question
@@ -55,17 +72,17 @@ status: resolved
 ---
 **Question**: Should we support nested or hierarchical nodes?
 
-**Answer**: Use a graph model with typed relationships instead of strict nesting.
+**Answer:** Use a graph model with typed relationships instead of strict nesting.
 
-**Resolution**:
-- **Graph Model**: Nodes are vertices, relationships are typed edges
-- **Typed Relationships**: Support multiple relationship types (parent-child, depends-on, references, supersedes, related-to, etc.)
-- **Flexibility**: Can represent hierarchies, dependencies, references, and other relationships in a unified way
-- **Query Power**: Graph queries enable traversal, path finding, and relationship analysis
-- **Hierarchical Views**: Can project graph into hierarchical views when needed (e.g., "show subtasks", "show sub-decisions")
-- **No Strict Nesting**: Avoids rigid parent-child constraints that limit flexibility
+**Resolution:**
+- **Graph Model:** Nodes are vertices, relationships are typed edges
+- **Typed Relationships:** Support multiple relationship types (parent-child, depends-on, references, supersedes, related-to, etc.)
+- **Flexibility:** Can represent hierarchies, dependencies, references, and other relationships in a unified way
+- **Query Power:** Graph queries enable traversal, path finding, and relationship analysis
+- **Hierarchical Views:** Can project graph into hierarchical views when needed (e.g. "show subtasks", "show sub-decisions")
+- **No Strict Nesting:** Avoids rigid parent-child constraints that limit flexibility
 
-**Relationship Types**:
+**Relationship Types:**
 - `parent-child`: For hierarchical relationships (sub-decisions, subtasks)
 - `depends-on`: For dependencies (task dependencies, decision dependencies)
 - `references`: For references (decisions referencing goals, tasks referencing decisions)
@@ -75,7 +92,7 @@ status: resolved
 - `blocks`: For blocking relationships (risk blocks task)
 - `mitigates`: For mitigation relationships (task mitigates risk)
 
-**Benefits**:
+**Benefits:**
 - More flexible than strict hierarchies
 - Can represent complex multi-dimensional relationships
 - Enables powerful graph queries and traversal
@@ -83,14 +100,13 @@ status: resolved
 - Can evolve relationship types without schema changes
 - Better for AI agents to understand context and relationships
 
-**Implementation**:
+**Implementation:**
 - Replace simple `relations?: NodeId[]` with typed edge structure
 - Store edges separately or embedded in nodes (both approaches viable)
 - Support graph queries: "find all descendants", "find all dependencies", "find path between nodes"
 - Provide hierarchical projection APIs for UI/display purposes
 
-**Impact**: Medium - affects data model complexity, but provides more power and flexibility
-```
+**Impact:** Medium — affects data model complexity, but provides more power and flexibility
 
 ```ctx
 type: question
@@ -203,16 +219,16 @@ status: resolved
 ```ctx
 type: question
 id: question-006
-status: open
+status: resolved
 ---
 **Question**: What happens if issue creation fails when a proposal is approved?
 
-**Context**:
-- Issues are created automatically on approval
-- Issue creation might fail (permissions, validation, etc.)
-- Should approval be blocked if issues can't be created?
-- Should approval succeed but issues be queued for retry?
-- Need error handling and recovery strategy
+**Answer**: Issue generation is an **optional path** with an **explicit flow**. If the proposal is configured to create issues on approval, approval remains **blocked** until issue generation succeeds. On failure, the user can **retry**; approval does not complete until issues are created successfully (or the optional path is skipped/removed from the proposal). Integrations are pluggable: Git issues (GitHub, GitLab, etc.), Jira, and others.
+
+**Resolution**:
+- **Explicit path**: Proposals can optionally specify "create issues on approval"; the UI/workflow shows this step clearly (e.g. "Create issues → Review → Apply" or "Apply (with issue creation)").
+- **On failure**: Automatic issue creation fails (permissions, validation, API down, etc.) → approval stays blocked; user sees failure reason and can **retry** (same or corrected config). No silent skip; no "approve now, issues later" unless we explicitly add a "skip issue creation" action for that proposal.
+- **Optional**: Issue generation is not required for every proposal; only when the proposal (or template) requests it. Supports Git issues (GitHub, GitLab, etc.), Jira, and other backends via pluggable integrations.
 
 **Impact**: High - affects approval workflow reliability
 ```
@@ -220,17 +236,18 @@ status: open
 ```ctx
 type: question
 id: question-007
-status: open
+status: resolved
 ---
 **Question**: How are user roles assigned and managed?
 
-**Context**:
-- Roles need to be configured (contributors, approvers, admins)
-- Should roles sync from GitLab/GitHub groups?
-- Manual configuration vs automatic sync?
-- How are roles stored? In `.context/roles.json`?
-- Can roles be per-namespace or per-node-type?
-- How do you handle role changes over time?
+**Answer**: Role assignment is **deployment-specific**. A clear **RBAC provider abstraction** lets each deployment plug in the appropriate source of roles; the system consumes a unified role model (Reader, Contributor, Reviewer, Applier, Admin) regardless of provider.
+
+**Resolution**:
+- **Abstraction layer**: Define an RBAC provider interface (e.g. resolve roles for actor/workspace). The store and GraphQL layer call this interface; they do not hard-code Git vs Azure AD.
+- **Git / GitLab**: When Git or GitLab is the deployment context, use roles from that system (e.g. repo/org permissions, merge-request roles) as the provider. Map to TruthLayer roles (Reader, Contributor, Reviewer, Applier, Admin) as configured.
+- **Enterprise**: In enterprise deployments, the provider can be **Azure AD**, **DLs (distribution lists)**, or any external system configured as the RBAC provider. SSO/OIDC identity is mapped to roles via the configured provider.
+- **Provider selection**: Deployment configuration chooses which provider is used (and any provider-specific config). No single default; deployment-specific.
+- **Per-workspace**: Role resolution is per workspace (and optionally per scope); the provider returns roles for (actor, workspaceId) or equivalent.
 
 **Impact**: High - affects access control and governance
 ```
@@ -345,7 +362,7 @@ status: resolved
 
 **Answer**: Hybrid conflict detection and resolution approach - detect conflicts, field-level merging, optimistic locking, manual resolution.
 
-**Resolution** (see `decision-014` and `docs/RECONCILIATION_STRATEGIES.md`):
+**Resolution** (see `decision-014` and `docs/appendix/RECONCILIATION_STRATEGIES.md`):
 - **Conflict Detection**: System detects conflicts at proposal creation/approval time
 - **Field-Level Merging**: Auto-merge non-conflicting fields, flag conflicting fields
 - **Optimistic Locking**: Track node versions, reject stale proposals
@@ -632,7 +649,7 @@ status: resolved
 - Maintains zero IP leakage (all infrastructure self-hosted within organization)
 - Constraint-005 allows both file-based (Git) and self-hosted databases
 
-**See**: `docs/STORAGE_ARCHITECTURE.md` for detailed architecture and `decision-005` for full decision rationale
+**See**: `docs/engineering/storage/STORAGE_ARCHITECTURE.md` for detailed architecture and `decision-005` for full decision rationale
 
 **Impact**: High - fundamental architectural decision affecting concurrency, scalability, and operations
 
@@ -747,4 +764,84 @@ status: open
 - Retrieval could return stale context if index is behind store; should retrieval response include "index as of" or "store snapshot" for transparency?
 
 **Impact**: Medium - affects RAG quality and auditability
+```
+
+```ctx
+type: question
+id: question-034
+status: open
+---
+**Question**: How is **The Agent** (we build it) attributed in the audit log when it creates a proposal?
+
+**Context**:
+- SECURITY_GOVERNANCE says every action is attributed to an Actor; agents authenticate as `type=AGENT` with least privilege.
+- Need a stable agent identity (e.g. agentId, deploymentId) so audit trail shows "proposal created by Agent X" and supports compliance.
+- Multiple agent instances (e.g. per workspace or per team)? How do we namespace or identify them in audit and RBAC?
+
+**Impact**: Medium - affects audit and compliance (guardrails)
+```
+
+```ctx
+type: question
+id: question-035
+status: open
+---
+**Question**: How do we guarantee the agent never receives submitReview or applyProposal as tools?
+
+**Context**:
+- The agent is **human-directed**: it receives explicit human requests and acts accordingly (e.g. "draft a proposal for X", "find decisions about Y"). It can read truth and create/update proposals in response to those requests.
+- The agent must **never** have submitReview or applyProposal as tools—ratification stays with humans in the governance UI, even when a human asks the agent to "help get this approved" (the human must perform review/apply themselves).
+- Is enforcement purely by API (agent is never given those endpoints) or do we need runtime checks (reject if actor type=AGENT)?
+- Should the agent-facing API be a strict subset of the full store API with those methods omitted?
+
+**Impact**: High - affects security and guardrails
+```
+
+```ctx
+type: question
+id: question-036
+status: open
+---
+**Question**: For **The Agent** we build, is the LLM always self-hosted or do we support vendor LLM with prompt-leakage policy?
+
+**Context**:
+- CONTEXTUALIZED_AI_MODEL allows vendor LLM with prompt-leakage policy (sensitivity labels, retrieval policy, logging).
+- Self-hosted keeps all IP in-house; vendor can reduce ops but requires strict policy and possibly redaction.
+- Default recommendation for enterprise (Security & Compliance)? Can both be supported with clear configuration?
+
+**Impact**: Medium - affects Phase 5 implementation and positioning
+```
+
+```ctx
+type: question
+id: question-037
+status: open
+---
+**Question**: How do we measure or improve **The Agent** proposal quality (e.g. acceptance rate, human feedback, rollbacks)?
+
+**Context**:
+- We build the agent; we may want to tune retrieval, prompts, or model based on outcomes.
+- Metrics: proposal acceptance rate, time-to-ratify, superseded/rejected rate, human edit rate after apply.
+- Do we support explicit feedback (thumbs up/down on agent proposals) or infer from review outcomes only? Agent "version" for A/B or rollout?
+
+**Impact**: Low–Medium - affects product evolution and tuning
+```
+
+```ctx
+type: question
+id: question-038
+status: resolved
+---
+**Question**: Where does storage backend configuration live, and how is workspaceId determined for file-based storage?
+
+**Answer**: Building the agent implies a **server component** (local or remote). For file-based context, **all configuration lives in a predefined location relative to the server**—storage, RBAC, and any other runtime config. No split between repo `.context/` and env; the server owns one config root.
+
+**Resolution**:
+- **Server-centric**: Agent deployments run a server (local or remote). The server has a single **config root** (e.g. a directory or volume mount). All runtime configuration is under that root.
+- **Config under server root**: Storage backend choice and paths (file-based or MongoDB URI), RBAC provider and its config, and any other runtime settings live in that predefined location (e.g. `config/storage.json`, `config/rbac.json`, or a single `config.json`). Env vars may override for deployment (e.g. secrets, port), but the canonical layout is server-relative.
+- **File-based storage**: For file backends, workspace data and indexes live under the same server root (e.g. `data/` or `workspaces/{workspaceId}/`). workspaceId is determined by server config or request context; one workspace per directory under the root, or multi-tenant layout as configured.
+- **MongoDB**: Unchanged; workspaceId per-document; connection/config still read from server config root (or env override).
+- **Abstraction**: Storage factory and RBAC provider both read from the same server config; no repo-scattered config for runtime behavior.
+
+**Impact:** High - unblocks Phase 2 storage abstraction and file-based implementation
 ```

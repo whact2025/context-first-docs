@@ -1,4 +1,4 @@
-import { InMemoryStore } from "../store/in-memory-store.js";
+import { createRustServerClient } from "../api-client.js";
 import type { ContextStore, NodeQuery } from "../types/context-store.js";
 import type {
   AnyNode,
@@ -268,7 +268,8 @@ export async function runScenario(scenarioId: string): Promise<ScenarioRunResult
     throw new Error(`Unknown scenario: ${scenarioId}`);
   }
 
-  const store = new InMemoryStore();
+  const store = createRustServerClient();
+  await store.reset();
   const startedAt = new Date().toISOString();
   const steps: ScenarioStepResult[] = [];
 
@@ -519,7 +520,7 @@ const SCENARIOS: ScenarioDefinition[] = [
                 type: "update",
                 order: 1,
                 nodeId: nodeId("d1"),
-                changes: { decision: "Keep everything in InMemoryStore" },
+                changes: { decision: "Keep everything in the context store" },
               },
             ],
             metadata: proposalMeta(iso(12), "carol", {

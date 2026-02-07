@@ -4,6 +4,23 @@ This directory contains cross-platform installation scripts for managing all pro
 
 ## Available Scripts
 
+### Render Markdown with ctx blocks
+**File**: `render-markdown-with-ctx.js`
+
+Renders a Markdown file to HTML using the **ctx block plugin**: ` ```ctx ``` ` blocks (with optional `---` and body) are shown with metadata and the body rendered as Markdown instead of raw code.
+
+**Usage** (from repo root, after `npm run build`):
+```bash
+node scripts/render-markdown-with-ctx.js QUESTIONS.md > QUESTIONS.html
+node scripts/render-markdown-with-ctx.js path/to/file.md [output.html]
+```
+Open the resulting HTML in a browser. The plugin is also used by the playground’s markdown preview (`npm run playground`).
+
+### Run the playground
+From the repo root: **`npm run playground`**. Then open http://localhost:4317. This starts both the context-store server and the playground UI (requires Node and Rust). Stop with Ctrl+C. In Cursor/VS Code: **Terminal → Run Task → "Playground (run both servers)"**.
+
+---
+
 ### Node.js Script (Recommended - Cross-platform)
 **File**: `install.js`
 

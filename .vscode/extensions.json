@@ -1,23 +1,21 @@
 {
   "recommendations": [
+    "rust-lang.rust-analyzer",
+    "vadimcn.vscode-lldb",
     // Testing
     "orta.vscode-jest",
     "firsttris.vscode-jest-runner",
-    
     // Code Quality
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
-    
     // Markdown
     "yzhang.markdown-all-in-one",
     "bierner.markdown-mermaid",
-    
+    "truthlayer.ctx-markdown-preview",
     // TypeScript
     "ms-vscode.vscode-typescript-next",
-    
     // Git
     "eamodio.gitlens",
-    
     // General Development
     "ms-vscode.vscode-json",
     "redhat.vscode-yaml"

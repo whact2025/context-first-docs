@@ -1,0 +1,21 @@
+{
+  "name": "ctx-markdown-preview",
+  "displayName": "Ctx Block Markdown Preview",
+  "description": "Renders ```ctx code blocks in Markdown preview with metadata + body as Markdown (bold, lists, etc.).",
+  "version": "0.1.0",
+  "publisher": "truthlayer",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "./style.css"
+    ]
+  }
+}

@@ -43,7 +43,7 @@ Teams that want **AI with guardrails** for security and compliance: **agentic co
 
 ## Getting started
 
-**Prerequisites:** Node.js 18+ (npm bundled). See [INSTALL_NODEJS.md](INSTALL_NODEJS.md) if needed.
+**Prerequisites:** Node.js 18+ and Rust (cargo). See [INSTALL_NODEJS.md](INSTALL_NODEJS.md) if needed.
 
 ```bash
 node scripts/install.js
@@ -52,11 +52,37 @@ node scripts/install.js
 
 Manual: `npm install && npm run build && npm test`. [scripts/README.md](scripts/README.md).
 
-**Playground:** `npm run playground` → http://localhost:4317. Scenario Runner (Hello World, Conflict and Merge); minimal governance UI at `/acal/proposals`.
+## Run the playground
+
+```bash
+npm run playground
+```
+
+Open **http://localhost:4317** in your browser. Stop with Ctrl+C.
+
+In Cursor or VS Code: **Terminal → Run Task → "Playground (run both servers)"**.
+
+## Ctx blocks in Markdown preview
+
+Files like [QUESTIONS.md](QUESTIONS.md) and [CONTEXT.md](CONTEXT.md) use **` ```ctx ``` `** blocks (metadata + body after `---`). To render them in Cursor/VS Code preview (bold, lists, etc.), install the **Ctx Block Markdown Preview** extension once so it loads automatically:
+
+```bash
+npm run install:ctx-extension
+```
+
+Or run the script directly (useful if PowerShell blocks npm): `node scripts/install-ctx-extension.js`
+
+Then reload the window (Ctrl+Shift+P → "Developer: Reload Window"). After that, the extension loads whenever you open this (or any) workspace. See [vscode-ctx-markdown/README.md](vscode-ctx-markdown/README.md).
 
 ## This repo (self-referential)
 
 The project uses ACAL to document itself: [CONTEXT.md](CONTEXT.md), [DECISIONS.md](DECISIONS.md), [PLAN.md](PLAN.md), [RISKS.md](RISKS.md), [QUESTIONS.md](QUESTIONS.md). See [docs/appendix/SELF-REFERENCE.md](docs/appendix/SELF-REFERENCE.md).
+
+## Running tests
+
+From the repo root: `npm test` or `npm run test:coverage`. In Cursor/VS Code you can use **Terminal → Run Task → "Tests: run"** or **"Tests: run with coverage"**.
+
+If the Jest Test Explorer shows **"spawn cmd.exe ENOENT"** on Windows, the extension is trying to use a shell that isn’t available in your environment. Use the task or terminal instead (above), or set `"jest.testExplorer.enabled": false` in `.vscode/settings.json` and rely on the task.
 
 ## Status & more
 

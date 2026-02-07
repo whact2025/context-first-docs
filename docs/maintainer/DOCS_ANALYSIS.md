@@ -34,7 +34,7 @@ docs/ content was not changed; it remains the authoritative product and architec
 
 ## 3. Terminology
 
-Canonical terminology is defined in docs/ (typed nodes + relationships, truth ledger, ACAL, DRAFT/SUBMITTED/ACCEPTED/etc. in REVIEW_MODE). Root and PLAN now use the same high-level framing (truth ledger + collaboration, minimal governance UI, optional Agent Runtime). Implementation details (ContextStore, queryNodes, etc.) may still appear in PLAN/code; API contract is in docs/AGENT_API.md.
+Canonical terminology is defined in docs/ (typed nodes + relationships, truth ledger, ACAL, DRAFT/SUBMITTED/ACCEPTED/etc. in REVIEW_MODE). Root and PLAN now use the same high-level framing (truth ledger + collaboration, minimal governance UI, optional Agent Runtime). Implementation details (ContextStore, queryNodes, etc.) may still appear in PLAN/code; API contract is in docs/AGENT_API.md. The **store implementation** is the Rust server (server/); clients use the HTTP API (TypeScript client: src/api-client.ts). See docs/core/ARCHITECTURE.md and server/README.md.
 
 ---
 

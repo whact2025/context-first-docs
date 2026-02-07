@@ -1,0 +1,30 @@
+/* Ctx block styling in Markdown preview */
+.ctx-block {
+  margin: 1rem 0;
+  border: 1px solid var(--vscode-panel-border, #e0e0e0);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ctx-meta {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--vscode-textBlockQuote-background, #f5f5f5);
+  color: var(--vscode-descriptionForeground, #555);
+}
+
+.ctx-meta span {
+  margin-right: 1rem;
+}
+
+.ctx-body {
+  padding: 0.75rem 1rem;
+}
+
+.ctx-body p:first-child {
+  margin-top: 0;
+}
+
+.ctx-body p:last-child {
+  margin-bottom: 0;
+}

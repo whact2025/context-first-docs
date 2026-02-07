@@ -78,7 +78,7 @@ The primary read API is **queryNodes**. Default `status: ["accepted"]` for agent
 
 ## Programmatic store interface (ContextStore)
 
-For in-process or SDK use, the same contract is exposed as a **ContextStore** interface:
+For in-process or SDK use, the same contract is exposed as a **ContextStore** interface. The reference implementation is the **Rust server** (server/), which exposes this contract over HTTP; the TypeScript client (src/api-client.ts) implements ContextStore against the server. See [ARCHITECTURE.md](ARCHITECTURE.md) and server/README.md.
 
 - **Read**: `getNode(nodeId)`, `queryNodes(query)`, `getProposal(proposalId)`, `queryProposals(query)`, `getProposalComments(proposalId)`, `getReviewHistory(proposalId)`.
 - **Agent write**: `createProposal(proposal)`, `updateProposal(proposalId, updates)`, `addProposalComment(proposalId, comment)`. **Agents must not call**: `submitReview(review)`, `applyProposal(proposalId)`.

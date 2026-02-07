@@ -2,10 +2,15 @@ import http from "node:http";
 
 import MarkdownIt from "markdown-it";
 
-import { InMemoryStore } from "../store/in-memory-store.js";
+import { createRustServerClient } from "../api-client.js";
+import type { ContextStore } from "../types/context-store.js";
 import { projectToMarkdown } from "../markdown/projection.js";
 import { generateCtxBlock } from "../markdown/ctx-block.js";
+import { ctxRenderPlugin } from "../markdown/ctx-render-plugin.js";
 import { buildEdgeIndex, traverseRelatedKeys } from "../store/core/graph.js";
+import { applyAcceptedProposalToNodeMap } from "../store/core/apply-proposal.js";
+import { PreviewStore } from "../store/preview-store.js";
+import { nodeKey as coreNodeKey } from "../store/core/node-key.js";
 import { listScenarios, runScenario } from "./scenarios.js";
 import { getGuidedScenario, listGuidedScenarios } from "./guided.js";
 import type { AnyNode, NodeId, RelationshipType } from "../types/node.js";
@@ -16,11 +21,13 @@ const md = new MarkdownIt({
   linkify: false,
   typographer: false,
 });
+// @ts-expect-error - markdown-it has .use() at runtime; types may not expose it
+md.use(ctxRenderPlugin);
 
 type GuidedSession = {
   id: string;
   scenarioId: string;
-  store: InMemoryStore;
+  store: ContextStore;
   stepIndex: number;
   inputs: Record<string, string>;
   history: Array<{ id: string; title: string; ok: boolean; output?: unknown; error?: string }>;
@@ -28,10 +35,10 @@ type GuidedSession = {
 
 const guidedSessions = new Map<string, GuidedSession>();
 
-// ---- ACAL mock UI backing store (seeded) ----
+// ---- ACAL mock UI backing store (Rust server, seeded) ----
 
-let acalStoreInit: Promise<InMemoryStore> | null = null;
-let acalStore: InMemoryStore | null = null;
+let acalStoreInit: Promise<ContextStore> | null = null;
+let acalStore: ContextStore | null = null;
 
 function nodeKey(id: NodeId): string {
   return id.namespace ? `${id.namespace}:${id.id}` : id.id;
@@ -66,11 +73,11 @@ function proposalMeta(
   };
 }
 
-async function ensureAcalStore(): Promise<InMemoryStore> {
+async function ensureAcalStore(): Promise<ContextStore> {
   if (acalStore) return acalStore;
   if (!acalStoreInit) {
     acalStoreInit = (async () => {
-      const store = new InMemoryStore();
+      const store = createRustServerClient();
 
       // Seed accepted truth via an accepted proposal that is applied.
       const seedProposal: Proposal = {
@@ -278,25 +285,11 @@ async function buildPreviewMarkdown(proposalId: string): Promise<string> {
     throw new Error(`Proposal ${proposalId} not found`);
   }
 
-  // Build a temporary store with accepted truth, then apply proposal ops as if accepted.
-  const tmp = new InMemoryStore();
-
   const accepted = await store.queryNodes({ status: ["accepted"], limit: 2000, offset: 0 });
-  const seed: Proposal = {
-    id: `p-preview-seed-${proposalId}`,
-    status: "accepted",
-    operations: accepted.nodes.map((n, i) => ({
-      id: `op-seed-${i}`,
-      type: "create",
-      order: i,
-      // Ensure we're seeding accepted truth.
-      node: { ...n, status: "accepted" },
-    })) as any,
-    metadata: proposalMeta(new Date().toISOString(), "preview"),
-  };
-  await tmp.createProposal(seed);
-  await tmp.applyProposal(seed.id);
-
+  const nodes = new Map<string, AnyNode>();
+  for (const n of accepted.nodes) {
+    nodes.set(coreNodeKey(n.id), { ...n, status: "accepted" });
+  }
   const pApply: Proposal = {
     ...proposal,
     status: "accepted",
@@ -306,12 +299,9 @@ async function buildPreviewMarkdown(proposalId: string): Promise<string> {
       modifiedBy: "preview",
     },
   };
-  await tmp.createProposal(pApply);
-  await tmp.applyProposal(pApply.id);
-
-  // For reviews, include proposed nodes in the projection to show newly created items
-  // that may still be in proposed status after apply.
-  return await projectToMarkdown(tmp, { includeProposed: true });
+  applyAcceptedProposalToNodeMap(nodes, pApply, { keyOf: coreNodeKey });
+  const previewStore = new PreviewStore(nodes);
+  return await projectToMarkdown(previewStore as unknown as ContextStore, { includeProposed: true });
 }
 
 function nodeLabel(n: AnyNode): string {
@@ -344,7 +334,7 @@ function allowedRelationshipTypesForChain(): Set<RelationshipType> {
 }
 
 async function collectChainNodesForFocus(
-  store: InMemoryStore,
+  store: ContextStore,
   focus: NodeId[],
   options: { includeProposed: boolean; depth: number }
 ): Promise<{ nodes: AnyNode[]; missingFocus: string[] }> {
@@ -553,7 +543,7 @@ function sortNodeIds(ids: NodeId[]): NodeId[] {
 }
 
 async function buildTouchedMarkdownFromStore(
-  store: InMemoryStore,
+  store: ContextStore,
   touched: NodeId[],
   options?: { title?: string }
 ): Promise<string> {
@@ -607,36 +597,18 @@ async function buildTouchedPreviewMarkdown(proposalId: string): Promise<string> 
 
   const touched = collectTouchedNodeIds(proposal);
 
-  // Use the same temp-store approach as buildPreviewMarkdown, but return only touched ctx blocks.
-  const tmp = new InMemoryStore();
   const accepted = await store.queryNodes({ status: ["accepted"], limit: 2000, offset: 0 });
-  const seed: Proposal = {
-    id: `p-preview-seed-${proposalId}`,
-    status: "accepted",
-    operations: accepted.nodes.map((n, i) => ({
-      id: `op-seed-${i}`,
-      type: "create",
-      order: i,
-      node: { ...n, status: "accepted" },
-    })) as any,
-    metadata: proposalMeta(new Date().toISOString(), "preview"),
-  };
-  await tmp.createProposal(seed);
-  await tmp.applyProposal(seed.id);
-
+  const nodes = new Map<string, AnyNode>();
+  for (const n of accepted.nodes) nodes.set(coreNodeKey(n.id), { ...n, status: "accepted" });
   const pApply: Proposal = {
     ...proposal,
     status: "accepted",
-    metadata: {
-      ...proposal.metadata,
-      modifiedAt: new Date().toISOString(),
-      modifiedBy: "preview",
-    },
+    metadata: { ...proposal.metadata, modifiedAt: new Date().toISOString(), modifiedBy: "preview" },
   };
-  await tmp.createProposal(pApply);
-  await tmp.applyProposal(pApply.id);
+  applyAcceptedProposalToNodeMap(nodes, pApply, { keyOf: coreNodeKey });
+  const tmp = new PreviewStore(nodes);
 
-  return buildTouchedMarkdownFromStore(tmp, touched, {
+  return buildTouchedMarkdownFromStore(tmp as unknown as ContextStore, touched, {
     title: `Proposal preview (touched nodes only): ${proposalId}`,
   });
 }
@@ -739,7 +711,7 @@ function htmlPage(): string {
   </head>
   <body>
     <header>
-      <h1>Scenario Runner (InMemoryStore)</h1>
+      <h1>Scenario Runner (Rust server)</h1>
     </header>
     <main>
       <section class="panel">
@@ -1162,7 +1134,7 @@ function homePage(): string {
           <div class="pill ok">Stable</div>
           <h2 style="margin-top:10px;">Scenario Runner</h2>
           <p>
-            Run deterministic scenarios against a fresh <code>InMemoryStore</code> to demonstrate proposal/review/apply, conflicts, staleness, and projections.
+            Run deterministic scenarios against the Rust server (reset before each run) to demonstrate proposal/review/apply and projections.
           </p>
           <a class="btn" href="/scenarios">Open Scenario Runner</a>
         </section>
@@ -2036,7 +2008,7 @@ const server = http.createServer(async (req, res) => {
       const session: GuidedSession = {
         id: sessionId,
         scenarioId,
-        store: new InMemoryStore(),
+        store: await ensureAcalStore(),
         stepIndex: 0,
         inputs: {},
         history: [],
@@ -2503,23 +2475,9 @@ const server = http.createServer(async (req, res) => {
 
       const focus = collectTouchedNodeIds(proposal);
 
-      // Use the temp-store “apply for preview” approach so create/update ops are reflected.
-      const tmp = new InMemoryStore();
       const accepted = await store.queryNodes({ status: ["accepted"], limit: 2000, offset: 0 });
-      const seed: Proposal = {
-        id: `p-preview-seed-${proposalId}`,
-        status: "accepted",
-        operations: accepted.nodes.map((n, i) => ({
-          id: `op-seed-${i}`,
-          type: "create",
-          order: i,
-          node: { ...n, status: "accepted" },
-        })) as any,
-        metadata: proposalMeta(new Date().toISOString(), "preview"),
-      };
-      await tmp.createProposal(seed);
-      await tmp.applyProposal(seed.id);
-
+      const nodes = new Map<string, AnyNode>();
+      for (const n of accepted.nodes) nodes.set(coreNodeKey(n.id), { ...n, status: "accepted" });
       const pApply: Proposal = {
         ...proposal,
         status: "accepted",
@@ -2529,16 +2487,17 @@ const server = http.createServer(async (req, res) => {
           modifiedBy: "preview",
         },
       };
-      await tmp.createProposal(pApply);
-      await tmp.applyProposal(pApply.id);
+      applyAcceptedProposalToNodeMap(nodes, pApply, { keyOf: coreNodeKey });
+      const tmp = new PreviewStore(nodes);
 
-      const { nodes, missingFocus } = await collectChainNodesForFocus(tmp, focus, {
-        includeProposed: true,
-        depth: 5,
-      });
+      const { nodes: chainNodes, missingFocus } = await collectChainNodesForFocus(
+        tmp as unknown as ContextStore,
+        focus,
+        { includeProposed: true, depth: 5 }
+      );
       const markdown = renderDocumentMarkdown(
         `Proposed truth (preview document): ${proposalId}`,
-        nodes,
+        chainNodes,
         missingFocus,
         focus
       );

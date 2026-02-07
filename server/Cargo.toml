@@ -1,0 +1,16 @@
+[package]
+name = "truthlayer-server"
+version = "0.1.0"
+edition = "2021"
+description = "TruthLayer server - server-centric config, storage, RBAC"
+license = "MIT"
+
+[dependencies]
+axum = { version = "0.7", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+async-trait = "0.1"
+tower-http = { version = "0.5", features = ["cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

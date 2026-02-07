@@ -2,6 +2,10 @@
 
 TruthLayer supports pluggable storage backends that implement the **ContextStore** contract (or a subset for read-only/projection use).
 
+## Configuration (server config root)
+
+Deployments run a **server** (local or remote). All runtime configuration—storage backend and paths, RBAC provider and its config, and any other runtime settings—lives in a **predefined location relative to the server** (config root). File-backed workspace data (e.g. `data/workspaces/{workspaceId}/`) and MongoDB connection config are read from this root; env vars may override for deployment. See QUESTIONS.md question-038 (storage/workspace), question-007 (RBAC provider abstraction).
+
 ## Canonical requirements
 
 - **Immutable accepted revisions**: append-only or snapshot-per-revision; no in-place mutation of accepted truth.
@@ -21,6 +25,8 @@ Storage backends must support at least:
 
 File-backed implementations may load a workspace into memory and delegate to the same query/traversal logic as the in-memory store; database backends implement queries and traversal against the DB (indexes and aggregation).
 
+**Current implementation:** The Rust server in server/ implements ContextStore in-memory and exposes an HTTP API; the TypeScript client in src/api-client.ts (RustServerClient) is used by the playground and scenarios.
+
 ## Backend options
 
 ### Database-backed (recommended v1)
@@ -33,7 +39,7 @@ File-backed implementations may load a workspace into memory and delegate to the
 
 ### File-backed (Git-friendly)
 
-- **Layout example**: `.context/workspaces/{workspaceId}/revision.json` (current accepted snapshot), `proposals.json` (array), `reviews.json`, `comments.json`; or one directory per revision and per proposal.
+- **Layout**: Under the **server config root** (e.g. `data/workspaces/{workspaceId}/`): `revision.json` (current accepted snapshot), `proposals.json`, `reviews.json`, `comments.json`; or one directory per revision and per proposal. workspaceId is determined by server config or request context.
 - **Format**: JSON or YAML; deterministic serialization for Git diff.
 - **Concurrency**: atomic writes (write temp file + rename); optional file locking per workspace (e.g. lockfile) when applying.
 - Suitable for small teams, single-writer, or offline workflows; conflict detection and merge can run in-memory after load.

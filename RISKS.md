@@ -1,6 +1,6 @@
 # Project Risks
 
-This document tracks potential risks and mitigation strategies for TruthLayer. The design is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. Mitigations reference `src/store/`, `src/playground/`, and `docs/`. For **canonical walkthroughs**, see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9. For **Word/Excel/Google** (optional), `docs/DOCX_REVIEW_INTEGRATION.md`.
+This document tracks potential risks and mitigation strategies for TruthLayer. The design is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. Mitigations reference `server/` (Rust context store), `src/store/`, `src/playground/`, `src/api-client.ts`, and `docs/`. For **canonical walkthroughs**, see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md). For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9. For **Word/Excel/Google** (optional), `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 
 ```ctx
 type: risk
@@ -95,10 +95,10 @@ likelihood: possible
 **Risk**: Store semantics diverge across providers (in-memory vs file-based vs MongoDB), causing inconsistent query/conflict behavior.
 
 **Mitigation**:
-- Centralize provider-agnostic behavior in `src/store/core/*` (apply/query/traversal/conflicts/stale/merge).
+- Canonical store behavior in Rust server (server/); TS keeps apply + graph in src/store/core/ for preview and tests; conflict/traversal to be extended in server.
 - Keep providers focused on persistence/indexing and reuse core functions wherever possible.
 - Maintain targeted coverage tests for core behavior to prevent regressions.
-- See `docs/CONFLICT_AND_MERGE_SCENARIO.md` for conflict/merge/stale behavior and playground scenarios.
+- See `docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md` for conflict/merge/stale behavior and playground scenarios.
 ```
 
 ```ctx

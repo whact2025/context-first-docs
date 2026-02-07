@@ -2,6 +2,18 @@
 
 Target: a v1 system that is safe, auditable, and enterprise-aligned, implementing the **ContextStore** interface (see [STORAGE_ARCHITECTURE.md](STORAGE_ARCHITECTURE.md)).
 
+## Configuration (server-centric)
+
+Agent deployments run a **server** (local or remote). All runtime configuration lives in a **predefined location relative to the server** (config root):
+
+- **Storage**: backend choice (file vs MongoDB), connection string or data paths.
+- **RBAC**: provider selection and provider-specific config (Git/GitLab, Azure AD, DLs, or other); see QUESTIONS.md question-007.
+- **Other runtime**: any further server settings.
+
+The storage factory and RBAC provider read from this config root; env vars may override for deployment (e.g. secrets, ports). File-based workspace data and indexes live under the same server root (e.g. `data/workspaces/{workspaceId}/`). See QUESTIONS.md question-038.
+
+**Current state:** The **Rust server** (server/) provides an in-memory ContextStore and HTTP API (nodes, proposals, reviews, apply, reset). The TypeScript playground uses it via RustServerClient. File and MongoDB backends are planned; config root is already used by the Rust server (see server/README.md).
+
 ## Phase 1 — Core schema + MongoDB
 
 - **Canonical objects**: workspace, revision, node, edge, proposal, review, comment, AppliedMetadata.
@@ -17,7 +29,7 @@ Target: a v1 system that is safe, auditable, and enterprise-aligned, implementin
 
 ## Phase 2 — Policy + RBAC
 
-- RBAC per workspace (Reader, Contributor, Reviewer, Applier, Admin).
+- **RBAC per workspace** (Reader, Contributor, Reviewer, Applier, Admin). Role assignment is deployment-specific: an **RBAC provider abstraction** supplies who has which role. Providers can be Git/GitLab (native roles), Azure AD, DLs, or any external system configured as the RBAC provider. Provider selection and config live in the **server config root** (see question-007 in QUESTIONS.md).
 - Policy engine hooks: proposal validate (schema + org policy), review approve (e.g. required approvers), apply (change windows, sign-off).
 - Agents: propose only; never review/apply.
 
