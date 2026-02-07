@@ -9,7 +9,7 @@ status: accepted
 ---
 This project addresses truth fragmentation in organizations: decisions, rationale, and constraints live in ephemeral channels or get lost; agents ingest stale or contradictory context.
 
-TruthLayer is enterprise truth governance for humans and agents: a **truth ledger + collaboration layer**. It enforces ACAL (Accepted → Candidate → Accepted → Ledger): accepted truth is immutable; all changes are proposals; proposals are reviewed (accept/reject with comments); accepted proposals are applied, producing new accepted revisions. Agents can read accepted truth and author proposals; they cannot accept, reject, or apply. One minimal governance UI is required; Agent Runtime and rich UIs (Web, VS Code, Word/Google) are optional.
+TruthLayer is **Ratify truth. AI with Guardrails for Security & Compliance**: enterprise truth governance for humans and agents via a **truth ledger + collaboration layer**. Humans **ratify** (review and apply); **guardrails** (ACAL, RBAC, audit) keep AI safe and compliant. It enforces ACAL (Accepted → Candidate → Accepted → Ledger): accepted truth is immutable; all changes are proposals; proposals are reviewed (accept/reject with comments); accepted proposals are applied, producing new accepted revisions. Agents can read accepted truth and author proposals; they cannot accept, reject, or apply. One minimal governance UI is required; the Agent and rich UIs (Web, VS Code, Word/Google) are optional.
 
 The project itself uses the same workflow to document itself — this file and others are managed through proposals → review → apply.
 ```

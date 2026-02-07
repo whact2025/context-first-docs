@@ -1,6 +1,6 @@
 # Security & Governance
 
-This is the authoritative enterprise security model for TruthLayer.
+This is the authoritative enterprise security model for TruthLayer—**Ratify truth. AI with Guardrails for Security & Compliance**. Humans **ratify** proposals (review and apply); **guardrails**—RBAC, policy hooks, audit logging—enforce security and compliance; agents never hold review/apply authority.
 
 ## Identity and authentication
 

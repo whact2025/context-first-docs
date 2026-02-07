@@ -1,10 +1,10 @@
 # TruthLayer Docs
 
-**Enterprise truth governance for humans and agents.** TruthLayer is a collaboration and governance layer for "truth" inside an organization—software decisions, business policy, operating procedures, risks, and rationale. **We build an agent** that reads accepted truth and authors proposals; humans review and apply.
+**Ratify truth. AI with Guardrails for Security & Compliance.** TruthLayer is a collaboration and governance layer for "truth" inside an organization—software decisions, business policy, operating procedures, risks, and rationale. **We build an agent** that reads accepted truth and authors proposals; humans **ratify** (review and apply). Immutable accepted truth, proposal → review → **ratify** → apply workflow, and **guardrails** (RBAC, audit) deliver security and compliance by design.
 
 ## One invariant
 
-TruthLayer enforces **ACAL**:
+TruthLayer enforces **ACAL** (the guardrails):
 
 1. **Accepted truth is immutable.**
 2. All changes are **Proposals** (candidates).
@@ -19,7 +19,7 @@ The **agent** can read accepted truth and author proposals; it **cannot** accept
 
 | Doc | Purpose |
 |-----|---------|
-| [WHITEPAPER.md](WHITEPAPER.md) | What TruthLayer is, why it exists, ACAL, enterprise positioning |
+| [WHITEPAPER.md](WHITEPAPER.md) | AI with Guardrails for Security & Compliance; what TruthLayer is, ACAL, enterprise positioning |
 | [core/ARCHITECTURE.md](core/ARCHITECTURE.md) | Components, data flows, tenancy, storage |
 | [core/REVIEW_MODE.md](core/REVIEW_MODE.md) | Proposal lifecycle, statuses, review/apply semantics |
 | [core/UI_SPEC.md](core/UI_SPEC.md) | Minimal governance UI (required), UX, roles, views |

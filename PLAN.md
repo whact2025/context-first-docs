@@ -2,7 +2,7 @@
 
 This document tracks the development roadmap and milestones for TruthLayer.
 
-- **Source of truth for product/architecture:** [docs/](docs/README.md). TruthLayer = **truth ledger + collaboration layer** (ACAL); minimal governance UI **required**; Agent Runtime **optional**. See `docs/core/ARCHITECTURE.md`, `docs/WHITEPAPER.md`, `docs/core/UI_SPEC.md`, `docs/core/AGENT_API.md`.
+- **Source of truth for product/architecture:** [docs/](docs/README.md). TruthLayer = **Ratify truth. AI with Guardrails for Security & Compliance** (truth ledger + collaboration layer, ACAL); humans ratify, guardrails enforce; minimal governance UI **required**; Agent **optional** (we build it). See `docs/core/ARCHITECTURE.md`, `docs/WHITEPAPER.md`, `docs/core/UI_SPEC.md`, `docs/core/AGENT_API.md`.
 - **UI**: One **minimal governance UI** is required (list proposals, accept/reject/apply). Optional: full Web UI, VS Code, Word/Google. See `docs/core/UI_SPEC.md`.
 - **Canonical walkthroughs**: [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) (proposal → review → apply) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) — run via playground Scenario Runner (`npm run playground`).
 - **Contextualize / Agent**: Phase 5; design in `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`, `docs/core/AGENT_API.md` (retrieval, prompt building, optional agent loop; prompt-leakage policy).

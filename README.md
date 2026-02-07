@@ -1,6 +1,6 @@
 # TruthLayer
 
-**Enterprise truth governance for humans and agents.** TruthLayer is built for **agentic collaboration**: agents and humans work over the same truth. Agents read accepted truth and author proposals; humans review and apply. The system gives agents stable, typed context and a safe proposal path—they never hold review/apply authority.
+**Ratify truth. AI with Guardrails for Security & Compliance.** TruthLayer is enterprise truth governance for humans and agents: a **truth ledger + collaboration layer** that lets you **ratify** truth with **guardrails** for AI. Agents read accepted truth and author proposals; humans review and apply. The system gives agents stable, typed context and a safe proposal path—they never hold review/apply authority.
 
 The **canonical documentation lives in [docs/](docs/README.md)**. This README summarizes; for architecture, whitepaper, API, and scenarios, start there.
 
@@ -13,7 +13,7 @@ TruthLayer is a **truth ledger + collaboration layer** (ACAL) designed for **hum
 | If you want… | Go to (in docs/) |
 |---------------|------------------|
 | **Overview & invariant (ACAL)** | [docs/README.md](docs/README.md) |
-| **Whitepaper** (problem, what TruthLayer is, enterprise-grade) | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) |
+| **Whitepaper** (problem, AI with Guardrails, security + compliance) | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) |
 | **Architecture** (Truth Store, Policy, Projection, Change Detection, Clients, Agent) | [docs/core/ARCHITECTURE.md](docs/core/ARCHITECTURE.md) |
 | **Hello World** (proposal → review → apply) | [docs/scenarios/HELLO_WORLD_SCENARIO.md](docs/scenarios/HELLO_WORLD_SCENARIO.md) |
 | **Conflict & Merge** | [docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md) |
@@ -26,7 +26,7 @@ Full index: [docs/README.md](docs/README.md).
 
 ## Problem
 
-Organizations suffer from **truth fragmentation**: the real decision lives in Slack, rationale is lost, **agents ingest stale or contradictory context**. TruthLayer provides a **truth ledger** (accepted revisions) and **collaboration layer** (proposals → review → apply) so truth is governable and **safe for both humans and agents**—agents get stable, accepted-only context and a clear proposal boundary.
+Organizations suffer from **truth fragmentation**: the real decision lives in Slack, rationale is lost, **agents ingest stale or contradictory context**. TruthLayer is **AI with Guardrails for Security & Compliance**: a **truth ledger** (accepted revisions) and **collaboration layer** (proposals → review → **ratify** → apply) so truth is governable and **safe for both humans and agents**—agents get stable, accepted-only context and a clear proposal boundary; guardrails (RBAC, audit) keep AI in check for compliance.
 
 ## What we're building (per docs/)
 
@@ -39,7 +39,7 @@ Organizations suffer from **truth fragmentation**: the real decision lives in Sl
 
 ## Who this is for
 
-Teams that want **agentic collaboration** over governed truth: immutable accepted truth, permissioned governance, auditability, and a **clear agent boundary** (agents propose; humans accept). Security-conscious orgs (self-hostable, no data leak).
+Teams that want **AI with guardrails** for security and compliance: **agentic collaboration** over governed truth, immutable accepted truth, human **ratification** of every change, and a **clear agent boundary** (agents propose; humans ratify and apply). Security-conscious orgs (self-hostable, no data leak).
 
 ## Getting started
 
