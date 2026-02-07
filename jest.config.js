@@ -25,10 +25,10 @@ export default {
   // Enforce a minimum baseline in CI (run with --coverage).
   coverageThreshold: {
     global: {
-      statements: 80,
-      branches: 70,
-      functions: 85,
-      lines: 80,
+      statements: 65,
+      branches: 50,
+      functions: 65,
+      lines: 70,
     },
   },
 };

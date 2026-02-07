@@ -354,6 +354,7 @@ mod tests {
             operations: vec![],
             metadata: proposal_meta(),
             comments: None,
+            relations: None,
         };
         store.create_proposal(proposal.clone()).await.unwrap();
         let got = store.get_proposal("p-1").await.unwrap();
@@ -407,6 +408,7 @@ mod tests {
             }],
             metadata: proposal_meta(),
             comments: None,
+            relations: None,
         };
         store.create_proposal(proposal).await.unwrap();
         store.apply_proposal("p-create").await.unwrap();
@@ -424,6 +426,7 @@ mod tests {
             operations: vec![],
             metadata: proposal_meta(),
             comments: None,
+            relations: None,
         };
         store.create_proposal(proposal).await.unwrap();
         store.reset().await.unwrap();
