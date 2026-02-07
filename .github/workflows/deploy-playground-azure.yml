@@ -64,5 +64,5 @@ jobs:
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           containerAppName: ${{ env.CONTAINER_APP_NAME }}
           imageToBuild: ${{ env.ACR_NAME }}.azurecr.io/truthlayer-playground:${{ env.IMAGE_TAG }}
-          targetPort: 4317
+          targetPort: 80
           ingress: external

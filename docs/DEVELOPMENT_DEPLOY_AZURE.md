@@ -12,10 +12,30 @@ This doc describes one-time setup so the **Deploy playground to Azure** workflow
 
 Create (once) in your subscription:
 
+- **Register Container Apps provider** (required once per subscription)
 - **Resource group** (e.g. `truthlayer-rg`)
 - **Azure Container Registry** (ACR, e.g. `truthlayeracr`)
 - **Container Apps environment** (e.g. `truthlayer-env`)
-- **Container App** (e.g. `truthlayer-playground`) in that environment, with **ingress external** and **target port 4317**
+- **Container App** (e.g. `truthlayer-playground`) in that environment, with **ingress external** and **target port 80** (the app listens on `PORT`, which Azure sets to 80)
+
+### 1a. Register Microsoft.App (Container Apps) provider
+
+If your subscription has never used Container Apps, register the provider first (one-time; can take a few minutes):
+
+```bash
+az login
+az account set --subscription "<YOUR_SUBSCRIPTION_ID>"
+az provider register -n Microsoft.App --wait
+```
+
+Check when registration is complete:
+
+```bash
+az provider show -n Microsoft.App --query "registrationState" -o tsv
+# Should print: Registered
+```
+
+### 1b. Create resource group, ACR, environment, and Container App
 
 Example (Azure CLI):
 
@@ -28,7 +48,7 @@ az containerapp create \
   --resource-group truthlayer-rg \
   --environment truthlayer-env \
   --image mcr.microsoft.com/azuredocs/containerapps-helloworld:latest \
-  --target-port 4317 \
+  --target-port 80 \
   --ingress external
 ```
 
@@ -191,3 +211,13 @@ Recommendation: keep the default (HTTPS only) for production; use HTTP only when
 ## 6. Optional: Container Apps environment name
 
 If your Container App is in an environment with a different name than the default, set the variable **`AZURE_CONTAINER_APPS_ENVIRONMENT`** and use it in the deploy action’s `containerAppEnvironment` input (you’d add that input to the workflow and set it to `vars.AZURE_CONTAINER_APPS_ENVIRONMENT`).
+
+## Troubleshooting
+
+- **"Subscription is not registered for the Microsoft.App resource provider"**  
+  The deploy step fails when the subscription has never used Container Apps. Fix: run the one-time registration in [§1a](#1a-register-microsoftapp-container-apps-provider) (`az provider register -n Microsoft.App --wait`), then re-run the workflow.
+
+- **"TargetPort 4317 does not match the listening port 80" / container crashing**  
+  Azure Container Apps sets `PORT=80` for ingress; the app listens on that port. The workflow and Container App must use **target port 80**. If you created the app with target port 4317, update it:  
+  `az containerapp ingress update --name truthlayer-playground --resource-group truthlayer-rg --target-port 80`  
+  Then re-run the deploy workflow (or the next deploy will set target port 80).
