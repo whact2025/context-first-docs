@@ -221,3 +221,30 @@ If your Container App is in an environment with a different name than the defaul
   Azure Container Apps sets `PORT=80` for ingress; the app listens on that port. The workflow and Container App must use **target port 80**. If you created the app with target port 4317, update it:  
   `az containerapp ingress update --name truthlayer-playground --resource-group truthlayer-rg --target-port 80`  
   Then re-run the deploy workflow (or the next deploy will set target port 80).
+
+- **"Failed to retrieve credentials for container registry. Please provide the registry username and password"**  
+  The deploy action (or the Container App when pulling the image) cannot authenticate to ACR. Use ACR admin credentials:
+
+  1. **Enable admin user** on the registry (Azure Portal → ACR → **Access keys** → Enable Admin user), or:
+     ```bash
+     az acr update --name <ACR_NAME> --resource-group truthlayer-rg --admin-enabled true
+     ```
+  2. **Get username and password:**  
+     Azure Portal → ACR → **Access keys** → copy **Login server** (use as username for ACR: it’s often the ACR name, e.g. `truthlayeracr`) and **Username** / **Password** (use the values shown there; username is often the ACR name).
+  3. **Add GitHub secrets** (repo **Settings** → **Secrets and variables** → **Actions**):
+     - `AZURE_ACR_USERNAME` = ACR username (e.g. `truthlayeracr`)
+     - `AZURE_ACR_PASSWORD` = ACR password (from Access keys)
+  4. Re-run the deploy workflow. The workflow uses these secrets for pushing the image to ACR.
+
+  Ensure the Container App can **pull** from ACR: either keep **managed identity** with AcrPull and `az containerapp registry set --identity system`, or add the same ACR credentials to the Container App (Container App → **Registry** → add registry with username/password).
+
+- **Default / “Welcome” page instead of the Playground**  
+  The app is still running the **placeholder image** (e.g. `containerapps-helloworld`), not the built TruthLayer image. In the Azure Portal, open the Container App → **Revision management**: confirm the **active** revision uses an image like `truthlayeracr.azurecr.io/truthlayer-playground:<sha>`. If a new revision has the correct image but **0% traffic**, set traffic to it (e.g. **Ingress** → send 100% to the latest revision). You can also run:  
+  If the app is in **single revision mode**, switch to **multiple** first, then set traffic:
+
+  ```bash
+  az containerapp revision set-mode --name truthlayer-playground --resource-group truthlayer-rg --mode multiple
+  az containerapp ingress traffic set --name truthlayer-playground --resource-group truthlayer-rg --revision-weight latest=100
+  ```
+
+  To confirm our app is serving: open `https://<your-app-url>/api/scenarios`; a JSON list means the playground is running.

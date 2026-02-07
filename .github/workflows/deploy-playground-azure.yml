@@ -61,6 +61,8 @@ jobs:
           appSourcePath: ${{ github.workspace }}
           dockerfilePath: Dockerfile.playground
           acrName: ${{ env.ACR_NAME }}
+          acrUsername: ${{ secrets.AZURE_ACR_USERNAME }}
+          acrPassword: ${{ secrets.AZURE_ACR_PASSWORD }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           containerAppName: ${{ env.CONTAINER_APP_NAME }}
           imageToBuild: ${{ env.ACR_NAME }}.azurecr.io/truthlayer-playground:${{ env.IMAGE_TAG }}
