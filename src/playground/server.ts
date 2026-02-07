@@ -5,7 +5,6 @@ import MarkdownIt from "markdown-it";
 import { createRustServerClient } from "../api-client.js";
 import type { ContextStore } from "../types/context-store.js";
 import { projectToMarkdown } from "../markdown/projection.js";
-import { generateCtxBlock } from "../markdown/ctx-block.js";
 import { ctxRenderPlugin } from "../markdown/ctx-render-plugin.js";
 import { buildEdgeIndex, traverseRelatedKeys } from "../store/core/graph.js";
 import { applyAcceptedProposalToNodeMap } from "../store/core/apply-proposal.js";
@@ -13,7 +12,14 @@ import { PreviewStore } from "../store/preview-store.js";
 import { nodeKey as coreNodeKey } from "../store/core/node-key.js";
 import { listScenarios, runScenario } from "./scenarios.js";
 import { getGuidedScenario, listGuidedScenarios } from "./guided.js";
-import type { AnyNode, NodeId, RelationshipType } from "../types/node.js";
+import type {
+  AnyNode,
+  NodeId,
+  RelationshipType,
+  DecisionNode,
+  QuestionNode,
+  ConstraintNode,
+} from "../types/node.js";
 import type { Comment, Proposal, Review } from "../types/proposal.js";
 
 const md = new MarkdownIt({
@@ -306,9 +312,12 @@ async function buildPreviewMarkdown(proposalId: string): Promise<string> {
 
 function nodeLabel(n: AnyNode): string {
   if (typeof n.title === "string" && n.title.trim().length > 0) return n.title.trim();
-  if (typeof (n as any).decision === "string" && (n as any).decision.trim().length > 0) return (n as any).decision.trim();
-  if (typeof (n as any).question === "string" && (n as any).question.trim().length > 0) return (n as any).question.trim();
-  if (typeof (n as any).constraint === "string" && (n as any).constraint.trim().length > 0) return (n as any).constraint.trim();
+  const d = (n as DecisionNode).decision;
+  if (typeof d === "string" && d.trim().length > 0) return d.trim();
+  const q = (n as QuestionNode).question;
+  if (typeof q === "string" && q.trim().length > 0) return q.trim();
+  const c = (n as ConstraintNode).constraint;
+  if (typeof c === "string" && c.trim().length > 0) return c.trim();
   return String(n.content || nodeKey(n.id));
 }
 
@@ -536,81 +545,6 @@ function collectTouchedNodeIds(proposal: Proposal): NodeId[] {
   }
 
   return out;
-}
-
-function sortNodeIds(ids: NodeId[]): NodeId[] {
-  return [...ids].sort((a, b) => nodeKey(a).localeCompare(nodeKey(b)));
-}
-
-async function buildTouchedMarkdownFromStore(
-  store: ContextStore,
-  touched: NodeId[],
-  options?: { title?: string }
-): Promise<string> {
-  const ids = sortNodeIds(touched);
-
-  const blocks: string[] = [];
-  if (options?.title) {
-    blocks.push(`# ${options.title}`);
-    blocks.push("");
-  }
-
-  const missing: string[] = [];
-  for (const id of ids) {
-    const node = await store.getNode(id);
-    if (!node) {
-      missing.push(nodeKey(id));
-      continue;
-    }
-    const body = node.description ?? node.content ?? "";
-    blocks.push(
-      generateCtxBlock(
-        node.type as any,
-        node.id.id,
-        node.status as any,
-        String(body),
-        node.id.namespace,
-        node.title
-      )
-    );
-    blocks.push("");
-  }
-
-  if (missing.length > 0) {
-    blocks.push("## Missing from current truth");
-    blocks.push("");
-    blocks.push(
-      "These nodes are referenced by the proposal operations but are not present in the current truth snapshot (typically newly created nodes)."
-    );
-    blocks.push("");
-    for (const k of missing) blocks.push(`- \`${k}\``);
-    blocks.push("");
-  }
-
-  return blocks.join("\n").trim() + "\n";
-}
-
-async function buildTouchedPreviewMarkdown(proposalId: string): Promise<string> {
-  const store = await ensureAcalStore();
-  const proposal = await store.getProposal(proposalId);
-  if (!proposal) throw new Error(`Proposal ${proposalId} not found`);
-
-  const touched = collectTouchedNodeIds(proposal);
-
-  const accepted = await store.queryNodes({ status: ["accepted"], limit: 2000, offset: 0 });
-  const nodes = new Map<string, AnyNode>();
-  for (const n of accepted.nodes) nodes.set(coreNodeKey(n.id), { ...n, status: "accepted" });
-  const pApply: Proposal = {
-    ...proposal,
-    status: "accepted",
-    metadata: { ...proposal.metadata, modifiedAt: new Date().toISOString(), modifiedBy: "preview" },
-  };
-  applyAcceptedProposalToNodeMap(nodes, pApply, { keyOf: coreNodeKey });
-  const tmp = new PreviewStore(nodes);
-
-  return buildTouchedMarkdownFromStore(tmp as unknown as ContextStore, touched, {
-    title: `Proposal preview (touched nodes only): ${proposalId}`,
-  });
 }
 
 function newSessionId(): string {

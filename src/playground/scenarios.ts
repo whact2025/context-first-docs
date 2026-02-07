@@ -9,7 +9,6 @@ import type {
   TaskNode,
   QuestionNode,
   ConstraintNode,
-  PlanNode,
 } from "../types/node.js";
 import type { Proposal } from "../types/proposal.js";
 import { generateReadmeFromAcceptedContext } from "./readme.js";

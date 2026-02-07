@@ -222,19 +222,26 @@ impl ContextStore for InMemoryStore {
     }
 
     async fn apply_proposal(&self, proposal_id: &str) -> Result<(), StoreError> {
-        let proposals = self.proposals.read().map_err(|e| StoreError::Internal(e.to_string()))?;
-        let proposal = proposals
-            .get(proposal_id)
-            .ok_or_else(|| StoreError::NotFound(format!("proposal {}", proposal_id)))?;
-        if proposal.status != ProposalStatus::Accepted {
-            return Err(StoreError::Invalid(
-                "only accepted proposals can be applied".to_string(),
-            ));
-        }
+        // Clone proposal and drop read lock before taking any write locks to avoid deadlock.
+        let (ops, modified_at, modified_by) = {
+            let proposals = self.proposals.read().map_err(|e| StoreError::Internal(e.to_string()))?;
+            let proposal = proposals
+                .get(proposal_id)
+                .ok_or_else(|| StoreError::NotFound(format!("proposal {}", proposal_id)))?;
+            if proposal.status != ProposalStatus::Accepted {
+                return Err(StoreError::Invalid(
+                    "only accepted proposals can be applied".to_string(),
+                ));
+            }
+            (
+                proposal.operations.clone(),
+                proposal.metadata.modified_at.clone(),
+                proposal.metadata.modified_by.clone(),
+            )
+        };
 
-        let mut nodes = self.nodes.write().map_err(|e| StoreError::Internal(e.to_string()))?;
-        let mut ops = proposal.operations.clone();
-        ops.sort_by_key(|o| {
+        let mut sorted_ops = ops;
+        sorted_ops.sort_by_key(|o| {
             match o {
                 Operation::Create { order, .. }
                 | Operation::Update { order, .. }
@@ -242,19 +249,17 @@ impl ContextStore for InMemoryStore {
                 | Operation::StatusChange { order, .. } => *order,
             }
         });
-        for op in &ops {
-            InMemoryStore::apply_operation(
-                &mut nodes,
-                op,
-                &proposal.metadata.modified_at,
-                &proposal.metadata.modified_by,
-            )?;
+        {
+            let mut nodes = self.nodes.write().map_err(|e| StoreError::Internal(e.to_string()))?;
+            for op in &sorted_ops {
+                InMemoryStore::apply_operation(&mut nodes, op, &modified_at, &modified_by)?;
+            }
         }
-
-        drop(nodes);
-        let mut proposals = self.proposals.write().map_err(|e| StoreError::Internal(e.to_string()))?;
-        if let Some(p) = proposals.get_mut(proposal_id) {
-            p.status = ProposalStatus::Accepted; // already accepted; could add "applied" state later
+        {
+            let mut proposals = self.proposals.write().map_err(|e| StoreError::Internal(e.to_string()))?;
+            if let Some(p) = proposals.get_mut(proposal_id) {
+                p.status = ProposalStatus::Accepted; // already accepted; could add "applied" state later
+            }
         }
         Ok(())
     }

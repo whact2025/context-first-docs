@@ -34,12 +34,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/whact2025/truth-layer.git"
+    "url": "https://github.com/whact2025/context-first-docs.git"
   },
   "bugs": {
-    "url": "https://github.com/whact2025/truth-layer/issues"
+    "url": "https://github.com/whact2025/context-first-docs/issues"
   },
-  "homepage": "https://github.com/whact2025/truth-layer#readme",
+  "homepage": "https://github.com/whact2025/context-first-docs#readme",
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "^11.0.0",
     "@types/jest": "^29.5.0",
