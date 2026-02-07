@@ -64,6 +64,7 @@ jobs:
 
       - name: Test
         run: cargo test --manifest-path server/Cargo.toml
+        timeout-minutes: 10
 
   server-docker-api:
     name: Server Docker image + API tests

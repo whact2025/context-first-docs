@@ -28,6 +28,17 @@ env:
   CONTAINER_APP_NAME: ${{ vars.AZURE_CONTAINER_APP_NAME }}
 
 jobs:
+  # When Azure vars are not set, this job runs so the workflow completes successfully instead of "failed".
+  skip:
+    name: Azure not configured
+    runs-on: ubuntu-latest
+    if: env.ACR_NAME == '' || env.RESOURCE_GROUP == '' || env.CONTAINER_APP_NAME == ''
+    steps:
+      - name: Skip deploy
+        run: |
+          echo "Azure deploy skipped (ACR/RG/Container App variables not set)."
+          echo "See docs/DEVELOPMENT_DEPLOY_AZURE.md to configure and deploy."
+
   deploy:
     name: Build and deploy to Azure Container Apps
     runs-on: ubuntu-latest
