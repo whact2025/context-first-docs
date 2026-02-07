@@ -1,6 +1,6 @@
 # TruthLayer Docs
 
-**Ratify truth. AI with Guardrails for Security & Compliance.** TruthLayer is a collaboration and governance layer for "truth" inside an organization—software decisions, business policy, operating procedures, risks, and rationale. **We build an agent** that reads accepted truth and authors proposals; humans **ratify** (review and apply). Immutable accepted truth, proposal → review → **ratify** → apply workflow, and **guardrails** (RBAC, audit) deliver security and compliance by design.
+**Ratify truth. AI with Guardrails for Security & Compliance.** TruthLayer is a collaboration and governance layer for "truth" inside an organization—software decisions, business policy, operating procedures, risks, and rationale. **We build an agent** that reads accepted truth and authors proposals; humans **ratify** (review and apply). The solution **provides an MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use TruthLayer as a native tool. Immutable accepted truth, proposal → review → **ratify** → apply workflow, and **guardrails** (RBAC, audit) deliver security and compliance by design.
 
 ## One invariant
 
@@ -23,7 +23,7 @@ The **agent** can read accepted truth and author proposals; it **cannot** accept
 | [core/ARCHITECTURE.md](core/ARCHITECTURE.md) | Components, data flows, tenancy, storage |
 | [core/REVIEW_MODE.md](core/REVIEW_MODE.md) | Proposal lifecycle, statuses, review/apply semantics |
 | [core/UI_SPEC.md](core/UI_SPEC.md) | Minimal governance UI (required), UX, roles, views |
-| [core/AGENT_API.md](core/AGENT_API.md) | Agent-safe contract: read truth, create proposals; no review/apply |
+| [core/AGENT_API.md](core/AGENT_API.md) | Agent-safe contract: read truth, create proposals; no review/apply; **MCP server** exposure |
 | [core/USAGE.md](core/USAGE.md) | How to use TruthLayer |
 
 ## Scenarios

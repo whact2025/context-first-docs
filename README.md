@@ -1,6 +1,6 @@
 # TruthLayer
 
-TruthLayer is a **truth ledger and collaboration layer** for organizations: a single place for accepted decisions, policy, and rationale, with a governed path for change. Agents read that truth and create proposals; humans review and apply. The result is **AI with guardrails**—stable context for agents, audit and RBAC for compliance.
+TruthLayer is a **truth ledger and collaboration layer** for organizations: a single place for accepted decisions, policy, and rationale, with a governed path for change. Agents read that truth and create proposals; humans review and apply. The result is **AI with guardrails**—stable context for agents, audit and RBAC for compliance. The solution **provides an MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use TruthLayer as a native tool for querying truth and creating proposals.
 
 **Canonical documentation:** [docs/](docs/README.md) (whitepaper, architecture, API, scenarios).
 
@@ -31,6 +31,7 @@ First-time local setup: `node scripts/install.js` or `npm run install:all`. [INS
 | **[docs/](docs/README.md)** | Whitepaper, architecture, Agent API, UI spec, scenarios, reference. Start here for design and usage. |
 | **Playground** | Web UI + embedded context server. Run via `npm run playground` or Docker (see above). |
 | **Server** | Rust API (nodes, proposals, review, apply). Used by the playground; also buildable as a standalone image for CI/API testing. |
+| **MCP server** | TruthLayer exposes an **MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool: query accepted truth, create proposals, traverse reasoning chains. Config: [.cursor/mcp.json](.cursor/mcp.json). See [docs/core/AGENT_API.md](docs/core/AGENT_API.md#mcp-exposure). |
 | **Scripts** | Install, build, tests, whitepaper DOCX, ctx-block extension. [scripts/README.md](scripts/README.md) |
 
 ---

@@ -25,6 +25,7 @@ Build **TruthLayer** as defined in docs/ (truth ledger + collaboration layer, AC
 - **Projection Engine** — Markdown/DOCX/HTML; change detection turns edits into proposal operations.
 - **Minimal Governance UI (required)** — List proposals, accept/reject/apply; see docs/core/UI_SPEC.md.
 - **The Agent** (we build it) — Agent that uses the API to query truth and propose changes; never review/apply; see docs/core/AGENT_API.md, docs/appendix/CONTEXTUALIZED_AI_MODEL.md.
+- **MCP server** (we provide it) — TruthLayer exposes an MCP server so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool: query truth, create proposals, traverse reasoning; see docs/core/AGENT_API.md (MCP exposure).
 - Optional clients: VS Code extension, full Web UI, Word/Google (docs/appendix/OPTIONAL_INTEGRATIONS.md, docs/appendix/DOCX_REVIEW_INTEGRATION.md).
 - Designated contributors and approvers, conflict detection and reconciliation, issue creation on approval.
 - Context relationship visualization where applicable (docs/appendix/DOCX_REVIEW_INTEGRATION.md).

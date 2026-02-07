@@ -60,7 +60,8 @@ jobs:
           cargo fmt --manifest-path server/Cargo.toml -- --check
 
       - name: Build
-        run: cargo build --manifest-path server/Cargo.toml --release
+        run: cargo build --manifest-path server/Cargo.toml
+        timeout-minutes: 15
 
       - name: Test
         run: cargo test --manifest-path server/Cargo.toml
@@ -83,6 +84,7 @@ jobs:
 
       - name: Build server image
         run: docker build -t truthlayer-server:ci -f server/Dockerfile server
+        timeout-minutes: 25
 
       - name: Start server container
         run: |

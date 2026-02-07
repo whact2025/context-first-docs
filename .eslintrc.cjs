@@ -17,7 +17,7 @@ module.exports = {
     // This repo is early-stage; keep CI green while we iterate.
     // Tighten these later once the codebase stabilizes.
     "no-unused-vars": "off",
-    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
     "@typescript-eslint/no-explicit-any": "warn",
     "no-constant-condition": "warn",
   },

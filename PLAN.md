@@ -2,7 +2,7 @@
 
 This document tracks the development roadmap and milestones for TruthLayer.
 
-- **Source of truth for product/architecture:** [docs/](docs/README.md). TruthLayer = **Ratify truth. AI with Guardrails for Security & Compliance** (truth ledger + collaboration layer, ACAL); humans ratify, guardrails enforce; minimal governance UI **required**; **The Agent** (we build it) uses the agent-safe API—optional deployment (in-process or API). See `docs/core/ARCHITECTURE.md`, `docs/WHITEPAPER.md`, `docs/core/UI_SPEC.md`, `docs/core/AGENT_API.md`.
+- **Source of truth for product/architecture:** [docs/](docs/README.md). TruthLayer = **Ratify truth. AI with Guardrails for Security & Compliance** (truth ledger + collaboration layer, ACAL); humans ratify, guardrails enforce; minimal governance UI **required**; **The Agent** (we build it) uses the agent-safe API—optional deployment (in-process or API). The solution **provides an MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use TruthLayer as a native tool. See `docs/core/ARCHITECTURE.md`, `docs/WHITEPAPER.md`, `docs/core/UI_SPEC.md`, `docs/core/AGENT_API.md`.
 - **UI**: One **minimal governance UI** is required (list proposals, accept/reject/apply). Optional: full Web UI, VS Code, Word/Google. See `docs/core/UI_SPEC.md`.
 - **Canonical walkthroughs**: [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) (proposal → review → apply) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md) — run via playground Scenario Runner (`npm run playground`).
 - **The Agent / Contextualize**: Phase 5; design in `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`, `docs/core/AGENT_API.md` (retrieval, prompt building, optional agent loop; prompt-leakage policy). Agent reads truth and creates proposals only; never review/apply.
@@ -82,6 +82,7 @@ status: accepted
 4. Implement proposal generation API
 5. Add validation and safety checks (default to accepted only, explicit opt-in for proposals)
 6. Create agent documentation (see `docs/core/AGENT_API.md`)
+7. **MCP server** — Expose TruthLayer as an MCP (Model Context Protocol) server so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool: query truth, create proposals, traverse reasoning chains; same agent-safe contract (no review/apply). Optional MCP resources for read-only context. See `docs/core/AGENT_API.md` (MCP exposure), `docs/core/ARCHITECTURE.md`, `docs/appendix/OPTIONAL_INTEGRATIONS.md`.
 
 **Phase 5: Contextualize module + The Agent (we build it)**
 

@@ -124,3 +124,13 @@ See [../appendix/RECONCILIATION_STRATEGIES.md](../appendix/RECONCILIATION_STRATE
 4. **Submit** (if UI/workflow allows agent to trigger submit): status → SUBMITTED. Review and apply remain human-only.
 
 See: [../scenarios/HELLO_WORLD_SCENARIO.md](../scenarios/HELLO_WORLD_SCENARIO.md), [../scenarios/CONFLICT_AND_MERGE_SCENARIO.md](../scenarios/CONFLICT_AND_MERGE_SCENARIO.md).
+
+## MCP exposure
+
+TruthLayer **provides an MCP (Model Context Protocol) server** so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool. This gives:
+
+- **Tools**: Map to the agent-safe API—e.g. `query_nodes`, `get_node`, `traverse_reasoning_chain`, `create_proposal`, `add_proposal_operations`. No tools for submitReview or applyProposal; those remain human-only.
+- **Resources** (optional): Read-only URIs for accepted context (e.g. workspace nodes, proposal list) so the assistant can load context without explicit tool calls when appropriate.
+- **Auth**: MCP server runs in the user’s environment; authentication and workspace scope follow the same RBAC and config as the HTTP API (server config root, RBAC provider).
+
+Clients configure the TruthLayer MCP server in their MCP config (e.g. Cursor: `.cursor/mcp.json`). The same agent-safe rules apply: agents read accepted truth and create proposals only; humans ratify in the minimal governance UI.

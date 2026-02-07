@@ -31,6 +31,9 @@
    - **Traversal**: traverseReasoningChain, buildContextChain, followDecisionReasoning, queryWithReasoning for provenance chains. See [AGENT_API.md](AGENT_API.md), [../appendix/CONTEXTUALIZED_AI_MODEL.md](../appendix/CONTEXTUALIZED_AI_MODEL.md).
    - Deployment can be in-process or via API; thin clients (chat, Slack, etc.) talk to the agent. One minimal governance UI is required for humans to review/apply.
 
+7. **MCP server** (we provide it)
+   - TruthLayer **exposes an MCP (Model Context Protocol) server** so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool. MCP tools map to the agent-safe API: query accepted truth, create proposals, traverse reasoning chains; no review/apply. Optional MCP resources expose read-only context (e.g. nodes, proposals list). This makes TruthLayer the guardrail layer that AI calls from the IDE and other MCP clients. See [AGENT_API.md](AGENT_API.md#mcp-exposure), [../appendix/OPTIONAL_INTEGRATIONS.md](../appendix/OPTIONAL_INTEGRATIONS.md).
+
 ## Core data flows
 
 ### Create truth
