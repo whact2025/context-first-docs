@@ -32,7 +32,7 @@ jobs:
   skip:
     name: Azure not configured
     runs-on: ubuntu-latest
-    if: env.ACR_NAME == '' || env.RESOURCE_GROUP == '' || env.CONTAINER_APP_NAME == ''
+    if: ${{ vars.AZURE_ACR_NAME == '' || vars.AZURE_RESOURCE_GROUP == '' || vars.AZURE_CONTAINER_APP_NAME == '' }}
     steps:
       - name: Skip deploy
         run: |
@@ -42,7 +42,7 @@ jobs:
   deploy:
     name: Build and deploy to Azure Container Apps
     runs-on: ubuntu-latest
-    if: env.ACR_NAME != '' && env.RESOURCE_GROUP != '' && env.CONTAINER_APP_NAME != ''
+    if: ${{ vars.AZURE_ACR_NAME != '' && vars.AZURE_RESOURCE_GROUP != '' && vars.AZURE_CONTAINER_APP_NAME != '' }}
 
     steps:
       - name: Checkout
