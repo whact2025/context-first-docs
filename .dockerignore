@@ -1,0 +1,38 @@
+# Dependencies and build outputs
+node_modules/
+dist/
+server/target/
+coverage/
+
+# Git and IDE
+.git/
+.github/
+.vscode/
+*.code-workspace
+
+# Docs and non-runtime
+docs/
+examples/
+*.md
+!README.md
+CONTEXT.md
+DECISIONS.md
+PLAN.md
+QUESTIONS.md
+RISKS.md
+
+# Tests and scripts not needed in image
+tests/
+scripts/
+jest.config.js
+.eslintrc*
+.prettier*
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*
+
+# Env and local
+.env*
+*.log

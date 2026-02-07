@@ -19,6 +19,26 @@ Open the resulting HTML in a browser. The plugin is also used by the playground�
 ### Run the playground
 From the repo root: **`npm run playground`**. Then open http://localhost:4317. This starts both the context-store server and the playground UI (requires Node and Rust). Stop with Ctrl+C. In Cursor/VS Code: **Terminal → Run Task → "Playground (run both servers)"**.
 
+### Set GitHub Azure secrets/variables
+**Files**: `set-github-azure-secrets.ps1` (PowerShell), `set-github-azure-secrets.sh` (Bash)
+
+Sets GitHub Actions secrets and variables for the Azure deploy workflow from your environment variables. Requires [GitHub CLI](https://cli.github.com/) installed and authenticated (`gh auth login`). Run from repo root after setting `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_ACR_NAME`, `AZURE_RESOURCE_GROUP`, `AZURE_CONTAINER_APP_NAME`. See [docs/DEVELOPMENT_DEPLOY_AZURE.md](../docs/DEVELOPMENT_DEPLOY_AZURE.md).
+
+---
+
+### Server API test
+**File**: `test-server-api.mjs`
+
+Smoke-tests the server REST API (health, nodes, proposals). Use after starting the server (locally or in a container).
+
+**Usage** (from repo root):
+```bash
+npm run test:server-api
+# or with a custom base URL:
+node scripts/test-server-api.mjs http://localhost:3080
+```
+CI runs this against the server running in a Docker container after building the server image.
+
 ---
 
 ### Node.js Script (Recommended - Cross-platform)

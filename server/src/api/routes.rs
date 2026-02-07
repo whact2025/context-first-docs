@@ -4,7 +4,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, put},
+    routing::{get, post},
     Json, Router,
 };
 use std::sync::Arc;
@@ -12,8 +12,7 @@ use std::sync::Arc;
 use crate::store::ContextStore;
 use crate::types::{NodeId, NodeQuery, Proposal, Review};
 
-pub fn router<S: ContextStore + 'static>(store: S) -> Router<()> {
-    let state = Arc::new(store);
+pub fn router(store: Arc<dyn ContextStore>) -> Router<()> {
     Router::new()
         .route("/health", get(health))
         .route("/nodes", get(query_nodes))

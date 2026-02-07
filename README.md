@@ -1,91 +1,67 @@
 # TruthLayer
 
-**Ratify truth. AI with Guardrails for Security & Compliance.** TruthLayer is enterprise truth governance for humans and agents: a **truth ledger + collaboration layer** that lets you **ratify** truth with **guardrails** for AI. Agents read accepted truth and author proposals; humans review and apply. The system gives agents stable, typed context and a safe proposal path—they never hold review/apply authority.
+TruthLayer is a **truth ledger and collaboration layer** for organizations: a single place for accepted decisions, policy, and rationale, with a governed path for change. Agents read that truth and create proposals; humans review and apply. The result is **AI with guardrails**—stable context for agents, audit and RBAC for compliance.
 
-The **canonical documentation lives in [docs/](docs/README.md)**. This README summarizes; for architecture, whitepaper, API, and scenarios, start there.
+**Canonical documentation:** [docs/](docs/README.md) (whitepaper, architecture, API, scenarios).
 
-## In one sentence
-
-TruthLayer is a **truth ledger + collaboration layer** (ACAL) designed for **humans and agents**. We **build an agent** that reads accepted truth and creates proposals; humans govern (review/apply) via one minimal governance UI. Canonical truth store (typed nodes + relationships), proposal/review/apply workflow, agent-safe API. Optional: rich clients (Web, VS Code, Office).
-
-## Start here (docs are source of truth)
-
-| If you want… | Go to (in docs/) |
-|---------------|------------------|
-| **Overview & invariant (ACAL)** | [docs/README.md](docs/README.md) |
-| **Whitepaper** (problem, AI with Guardrails, security + compliance) | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) |
-| **Architecture** (Truth Store, Policy, Projection, Change Detection, Clients, Agent) | [docs/core/ARCHITECTURE.md](docs/core/ARCHITECTURE.md) |
-| **Hello World** (proposal → review → apply) | [docs/scenarios/HELLO_WORLD_SCENARIO.md](docs/scenarios/HELLO_WORLD_SCENARIO.md) |
-| **Conflict & Merge** | [docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md) |
-| **Minimal governance UI** | [docs/core/UI_SPEC.md](docs/core/UI_SPEC.md) |
-| **Agent API** (read truth, author proposals; no review/apply) | [docs/core/AGENT_API.md](docs/core/AGENT_API.md) |
-| **How to use** | [docs/core/USAGE.md](docs/core/USAGE.md) |
-| **Schema, security, operations** | [docs/reference/DATA_MODEL_REFERENCE.md](docs/reference/DATA_MODEL_REFERENCE.md), [docs/reference/SECURITY_GOVERNANCE.md](docs/reference/SECURITY_GOVERNANCE.md), [docs/reference/OPERATIONS.md](docs/reference/OPERATIONS.md) |
-
-Full index: [docs/README.md](docs/README.md).
-
-## Problem
-
-Organizations suffer from **truth fragmentation**: the real decision lives in Slack, rationale is lost, **agents ingest stale or contradictory context**. TruthLayer is **AI with Guardrails for Security & Compliance**: a **truth ledger** (accepted revisions) and **collaboration layer** (proposals → review → **ratify** → apply) so truth is governable and **safe for both humans and agents**—agents get stable, accepted-only context and a clear proposal boundary; guardrails (RBAC, audit) keep AI in check for compliance.
-
-## What we're building (per docs/)
-
-- **The Agent** — We build an agent that uses the agent-safe API: reads accepted truth (queryNodes, traverseReasoningChain, etc.) and creates/updates proposals; it **cannot** submit reviews or apply. Humans govern. See [docs/core/AGENT_API.md](docs/core/AGENT_API.md), [docs/appendix/CONTEXTUALIZED_AI_MODEL.md](docs/appendix/CONTEXTUALIZED_AI_MODEL.md).
-- **Truth Store** — Canonical graph (nodes + edges), accepted revisions ledger, proposals/reviews/apply artifacts.
-- **Policy & Governance** — RBAC, approval rules, validation, audit logging.
-- **Minimal Governance UI (required)** — Where humans list proposals, review, accept/reject, and apply. See [docs/core/UI_SPEC.md](docs/core/UI_SPEC.md).
-- **Projection Engine** — Markdown/DOCX/HTML views; change detection turns edits into proposal operations.
-- **Optional** — Rich clients (VS Code extension, web app, CLI, Office add-in); different deployment modes for the agent (in-process, API).
-
-## Who this is for
-
-Teams that want **AI with guardrails** for security and compliance: **agentic collaboration** over governed truth, immutable accepted truth, human **ratification** of every change, and a **clear agent boundary** (agents propose; humans ratify and apply). Security-conscious orgs (self-hostable, no data leak).
-
-## Getting started
-
-**Prerequisites:** Node.js 18+ and Rust (cargo). See [INSTALL_NODEJS.md](INSTALL_NODEJS.md) if needed.
-
-```bash
-node scripts/install.js
-# or: npm run install:all
-```
-
-Manual: `npm install && npm run build && npm test`. [scripts/README.md](scripts/README.md).
+---
 
 ## Run the playground
 
+Try the minimal governance UI and context server:
+
 ```bash
+# Option A: Local (requires Node 18+ and Rust)
 npm run playground
+
+# Option B: Docker (single container, no local toolchain)
+docker compose up --build
 ```
 
-Open **http://localhost:4317** in your browser. Stop with Ctrl+C.
+Then open **http://localhost:4317**.
 
-In Cursor or VS Code: **Terminal → Run Task → "Playground (run both servers)"**.
+First-time local setup: `node scripts/install.js` or `npm run install:all`. [INSTALL_NODEJS.md](INSTALL_NODEJS.md) if you need Node. In Cursor/VS Code: **Run Task → "Playground (run both servers)"**.
 
-## Ctx blocks in Markdown preview
+---
 
-Files like [QUESTIONS.md](QUESTIONS.md) and [CONTEXT.md](CONTEXT.md) use **` ```ctx ``` `** blocks (metadata + body after `---`). To render them in Cursor/VS Code preview (bold, lists, etc.), install the **Ctx Block Markdown Preview** extension once so it loads automatically:
+## What’s in this repo
 
-```bash
-npm run install:ctx-extension
-```
+| Area | Description |
+|------|-------------|
+| **[docs/](docs/README.md)** | Whitepaper, architecture, Agent API, UI spec, scenarios, reference. Start here for design and usage. |
+| **Playground** | Web UI + embedded context server. Run via `npm run playground` or Docker (see above). |
+| **Server** | Rust API (nodes, proposals, review, apply). Used by the playground; also buildable as a standalone image for CI/API testing. |
+| **Scripts** | Install, build, tests, whitepaper DOCX, ctx-block extension. [scripts/README.md](scripts/README.md) |
 
-Or run the script directly (useful if PowerShell blocks npm): `node scripts/install-ctx-extension.js`
+---
 
-Then reload the window (Ctrl+Shift+P → "Developer: Reload Window"). After that, the extension loads whenever you open this (or any) workspace. See [vscode-ctx-markdown/README.md](vscode-ctx-markdown/README.md).
+## Development
 
-## This repo (self-referential)
+| Task | Command |
+|------|---------|
+| Install, build, test | `npm install && npm run build && npm test` |
+| Unit tests | `npm test` or `npm run test:coverage` |
+| Server API smoke test | `npm run test:server-api` (server must be running) |
+| Ctx blocks in Markdown | `npm run install:ctx-extension` then reload the editor. [vscode-ctx-markdown/README.md](vscode-ctx-markdown/README.md) |
 
-The project uses ACAL to document itself: [CONTEXT.md](CONTEXT.md), [DECISIONS.md](DECISIONS.md), [PLAN.md](PLAN.md), [RISKS.md](RISKS.md), [QUESTIONS.md](QUESTIONS.md). See [docs/appendix/SELF-REFERENCE.md](docs/appendix/SELF-REFERENCE.md).
+Project context and planning: [CONTEXT.md](CONTEXT.md), [DECISIONS.md](DECISIONS.md), [PLAN.md](PLAN.md), [RISKS.md](RISKS.md), [QUESTIONS.md](QUESTIONS.md). [docs/appendix/SELF-REFERENCE.md](docs/appendix/SELF-REFERENCE.md).
 
-## Running tests
+---
 
-From the repo root: `npm test` or `npm run test:coverage`. In Cursor/VS Code you can use **Terminal → Run Task → "Tests: run"** or **"Tests: run with coverage"**.
+## Docker
 
-If the Jest Test Explorer shows **"spawn cmd.exe ENOENT"** on Windows, the extension is trying to use a shell that isn’t available in your environment. Use the task or terminal instead (above), or set `"jest.testExplorer.enabled": false` in `.vscode/settings.json` and rely on the task.
+- **Playground (recommended):** One image, context server embedded; only port 4317 is exposed.  
+  `docker compose up --build` → http://localhost:4317  
+  Build only: `docker build -t truthlayer-playground -f Dockerfile.playground .`
+- **Server only** (CI / API testing): `docker build -t truthlayer-server -f server/Dockerfile server`
+- **API tests:** `npm run test:server-api` or `node scripts/test-server-api.mjs http://host:3080`
 
-## Status & more
+Requires [Docker](https://docs.docker.com/get-docker/) and Docker Compose.
 
-- **Implementation:** [PLAN.md](PLAN.md); storage: [docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md](docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md).
-- **Examples:** [examples/](examples/).
-- **License:** MIT.
+**Deploy to Azure:** A GitHub Actions workflow can build and deploy the playground to Azure Container Apps. One-time setup: [docs/DEVELOPMENT_DEPLOY_AZURE.md](docs/DEVELOPMENT_DEPLOY_AZURE.md).
+
+---
+
+## License
+
+MIT. Implementation status: [PLAN.md](PLAN.md), [docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md](docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md). Examples: [examples/](examples/).

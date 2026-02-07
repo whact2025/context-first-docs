@@ -1,0 +1,193 @@
+# Deploy Playground to Azure
+
+This doc describes one-time setup so the **Deploy playground to Azure** workflow can build the playground image and deploy it to your Azure subscription (Azure Container Apps + Azure Container Registry).
+
+## Overview
+
+- **Workflow:** [../.github/workflows/deploy-playground-azure.yml](../.github/workflows/deploy-playground-azure.yml)
+- **Triggers:** Push to `main`/`master` that touches playground/server/Dockerfiles or `workflow_dispatch`.
+- **Steps:** Checkout → Azure login (OIDC) → Build image from `Dockerfile.playground` → Push to ACR → Deploy/update Container App.
+
+## 1. Azure resources
+
+Create (once) in your subscription:
+
+- **Resource group** (e.g. `truthlayer-rg`)
+- **Azure Container Registry** (ACR, e.g. `truthlayeracr`)
+- **Container Apps environment** (e.g. `truthlayer-env`)
+- **Container App** (e.g. `truthlayer-playground`) in that environment, with **ingress external** and **target port 4317**
+
+Example (Azure CLI):
+
+```bash
+az group create --name truthlayer-rg --location eastus
+az acr create --resource-group truthlayer-rg --name truthlayeracr --sku Basic --admin-enabled false
+az containerapp env create --name truthlayer-env --resource-group truthlayer-rg --location eastus
+az containerapp create \
+  --name truthlayer-playground \
+  --resource-group truthlayer-rg \
+  --environment truthlayer-env \
+  --image mcr.microsoft.com/azuredocs/containerapps-helloworld:latest \
+  --target-port 4317 \
+  --ingress external
+```
+
+Then configure the app to pull from your ACR using **managed identity** (recommended):
+
+1. Enable system-assigned managed identity on the Container App.
+2. Grant that identity **AcrPull** on the ACR.
+3. Set the registry on the Container App to use the managed identity:
+
+```bash
+# After creating the container app:
+PRINCIPAL_ID=$(az containerapp show --name truthlayer-playground --resource-group truthlayer-rg --query identity.principalId -o tsv)
+ACR_ID=$(az acr show --name truthlayeracr --resource-group truthlayer-rg --query id -o tsv)
+az role assignment create --assignee "$PRINCIPAL_ID" --role AcrPull --scope "$ACR_ID"
+az containerapp registry set \
+  --name truthlayer-playground \
+  --resource-group truthlayer-rg \
+  --server truthlayeracr.azurecr.io \
+  --identity system
+```
+
+The first deploy from GitHub will replace the placeholder image with your built image.
+
+## 2. GitHub: OIDC (recommended)
+
+Use OpenID Connect so the workflow can sign in to Azure without storing a client secret.
+
+### 2a. App registration and federated credential
+
+1. **Microsoft Entra ID** → **App registrations** → **New registration** (e.g. name: `github-truthlayer-deploy`).
+   - **Supported account types:** leave as **Accounts in this organizational directory only** (single-tenant). Multi-tenant is not needed—only your tenant’s subscription is accessed.
+   - **Redirect URI:** leave empty. OIDC with federated credentials does not use redirects (no browser sign-in).
+2. Note **Application (client) ID** and **Directory (tenant) ID**.
+3. **Certificates & secrets** → **Federated credentials** → **Add**:
+   - **Federated credential scenario:** GitHub Actions deploying Azure resources
+   - **Organization:** your GitHub org (or leave blank for personal repo)
+   - **Repository:** `your-org/context-first-docs` (or your repo name)
+   - **Entity type:** Branch
+   - **GitHub branch name:** `main` (or `master`)
+   - **Name:** e.g. `main-branch`
+
+### 2b. Grant the app access to the resource group
+
+The app needs **Contributor** (or at least ability to push to ACR and update the Container App) on the resource group:
+
+```bash
+az role assignment create \
+  --assignee "<APPLICATION_CLIENT_ID>" \
+  --role Contributor \
+  --scope "/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/truthlayer-rg"
+```
+
+### 2c. GitHub secrets and variables
+
+You can set them in the GitHub UI, or use the GitHub CLI from your machine (no secrets in the repo):
+
+**Option A: Script (requires [GitHub CLI](https://cli.github.com/) installed and `gh auth login`)**
+
+If PowerShell blocks the script, allow scripts for the current user (one-time):
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+From the repo root, set environment variables then run:
+
+```powershell
+# PowerShell (Windows)
+$env:AZURE_CLIENT_ID = "<your-client-id>"
+$env:AZURE_TENANT_ID = "<your-tenant-id>"
+$env:AZURE_SUBSCRIPTION_ID = "<your-subscription-id>"
+$env:AZURE_ACR_NAME = "truthlayeracr"
+$env:AZURE_RESOURCE_GROUP = "truthlayer-rg"
+$env:AZURE_CONTAINER_APP_NAME = "truthlayer-playground"
+.\scripts\set-github-azure-secrets.ps1
+```
+
+```bash
+# Bash (Linux/macOS/WSL)
+export AZURE_CLIENT_ID="<your-client-id>"
+export AZURE_TENANT_ID="<your-tenant-id>"
+export AZURE_SUBSCRIPTION_ID="<your-subscription-id>"
+export AZURE_ACR_NAME="truthlayeracr"
+export AZURE_RESOURCE_GROUP="truthlayer-rg"
+export AZURE_CONTAINER_APP_NAME="truthlayer-playground"
+./scripts/set-github-azure-secrets.sh
+```
+
+**Option B: GitHub UI**
+
+**Secrets** (Settings → Secrets and variables → Actions):
+
+| Secret               | Value                          |
+|----------------------|---------------------------------|
+| `AZURE_CLIENT_ID`    | Application (client) ID        |
+| `AZURE_TENANT_ID`    | Directory (tenant) ID          |
+| `AZURE_SUBSCRIPTION_ID` | Your Azure subscription ID |
+
+**Variables** (Settings → Secrets and variables → Actions → Variables):
+
+| Variable                  | Example           | Description                    |
+|---------------------------|-------------------|--------------------------------|
+| `AZURE_ACR_NAME`         | `truthlayeracr`   | ACR name (no .azurecr.io)      |
+| `AZURE_RESOURCE_GROUP`   | `truthlayer-rg`   | Resource group name            |
+| `AZURE_CONTAINER_APP_NAME` | `truthlayer-playground` | Container App name     |
+
+The workflow runs only when these three variables are set (non-empty).
+
+## 3. Alternative: service principal (AZURE_CREDENTIALS)
+
+If you prefer a client secret instead of OIDC:
+
+1. Create a service principal with Contributor on the resource group:
+
+   ```bash
+   az ad sp create-for-rbac \
+     --name github-truthlayer-deploy \
+     --role contributor \
+     --scopes /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/truthlayer-rg \
+     --sdk-auth
+   ```
+
+2. Copy the JSON output and add it as a GitHub secret named **`AZURE_CREDENTIALS`**.
+
+3. Change the workflow’s Azure login step to:
+
+   ```yaml
+   - name: Azure login (service principal)
+     uses: azure/login@v2
+     with:
+       creds: ${{ secrets.AZURE_CREDENTIALS }}
+   ```
+
+4. Remove or leave unused the OIDC-only permissions; keep `contents: read`.
+
+## 4. Run the workflow
+
+- **Automatic:** Push to `main`/`master` that changes playground/server or the workflow file.
+- **Manual:** Actions → **Deploy playground to Azure** → **Run workflow**.
+
+After a successful run, the app is available at the Container App’s URL (e.g. `https://truthlayer-playground.<unique>.azurecontainerapps.io`).
+
+## 5. HTTP vs HTTPS
+
+**Default:** Azure Container Apps serves **HTTPS only** on the default URL. HTTP requests are automatically redirected to HTTPS (TLS 1.2+). The default `*.azurecontainerapps.io` host uses an Azure-managed certificate, so HTTPS works without extra configuration.
+
+**If you need to allow HTTP** (plain, unencrypted) as well—e.g. for local/dev or a reverse proxy that terminates TLS elsewhere—set the ingress property `allowInsecure: true`:
+
+- **Portal:** Container App → **Ingress** → enable **Allow insecure connections (HTTP)**.
+- **CLI:**
+  ```bash
+  az containerapp ingress update \
+    --name truthlayer-playground \
+    --resource-group truthlayer-rg \
+    --allow-insecure true
+  ```
+
+Recommendation: keep the default (HTTPS only) for production; use HTTP only when necessary (e.g. internal or dev).
+
+## 6. Optional: Container Apps environment name
+
+If your Container App is in an environment with a different name than the default, set the variable **`AZURE_CONTAINER_APPS_ENVIRONMENT`** and use it in the deploy action’s `containerAppEnvironment` input (you’d add that input to the workflow and set it to `vars.AZURE_CONTAINER_APPS_ENVIRONMENT`).

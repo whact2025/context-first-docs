@@ -7,32 +7,88 @@ on:
     branches: [ main, master ]
 
 jobs:
-  test:
+  node:
+    name: Node (build, test, lint)
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         node-version: [18.x, 20.x]
-
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Build
-      run: npm run build
-    
-    - name: Test
-      env:
-        NODE_OPTIONS: --experimental-vm-modules
-      run: npm run test:coverage
-    
-    - name: Lint
-      run: npm run lint
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+        run: npm run test:coverage
+
+      - name: Lint
+        run: npm run lint
+
+  rust-server:
+    name: Rust server (build, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: server/target
+          key: rust-server-${{ hashFiles('server/Cargo.lock', 'server/Cargo.toml') }}
+          restore-keys: rust-server-
+
+      - name: Check format
+        run: cargo fmt --manifest-path server/Cargo.toml -- --check
+
+      - name: Build
+        run: cargo build --manifest-path server/Cargo.toml --release
+
+      - name: Test
+        run: cargo test --manifest-path server/Cargo.toml
+
+  server-docker-api:
+    name: Server Docker image + API tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build server image
+        run: docker build -t truthlayer-server:ci -f server/Dockerfile server
+
+      - name: Start server container
+        run: |
+          docker run -d --name server -p 3080:3080 truthlayer-server:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3080/health >/dev/null; then break; fi
+            if [ "$i" -eq 30 ]; then echo "Server did not become ready"; exit 1; fi
+            sleep 1
+          done
+
+      - name: Run API tests against server
+        run: npm run test:server-api -- http://127.0.0.1:3080

@@ -57,7 +57,7 @@ Valuable for implementers and evaluators; not part of the core pitch.
 
 For builders; not required for "what is this and why should I care."
 
-- **Running**: From the repo root run **`npm run playground`**, then open http://localhost:4317. In Cursor/VS Code: **Run Task → "Playground (run both servers)"**. See [../README.md](../README.md).
+- **Running**: From the repo root run **`npm run playground`**, then open http://localhost:4317. In Cursor/VS Code: **Run Task → "Playground (run both servers)"**. Alternatively, run with **Docker**: **`docker compose up --build`** (single container; see [../README.md](../README.md) § Docker).
 
 | Doc | Content |
 |-----|---------|

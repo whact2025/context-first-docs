@@ -1,0 +1,16 @@
+# Encapsulated TruthLayer: one container with context server + playground.
+# Run: docker compose up --build
+# Then open http://localhost:4317 (playground UI). The context server is internal only (no host port).
+
+services:
+  playground:
+    build:
+      context: .
+      dockerfile: Dockerfile.playground
+    image: truthlayer-playground:latest
+    ports:
+      - "4317:4317"
+    environment:
+      PORT: "4317"
+      TRUTHTLAYER_LISTEN: "127.0.0.1:3080"
+      TRUTHTLAYER_SERVER_URL: "http://127.0.0.1:3080"

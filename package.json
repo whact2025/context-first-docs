@@ -16,6 +16,7 @@
     "playground:ui": "npm run build && node dist/playground/server.js",
     "server": "cd server && cargo run",
     "install:ctx-extension": "node scripts/install-ctx-extension.js",
+    "test:server-api": "node scripts/test-server-api.mjs",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\""
   },

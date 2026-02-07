@@ -1,0 +1,55 @@
+# Multi-stage: build server + Node/TS app, then minimal runtime with both embedded.
+# The context server (Rust) is built and embedded so one container runs server + playground.
+
+# ---- Server (Rust) builder ----
+FROM rust:1-alpine AS server-builder
+
+RUN apk add --no-cache musl-dev
+
+WORKDIR /build
+
+COPY server/Cargo.toml server/Cargo.lock* ./
+COPY server/src ./src
+
+RUN cargo build --release
+
+# ---- Playground (Node) builder ----
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+RUN npm prune --production
+
+# ---- Runtime: server binary + playground, single entrypoint ----
+FROM node:22-alpine
+
+RUN apk add --no-cache wget \
+  && addgroup -g 1001 app && adduser -D -u 1001 -G app app
+
+WORKDIR /app
+
+COPY --from=server-builder /build/target/release/truthlayer-server /usr/local/bin/truthlayer-server
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/node_modules ./node_modules
+
+COPY entrypoint-playground.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+USER app
+
+ENV PORT=4317
+# Context server listens on loopback only (not exposed to host).
+ENV TRUTHTLAYER_LISTEN=127.0.0.1:3080
+ENV TRUTHTLAYER_SERVER_URL=http://127.0.0.1:3080
+
+EXPOSE 4317
+
+ENTRYPOINT ["/app/entrypoint.sh"]

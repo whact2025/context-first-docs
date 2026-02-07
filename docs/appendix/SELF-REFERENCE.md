@@ -18,4 +18,4 @@ The canonical nodes track:
 This creates a tight loop:
 Accepted truth → projections → edits → proposals → review/apply → new truth
 
-Run the playground: **`npm run playground`** then open http://localhost:4317 (see repo README).
+Run the playground: **`npm run playground`** then open http://localhost:4317; or **`docker compose up --build`** for the Docker option (see repo README).
