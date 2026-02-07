@@ -52,7 +52,6 @@ jobs:
           acrName: ${{ env.ACR_NAME }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           containerAppName: ${{ env.CONTAINER_APP_NAME }}
-          containerAppEnvironment: ${{ vars.AZURE_CONTAINER_APPS_ENVIRONMENT }}
           imageToBuild: ${{ env.ACR_NAME }}.azurecr.io/truthlayer-playground:${{ env.IMAGE_TAG }}
           targetPort: 4317
           ingress: external
