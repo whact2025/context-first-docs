@@ -1,6 +1,6 @@
 # Project Risks
 
-This document tracks potential risks and mitigation strategies for TruthLayer. Mitigations often reference implementation in `src/store/`, `src/playground/`, and `docs/`. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **production security posture** (condensed enterprise summary): `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade posture and roadmap). For **doc suite feature set** (when to use TruthLayer vs Office/Google Docs + Copilot/Gemini), see whitepaper §2.4, §6.9. For **Word/Excel/Google review** (bidirectional flow, context visualization), see `docs/DOCX_REVIEW_INTEGRATION.md`.
+This document tracks potential risks and mitigation strategies for TruthLayer. The design is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. Mitigations reference `src/store/`, `src/playground/`, and `docs/`. For **canonical walkthroughs**, see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9. For **Word/Excel/Google** (optional), `docs/DOCX_REVIEW_INTEGRATION.md`.
 
 ```ctx
 type: risk
@@ -189,7 +189,7 @@ likelihood: possible
 **Risk**: When using a **vendor LLM** for contextualized inference (RAG or structured prompting), sensitive context included in prompts leaves the perimeter; misconfiguration or over-retrieval can leak goals, decisions, risks, or PII.
 
 **Mitigation**:
-- Treat retrieval and prompt building as a controlled pipeline: topic-scoped retrieval, namespace/type allowlists, redaction, and a max context budget (see `docs/CONTEXTUALIZED_AI_MODEL.md` §3.3).
+- Treat retrieval and prompt building as a controlled pipeline: topic-scoped retrieval, namespace/type allowlists, redaction, and a max context budget (see `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` §3.3).
 - Introduce a **policy interface**: sensitivity labels on nodes/namespaces, a retrieval policy module (allow/deny by destination e.g. vendor_llm), and logging of node IDs included in each prompt (§3.4). Policy layer wraps retrieval; store remains agnostic.
 - Prefer self-hosted or private-VPC LLM when context must not leave the perimeter; use vendor LLM only with explicit policy and audit.
 - Implement retrieval policy module and sensitivity support as roadmap (see PLAN Phase 5).

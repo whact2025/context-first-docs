@@ -2,13 +2,14 @@
 
 This document tracks the development roadmap and milestones for TruthLayer.
 
-- **UI**: See `docs/UI_SPEC.md` for the clean-slate UI specification aligned to ACAL.
-- **Canonical walkthroughs**: [Hello World](docs/HELLO_WORLD_SCENARIO.md) (proposal → review → apply → Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, merge, staleness) — run via playground Scenario Runner (`npm run playground`).
-- **Contextualize module** (contextualized AI): Phase 5 below; first-class component—full design in `docs/CONTEXTUALIZED_AI_MODEL.md` (RAG, fine-tuning, structured prompting; **prompt-leakage policy layer** = policy-as-code for prompt leakage).
-- **Security**: Production posture today (condensed enterprise "stop sign") and enterprise-grade posture: `docs/WHITEPAPER.md` §7.4 (Production posture today table: repo = demo/no auth, gateway, approvers-only for review/apply, disable reset, log vendor prompts, audit split) and §7.5 (enterprise-grade table and roadmap).
-- **Decisions**: Key decisions (e.g. node status = post-apply intent, contextualized AI policy, minimum secure deployment, doc suite complementary, DOCX projection, Word/Google bidirectional flow and visualization) in `DECISIONS.md` (decision-024 through decision-029).
-- **Doc suite feature set**: When to use TruthLayer vs Office/Google Docs + Copilot/Gemini (document-centric truth, consumption across suite and messaging including drafting discussions/emails) is in `docs/WHITEPAPER.md` §2.4, §6.9. TruthLayer does not replace doc suites; many orgs use both.
-- **Word/Excel/Google review**: Bidirectional flow (create, modify, comment, review from Word/Google) and context relationship visualization are designed in `docs/DOCX_REVIEW_INTEGRATION.md` (§5, §6, §7); tasks and decisions updated accordingly.
+- **Source of truth for product/architecture:** [docs/](docs/README.md). TruthLayer = **truth ledger + collaboration layer** (ACAL); minimal governance UI **required**; Agent Runtime **optional**. See `docs/core/ARCHITECTURE.md`, `docs/WHITEPAPER.md`, `docs/core/UI_SPEC.md`, `docs/core/AGENT_API.md`.
+- **UI**: One **minimal governance UI** is required (list proposals, accept/reject/apply). Optional: full Web UI, VS Code, Word/Google. See `docs/core/UI_SPEC.md`.
+- **Canonical walkthroughs**: [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) (proposal → review → apply) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) — run via playground Scenario Runner (`npm run playground`).
+- **Contextualize / Agent**: Phase 5; design in `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`, `docs/core/AGENT_API.md` (retrieval, prompt building, optional agent loop; prompt-leakage policy).
+- **Security**: Enterprise-grade by design per `docs/WHITEPAPER.md` (RBAC, audit logs, policy hooks, data residency, LLM safety). Production posture and roadmap: see `docs/WHITEPAPER.md`, `docs/reference/SECURITY_GOVERNANCE.md` when available.
+- **Decisions**: Key decisions in `DECISIONS.md` (e.g. agent boundary, DOCX projection, Word/Google flow).
+- **Doc suite**: TruthLayer does not replace doc suites; many orgs use both. See `docs/WHITEPAPER.md` (competitive positioning, “enterprise foundation”).
+- **Word/Google review**: Optional bidirectional flow and context visualization: `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 
 ```ctx
 type: plan
@@ -26,7 +27,7 @@ status: accepted
 8. ✅ Design comprehensive Agent API with decision/rationale traversal (provenance chains)
 
 **Phase 2: Persistence & Storage Implementations** (Next)
-1. ✅ Complete InMemoryStore baseline + extract reusable store core logic (`src/store/core/*`) with coverage tests (see `docs/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
+1. ✅ Complete InMemoryStore baseline + extract reusable store core logic (`src/store/core/*`) with coverage tests (see `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
 2. Storage abstraction layer - storage factory, configuration system, backend selection (see Phase 2)
 3. File-based storage implementation - JSON graph format (example path: `.context/graph.json`) (see Phase 3)
 4. MongoDB storage implementation - self-hosted MongoDB document database (for production/scaling) (see Phase 4)
@@ -37,7 +38,7 @@ status: accepted
 9. Reference tracking - bidirectional references, automatic updates (see Phase 9)
 10. Git integration - automatic commits (file-based), snapshots (MongoDB), commit tracking (see Phase 10)
 
-**See**: `docs/STORAGE_IMPLEMENTATION_PLAN.md` for detailed gap analysis, implementation tasks, and timeline
+**See**: `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` for detailed gap analysis, implementation tasks, and timeline
 
 **Phase 3: Authoring & Review System**
 1. Implement proposal authoring APIs and helpers
@@ -55,14 +56,15 @@ status: accepted
    - Manual resolution for true conflicts
    - Proposal superseding support
 10. Implement proposal review workflow with approval requirements
-11. Add issue creation on approval - automatically create issues when proposals are approved
-12. Add **Docs-style comment threads** anchored to nodes/fields (not Markdown line numbers)
-13. Support partial accept/reject
-14. Build review history tracking
-15. Support multi-approval workflows
-16. **Audit export**: Standard format for exporting proposals/reviews (e.g. by date range) for compliance (see whitepaper §7 table: audit export is roadmap; store holds data but no standard export today).
-17. **Bidirectional flow (Word/Google)**: Support create, modify, comment, and review from Word/Google — map doc actions to store API (`createProposal`, `updateProposal`, `addProposalComment`, `submitReview`, `applyProposal`). Prefer Office Add-in for direct API; fallback: defined export/import + sync (see `docs/DOCX_REVIEW_INTEGRATION.md` §5, §7).
-18. **Context relationship visualization**: Provide a context map (diagram or table of nodes/edges) in or alongside projections (e.g. appendix, companion doc). With Add-in: graph/tree view in task pane for interactive, up-to-date context graph (see `docs/DOCX_REVIEW_INTEGRATION.md` §6, §7).
+11. **Minimal governance UI (required)** — List proposals, Accept/Reject/Apply. The only required dedicated surface for truth-changing actions (agent cannot perform these). See `docs/core/UI_SPEC.md`.
+12. Add issue creation on approval - automatically create issues when proposals are approved
+13. Add **Docs-style comment threads** anchored to nodes/fields (not Markdown line numbers)
+14. Support partial accept/reject
+15. Build review history tracking
+16. Support multi-approval workflows
+17. **Audit export**: Standard format for exporting proposals/reviews for compliance (store holds data; see `docs/WHITEPAPER.md`, `docs/reference/SECURITY_GOVERNANCE.md` for audit roadmap).
+18. **Bidirectional flow (Word/Google)** (optional): See `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
+19. **Context relationship visualization** (optional): See `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 
 **Phase 4: Agent APIs**
 1. Implement comprehensive query API (type, status, keyword, relationships, pagination, sorting)
@@ -75,36 +77,37 @@ status: accepted
 3. Implement graph traversal APIs (relationship queries, path finding, dependencies)
 4. Implement proposal generation API
 5. Add validation and safety checks (default to accepted only, explicit opt-in for proposals)
-6. Create agent documentation (see `docs/AGENT_API.md`)
+6. Create agent documentation (see `docs/core/AGENT_API.md`)
 
-**Phase 5: Contextualize module (contextualized AI)**
+**Phase 5: Contextualize module + Agent Runtime (optional)**
 
-Implement the **Contextualize** module (first-class component) as described in `docs/CONTEXTUALIZED_AI_MODEL.md`: retrieval, prompt building, export for fine-tuning, optional vector index; **prompt-leakage policy layer** (policy-as-code: labels, retrieval policy module, logging). Store remains substrate; enterprise IP stays in-house. See also whitepaper §7.1, decision-025, risk-012.
+Implement the **Contextualize** module and optional **Agent Runtime** as in `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` and `docs/core/AGENT_API.md`: retrieval, prompt building, optional in-process agent loop (LLM + store tools; agent cannot submitReview or applyProposal), export for fine-tuning, optional vector index; **prompt-leakage policy layer**. Store remains substrate; enterprise IP stays in-house. **Minimal governance UI** (list proposals, Accept/Reject/Apply) is required; implement in Phase 3 or 5 so reviewers have a surface for truth-changing actions.
 
-**Implementation language:** TypeScript for store-facing pieces (retrieval orchestration, prompt builder, export pipeline, policy layer in `src/contextualize/*`). **Python** for the parts where it is best suited: embeddings, vector index (build/query), and fine-tuning pipelines (training stacks, format mappers). Integration contract (store as source of truth, data in/out via export or API) in `docs/CONTEXTUALIZED_AI_MODEL.md` (§ Position in architecture → Implementation language).
+**Implementation language:** TypeScript for store-facing pieces (retrieval, prompt builder, export pipeline, policy layer in `src/contextualize/*`). **Python** where best suited: embeddings, vector index, fine-tuning pipelines. Integration contract in `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`.
 
-1. **Retrieval module** — New module (e.g. `src/contextualize/retrieve.ts`). Input: query string and optional `startNodeId`. Use `queryNodes({ status: ["accepted"], search: query, limit })` and/or `traverseReasoningChain(startNodeId, ...)`. Output: list of nodes or a single formatted string. (Path A: RAG at inference.)
-2. **Prompt builder** — New module (e.g. `src/contextualize/prompt.ts`). Takes retrieved context string + user message; returns system + user messages (or a single prompt) for the LLM. (Path A, C.)
-3. **Context document builder (structured prompting)** — Thin wrapper: `projectToMarkdown(store)` for full context (Markdown; DOCX via build script), or `queryWithReasoning` for topic-focused context. Wire into API/playground so context + user message can be sent to LLM. (Path C; easiest first step.)
-4. **LLM integration** — In API or playground: on each request, retrieve → prompt builder → call LLM. Support self-hosted and vendor LLM; document that with vendor LLM only the prompt leaves the perimeter. (Path A, C.)
-5. **Export pipeline for fine-tuning** — New module (e.g. `src/contextualize/export.ts`). Call `queryNodes({ status: ["accepted"] })` (or paginate); for each node output type, id, title, description, relationships. Optionally use `followDecisionReasoning` per decision for rich examples. Output JSONL or JSON; attach export timestamp/snapshot for audit. (Path B.)
-6. **Training format mapper** — Map exported records to instruction/response or completion format for your training stack; preserve accepted-only so model never sees drafts as truth. (Path B.)
-7. **(Optional) Vector index** — Periodically (or on write): embed accepted nodes’ text, store in self-hosted vector DB; at inference embed query, retrieve top-k, then optionally expand with `traverseReasoningChain`. (Path A at scale.)
-8. **Prompt leakage controls (policy interface)** — Sensitivity labels on nodes/namespaces; retrieval policy module with allow/deny rules (e.g. by destination: vendor_llm vs internal_only); logging of node IDs included in each prompt sent to vendor LLM. Policy layer wraps retrieval/prompt building; store stays agnostic. See `docs/CONTEXTUALIZED_AI_MODEL.md` §3.3–3.4.
+1. **Agent loop (optional)** — In-process loop: receive user task → retrieve context → call LLM with **tools** (query truth, create proposals; no submitReview or applyProposal) → execute tool calls → feed results back to LLM. Expose via API for thin clients. See `docs/core/AGENT_API.md`, `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`.
+2. **Retrieval module** — e.g. `src/contextualize/retrieve.ts`. Input: query string and optional `startNodeId`. Use `queryNodes`, `traverseReasoningChain`. Output: list of nodes or formatted string. Used by agent and by RAG path.
+3. **Prompt builder** — Takes retrieved context + user message; returns system + user messages for the LLM. (Path A, C.)
+4. **Context document builder (structured prompting)** — `projectToMarkdown(store)` or `queryWithReasoning` for topic-focused context. Wire into agent and API/playground.
+5. **LLM integration** — retrieve → prompt builder → call LLM (and for agent: tool-calling loop). Self-hosted or vendor LLM; prompt-leakage policy when vendor.
+6. **Export pipeline for fine-tuning** — e.g. `src/contextualize/export.ts`. `queryNodes({ status: ["accepted"] })`; output JSONL/JSON; attach snapshot for audit. (Path B.)
+7. **Training format mapper** — Map export to instruction/response format; accepted-only. (Path B.)
+8. **(Optional) Vector index** — Embed accepted nodes; self-hosted vector DB; at inference retrieve top-k, optionally expand with `traverseReasoningChain`. (Path A at scale.)
+9. **Prompt leakage controls (policy interface)** — Sensitivity labels, retrieval policy module, logging of node IDs in prompts. See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`.
 
-**Phase 6: Installation & Integration**
+**Phase 6: Installation & Integration (rich UIs optional)**
 1. Clean installation system - non-invasive setup for existing repositories
 2. Self-hosted Git storage setup - configure storage service for self-hosted Git repository
 3. Reverse engineering tools - extract historical context from existing merge requests/PRs
-4. **Positioning and doc suite**: Document "when to use TruthLayer vs doc suite" (Office/Docs + Copilot/Gemini) for adopters; optional future: integration points (e.g. export context to Doc for Copilot/Gemini consumption). See whitepaper §2.4, §6.9, decision-027.
-5. **Word/Excel/Google integration** (see `docs/DOCX_REVIEW_INTEGRATION.md`): Excel-based review (export table + import script) short term; optional Word/Excel Add-in for task-pane review + context graph view; optional DOCX round-trip (tagged Track Changes/Comments) later.
-6. VS Code/Cursor extension (client) - in-editor review, context awareness, and proposal authoring/preview
-7. Extension features:
+4. **Positioning and doc suite**: Document "when to use TruthLayer vs doc suite" (Office/Docs + Copilot/Gemini) for adopters; optional future: integration points. See `docs/WHITEPAPER.md`, decision-027.
+5. **(Optional)** Word/Excel/Google integration (see `docs/appendix/DOCX_REVIEW_INTEGRATION.md`): Excel-based review; optional Word/Excel Add-in; optional DOCX round-trip later.
+6. **(Optional)** VS Code/Cursor extension - in-editor review, context awareness, and proposal authoring/preview
+7. **(Optional)** Extension features:
    - Client-side change capture (on save or real-time) that produces proposals (review mode enforced by store)
    - Proposal creation and management UI
    - Context awareness while coding
    - Role-based authoring modes (read-only vs suggesting)
-8. Pre-baked Cursor rules - AI-assisted proposal and risk authoring
+8. **(Optional)** Pre-baked Cursor rules - AI-assisted proposal and risk authoring (for when VS Code extension is used)
 9. GitHub/GitLab integration (for code repository, not context store)
 10. Reverse engineering MRs/PRs - extract historical context from existing repositories
 11. CLI tools for installation and management
@@ -289,7 +292,7 @@ type: task
 id: task-022
 status: open
 ---
-Build VS Code/Cursor extension (client) - in-editor review, proposal management, context awareness, and proposal authoring from editor changes (client-side capture; review mode enforced by store).
+Build VS Code/Cursor extension (optional) - in-editor review, proposal management, context awareness, and proposal authoring from editor changes (client-side capture; review mode enforced by store). Agentic-first v1 only requires agent + minimal review surface (task-064).
 ```
 
 ```ctx
@@ -617,12 +620,23 @@ type: task
 id: task-064
 status: open
 ---
-Build Web UI MVP aligned to `docs/UI_SPEC.md`:
-- Explore (accepted-only default)
-- Node detail (read-only accepted + Propose change)
-- Proposal composer (structured ops + rationale + prechecks)
-- Review accept/reject + Apply
-- Projections viewer (non-canonical, deterministic outputs)
+Build **minimal governance UI** (required): list proposals, Accept/Reject/Apply. Can be standalone UI or CLI, or the review section of a larger app. Agent cannot perform these actions; this is the only required dedicated surface for truth changes. See docs/core/UI_SPEC.md, decision-031.
+```
+
+```ctx
+type: task
+id: task-068
+status: open
+---
+Implement optional agent loop: in-process LLM + store tools (query truth, create proposals; no submitReview or applyProposal). Expose via API for thin clients. See docs/AGENT_API.md, docs/appendix/CONTEXTUALIZED_AI_MODEL.md.
+```
+
+```ctx
+type: task
+id: task-069
+status: open
+---
+Build full Web UI MVP (optional): Explore, Node detail, Proposal composer, Review accept/reject + Apply, Projections viewer. For teams that want rich Web UX; agentic-first v1 only requires agent + minimal review surface (task-064). Aligned to docs/core/UI_SPEC.md.
 ```
 
 ```ctx
@@ -630,7 +644,7 @@ type: task
 id: task-065
 status: open
 ---
-Create shared UI component library + client SDK to enforce ACAL invariants consistently across web and VS Code extension (accepted-only defaults, proposal-only writes, anchored comments, clear proposal state).
+Create shared UI component library + client SDK to enforce ACAL invariants consistently across minimal review surface, optional web UI, and optional VS Code extension (accepted-only defaults, proposal-only writes, anchored comments, clear proposal state).
 ```
 
 ```ctx
@@ -654,7 +668,7 @@ type: task
 id: task-066
 status: open
 ---
-Support bidirectional flow from Word/Google: create, modify, comment, and review proposals via store API (createProposal, updateProposal, addProposalComment, submitReview, applyProposal). Prefer Office Add-in; fallback: defined export/import format and sync step. See docs/DOCX_REVIEW_INTEGRATION.md §5, §7.
+Support bidirectional flow from Word/Google: create, modify, comment, and review proposals via store API (createProposal, updateProposal, addProposalComment, submitReview, applyProposal). Prefer Office Add-in; fallback: defined export/import format and sync step. See docs/appendix/DOCX_REVIEW_INTEGRATION.md.
 ```
 
 ```ctx
@@ -662,5 +676,5 @@ type: task
 id: task-067
 status: open
 ---
-Provide context relationship visualization: context map (diagram or table of nodes/edges) in or alongside projections; with Office Add-in, add graph/tree view in task pane for interactive context graph. See docs/DOCX_REVIEW_INTEGRATION.md §6, §7.
+Provide context relationship visualization: context map (diagram or table of nodes/edges) in or alongside projections; with Office Add-in, graph/tree view in task pane. See docs/appendix/DOCX_REVIEW_INTEGRATION.md.
 ```

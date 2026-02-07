@@ -1153,7 +1153,7 @@ function homePage(): string {
     <header>
       <h1>Playground</h1>
       <div class="muted">
-        Default entry point for local demos. Both UIs run against an in-memory store and enforce review-mode semantics at the API level.
+        Reference demo for local walkthroughs. Agentic-first v1: primary interface = agent; required UI = minimal review/apply (list proposals → Accept/Reject/Apply). This playground provides Scenario Runner + optional full ACAL Web UI.
       </div>
     </header>
     <main>
@@ -1168,12 +1168,21 @@ function homePage(): string {
         </section>
 
         <section class="card">
-          <div class="pill ok">Mock UI</div>
-          <h2 style="margin-top:10px;">ACAL Graph Viewer</h2>
+          <div class="pill ok">Required surface</div>
+          <h2 style="margin-top:10px;">Proposals &amp; Review</h2>
           <p>
-            A navigable mock UI aligned to <code>docs/UI_SPEC.md</code>: browse accepted truth, propose changes, review, apply, and view Markdown projections.
+            Minimal review/apply surface (agentic-first required): list proposals, open, Accept / Reject / Apply. See <code>docs/UI_SPEC.md</code> §6.4, §6.5.
           </p>
-          <a class="btn" href="/acal/graph">Open Graph Viewer</a>
+          <a class="btn" href="/acal/proposals">Open Proposals</a>
+        </section>
+
+        <section class="card">
+          <div class="pill ok">Optional full UI</div>
+          <h2 style="margin-top:10px;">ACAL Full Web UI</h2>
+          <p>
+            Optional full mock UI: Explore (graph), Nodes, Proposals, Reviews, Projections, Conflicts, Policy. Aligned to <code>docs/UI_SPEC.md</code>.
+          </p>
+          <a class="btn" href="/acal/graph">Open Full ACAL UI</a>
         </section>
       </div>
 
@@ -1251,11 +1260,12 @@ function acalHtmlPage(): string {
   </head>
   <body>
     <header>
-      <div class="title">ACAL Playground UI</div>
+      <div class="title">ACAL Playground UI <span class="muted" style="font-weight:400; font-size:12px;">(reference demo; Proposals + Reviews = required surface, rest optional — see docs/UI_SPEC.md)</span></div>
       <div class="meta">
         <span>Workspace: <span id="wsName">demo</span></span>
         <button id="resetBtn" title="Reset demo store">Reset</button>
-        <a href="/scenarios" title="Back to scenario runner">Scenario runner</a>
+        <a href="/" title="Playground home">Home</a>
+        <a href="/scenarios" title="Scenario runner">Scenarios</a>
       </div>
     </header>
     <main>

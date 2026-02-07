@@ -1,85 +1,65 @@
 # TruthLayer
 
-**Agentic Collaboration Approval Layer (ACAL)** — a structured, review-mode **solution model** (typed graph of goals, decisions, tasks, risks, questions) that humans and AI agents collaborate on and **approve into truth**. Not a document editor; not just for software.
+**Enterprise truth governance for humans and agents.** TruthLayer is built for **agentic collaboration**: agents and humans work over the same truth. Agents read accepted truth and author proposals; humans review and apply. The system gives agents stable, typed context and a safe proposal path—they never hold review/apply authority.
 
-- **Looks like** Markdown. **Feels like** Google Docs “Suggesting” mode. **Behaves like** proposal → review → apply; Markdown (and DOCX export) are projections, not the store.
-- **🔒 IP stays in your organization** — file-based (Git) or self-hosted MongoDB; no external services.
+The **canonical documentation lives in [docs/](docs/README.md)**. This README summarizes; for architecture, whitepaper, API, and scenarios, start there.
 
----
+## In one sentence
 
-## Start Here
+TruthLayer is a **truth ledger + collaboration layer** (ACAL) designed for **humans and agents**. We **build an agent** that reads accepted truth and creates proposals; humans govern (review/apply) via one minimal governance UI. Canonical truth store (typed nodes + relationships), proposal/review/apply workflow, agent-safe API. Optional: rich clients (Web, VS Code, Office).
 
-| If you want… | Go to |
-|--------------|--------|
-| **Hello World** (proposal → review → apply → Markdown) | [HELLO_WORLD_SCENARIO.md](docs/HELLO_WORLD_SCENARIO.md) |
-| **Conflict & Merge** (parallel editing, field-level merge, staleness) | [CONFLICT_AND_MERGE_SCENARIO.md](docs/CONFLICT_AND_MERGE_SCENARIO.md) |
-| **Change Detection** (how ctx blocks become proposals) | [CHANGE_DETECTION.md](docs/CHANGE_DETECTION.md) |
-| **Reconciliation** (v1 default policy and overrides) | [RECONCILIATION_STRATEGIES.md](docs/RECONCILIATION_STRATEGIES.md) |
-| **Whitepaper + Appendix** (why, contract, product wedge) | [WHITEPAPER.md](docs/WHITEPAPER.md) · [WHITEPAPER_APPENDIX.md](docs/WHITEPAPER_APPENDIX.md) |
-| **Contextualized AI** (RAG, fine-tuning, prompt-leakage policy) | [CONTEXTUALIZED_AI_MODEL.md](docs/CONTEXTUALIZED_AI_MODEL.md) |
+## Start here (docs are source of truth)
 
-Full system design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). **More:** [Storage](docs/STORAGE_ARCHITECTURE.md), [Implementation plan](docs/STORAGE_IMPLEMENTATION_PLAN.md), [DOCX/Word–Excel review](docs/DOCX_REVIEW_INTEGRATION.md), [UI spec](docs/UI_SPEC.md), [Full doc index](docs/README.md).
+| If you want… | Go to (in docs/) |
+|---------------|------------------|
+| **Overview & invariant (ACAL)** | [docs/README.md](docs/README.md) |
+| **Whitepaper** (problem, what TruthLayer is, enterprise-grade) | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) |
+| **Architecture** (Truth Store, Policy, Projection, Change Detection, Clients, Agent) | [docs/core/ARCHITECTURE.md](docs/core/ARCHITECTURE.md) |
+| **Hello World** (proposal → review → apply) | [docs/scenarios/HELLO_WORLD_SCENARIO.md](docs/scenarios/HELLO_WORLD_SCENARIO.md) |
+| **Conflict & Merge** | [docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md) |
+| **Minimal governance UI** | [docs/core/UI_SPEC.md](docs/core/UI_SPEC.md) |
+| **Agent API** (read truth, author proposals; no review/apply) | [docs/core/AGENT_API.md](docs/core/AGENT_API.md) |
+| **How to use** | [docs/core/USAGE.md](docs/core/USAGE.md) |
+| **Schema, security, operations** | [docs/reference/DATA_MODEL_REFERENCE.md](docs/reference/DATA_MODEL_REFERENCE.md), [docs/reference/SECURITY_GOVERNANCE.md](docs/reference/SECURITY_GOVERNANCE.md), [docs/reference/OPERATIONS.md](docs/reference/OPERATIONS.md) |
 
----
+Full index: [docs/README.md](docs/README.md).
 
 ## Problem
 
-Context is scattered (chat, PRs, wikis, tickets); **truth status** is ambiguous (drafts vs accepted vs rejected). AI agents then hallucinate or use outdated context because they can’t tell what’s approved. Word/Docs give review UX but are opaque to agents and often cloud-bound; Git/PRs don’t preserve semantic intent. **TruthLayer** is a single substrate: review-mode semantics, explicit accepted/proposed/rejected state, deterministic projection, and provenance of rejected ideas — with data staying self-hosted.
+Organizations suffer from **truth fragmentation**: the real decision lives in Slack, rationale is lost, **agents ingest stale or contradictory context**. TruthLayer provides a **truth ledger** (accepted revisions) and **collaboration layer** (proposals → review → apply) so truth is governable and **safe for both humans and agents**—agents get stable, accepted-only context and a clear proposal boundary.
 
-**Benefits even without agents:** Less decision churn, faster onboarding, auditable rationale, fewer rediscoveries of rejected alternatives, and a stable truth layer independent of ticket lifecycles.
+## What we're building (per docs/)
 
----
+- **The Agent** — We build an agent that uses the agent-safe API: reads accepted truth (queryNodes, traverseReasoningChain, etc.) and creates/updates proposals; it **cannot** submit reviews or apply. Humans govern. See [docs/core/AGENT_API.md](docs/core/AGENT_API.md), [docs/appendix/CONTEXTUALIZED_AI_MODEL.md](docs/appendix/CONTEXTUALIZED_AI_MODEL.md).
+- **Truth Store** — Canonical graph (nodes + edges), accepted revisions ledger, proposals/reviews/apply artifacts.
+- **Policy & Governance** — RBAC, approval rules, validation, audit logging.
+- **Minimal Governance UI (required)** — Where humans list proposals, review, accept/reject, and apply. See [docs/core/UI_SPEC.md](docs/core/UI_SPEC.md).
+- **Projection Engine** — Markdown/DOCX/HTML views; change detection turns edits into proposal operations.
+- **Optional** — Rich clients (VS Code extension, web app, CLI, Office add-in); different deployment modes for the agent (in-process, API).
 
-## What We're Building
+## Who this is for
 
-- **Solution model store** — Typed graph (goal → decision → task → risk → question); nodes and relationships; status (accepted / proposed / rejected).
-- **Review mode** — No direct edits to accepted context; all changes are **proposals** → review → **apply**. See [REVIEW_MODE.md](docs/REVIEW_MODE.md).
-- **Markdown and DOCX as projections** — Optional authoring via `ctx` blocks; deterministic `projectToMarkdown`; DOCX export for distribution (`scripts/build-whitepaper-docx.js`); store is source of truth.
-- **Storage** — In-memory (today); file-based JSON graph (planned default); self-hosted MongoDB (planned production). Same `ContextStore` interface; all data in your perimeter.
-- **Agent API** — Query by type, status, keyword, relationships; **decision/rationale traversal** (provenance chains: goal → decision → task → risk). Default: accepted-only reads. [AGENT_API.md](docs/AGENT_API.md).
-- **Conflict reconciliation** — V1 default: field-level merge + optimistic locking + manual resolution for same-field conflicts; block approval on conflicts for decision/constraint nodes. [RECONCILIATION_STRATEGIES.md](docs/RECONCILIATION_STRATEGIES.md).
-- **Contextualize module** — RAG, fine-tuning, structured prompting; **prompt-leakage policy layer** (labels, retrieval policy, logging). TS for store-facing; Python for embeddings/vector index/fine-tuning. [CONTEXTUALIZED_AI_MODEL.md](docs/CONTEXTUALIZED_AI_MODEL.md).
-- **Clients** — VS Code/Cursor extension, web UI, CLI, agents (all speak the same store API).
+Teams that want **agentic collaboration** over governed truth: immutable accepted truth, permissioned governance, auditability, and a **clear agent boundary** (agents propose; humans accept). Security-conscious orgs (self-hostable, no data leak).
 
----
+## Getting started
 
-## Jira (and similar)
-
-**Jira** = execution (backlogs, boards, SLAs, delivery). **TruthLayer** = solution modeling and approval (decisions, constraints, risks, questions, review-mode truth). Use both: e.g. Jira issues reference node IDs (`decision-015`, `risk-001`); approved proposals can auto-create issues.
-
----
-
-## Who This Is For
-
-Security-conscious teams that want agentic development without IP leakage; engineers who want decisions and rationale to persist; organizations that can’t send context to external AI. For anyone who’s said: *“The README lies, the PR is merged, and nobody remembers why.”* or *“We can’t use AI tools because they’ll leak our IP.”*
-
----
-
-## Getting Started
-
-**Prerequisites:** Node.js 18+ (npm bundled). No Node? See [INSTALL_NODEJS.md](INSTALL_NODEJS.md).
+**Prerequisites:** Node.js 18+ (npm bundled). See [INSTALL_NODEJS.md](INSTALL_NODEJS.md) if needed.
 
 ```bash
-# Recommended
 node scripts/install.js
-# or
-npm run install:all
+# or: npm run install:all
 ```
 
-Manual: `npm install && npm run build && npm test`. More options: [scripts/README.md](scripts/README.md).
+Manual: `npm install && npm run build && npm test`. [scripts/README.md](scripts/README.md).
 
-**Playground:** `npm run playground` → http://localhost:4317. Scenario Runner runs the [Start Here](docs/HELLO_WORLD_SCENARIO.md) scenarios (hello-world, conflicts-and-merge, stale-proposal); ACAL UI at `/acal` for graph, proposals, diff view, comments.
+**Playground:** `npm run playground` → http://localhost:4317. Scenario Runner (Hello World, Conflict and Merge); minimal governance UI at `/acal/proposals`.
 
----
+## This repo (self-referential)
 
-## This Repo (Self-Referential)
+The project uses ACAL to document itself: [CONTEXT.md](CONTEXT.md), [DECISIONS.md](DECISIONS.md), [PLAN.md](PLAN.md), [RISKS.md](RISKS.md), [QUESTIONS.md](QUESTIONS.md). See [docs/appendix/SELF-REFERENCE.md](docs/appendix/SELF-REFERENCE.md).
 
-The project uses ACAL to document itself: [CONTEXT.md](CONTEXT.md), [DECISIONS.md](DECISIONS.md), [PLAN.md](PLAN.md), [RISKS.md](RISKS.md), [QUESTIONS.md](QUESTIONS.md) use `ctx` blocks and review-mode workflow. See [docs/SELF-REFERENCE.md](docs/SELF-REFERENCE.md).
+## Status & more
 
----
-
-## Status & More
-
-- **Implementation status:** [PLAN.md](PLAN.md); storage gap analysis: [STORAGE_IMPLEMENTATION_PLAN.md](docs/STORAGE_IMPLEMENTATION_PLAN.md).
+- **Implementation:** [PLAN.md](PLAN.md); storage: [docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md](docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md).
 - **Examples:** [examples/](examples/).
 - **License:** MIT.

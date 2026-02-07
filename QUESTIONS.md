@@ -1,6 +1,6 @@
 # Open Questions
 
-This document tracks questions that need answers as the project evolves. For **canonical walkthroughs** (proposal → review → apply; conflict/merge/staleness), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md). For **contextualized AI model** (Phase 5, RAG/fine-tuning/structured prompting, prompt leakage), see `docs/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5. For **production security posture** (enterprise summary: gateway, approvers-only, disable reset, audit), see `docs/WHITEPAPER.md` §7.4 (Production posture today table) and §7.5 (enterprise-grade). For **doc suite feature set** (when to use TruthLayer vs Office/Google Docs + Copilot/Gemini — document-centric truth, consumption across suite and messaging, drafting discussions/emails), see whitepaper §2.4, §6.9, decision-027. For **Word/Google bidirectional flow and context visualization** (create, modify, comment, review from Word/Google; context map and graph view), see `docs/DOCX_REVIEW_INTEGRATION.md` §5–7, decision-029.
+This document tracks questions that need answers as the project evolves. TruthLayer is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. For **canonical walkthroughs**, see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md). For **agent loop and Contextualize** (Phase 5), see `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` and PLAN Phase 5. For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9, decision-027. For **Word/Google** (optional), `docs/appendix/DOCX_REVIEW_INTEGRATION.md` §5–7, decision-029.
 
 ```ctx
 type: question
@@ -149,7 +149,7 @@ status: resolved
 ---
 **Question**: How should agents discover and consume context?
 
-**Answer**: Comprehensive query API with decision/rationale traversal (provenance chains) capabilities. See `docs/AGENT_API.md` for full API design.
+**Answer**: Comprehensive query API with decision/rationale traversal (provenance chains) capabilities. See `docs/core/AGENT_API.md` for full API design.
 
 **Discovery API**:
 - **Query by Type, Status, Keyword**: `queryNodes()` with comprehensive filtering
@@ -331,7 +331,7 @@ status: resolved
   - Archival: Mark old nodes as "archived" status, can query separately
   - Performance benchmarks: TBD during implementation
 
-**See**: `docs/STORAGE_IMPLEMENTATION_PLAN.md` for scalability details
+**See**: `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` for scalability details
 
 **Impact**: Medium - affects scalability
 ```
@@ -354,7 +354,7 @@ status: resolved
 - **Approval Prevention**: System prevents approval of conflicting proposals until resolved
 - **Merge Strategy**: Field-level merging with manual resolution for conflicts
 
-**Implementation**: See Phase 6 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
+**Implementation**: See Phase 6 in `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: High - affects data integrity
 ```
@@ -368,7 +368,7 @@ status: resolved
 
 **Answer**: Comprehensive query API with full-text search, structured queries, and GraphQL API.
 
-**Resolution** (see `docs/AGENT_API.md`):
+**Resolution** (see `docs/core/AGENT_API.md`):
 - **Query API**: `queryNodes()` and `queryProposals()` with comprehensive filtering
 - **Full-Text Search**: Search across content, decision fields, with fuzzy matching
 - **Structured Queries**: Filter by type, status, tags, namespace, creator, date ranges
@@ -379,7 +379,7 @@ status: resolved
   - MongoDB: Text indexes for fast full-text search
 - **Pagination**: Built-in pagination support (limit/offset)
 
-**See**: `docs/AGENT_API.md` for full API documentation and `docs/STORAGE_IMPLEMENTATION_PLAN.md` for implementation
+**See**: `docs/core/AGENT_API.md` for full API documentation and `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` for implementation
 
 **Impact**: Medium - affects usability
 ```
@@ -401,7 +401,7 @@ status: resolved
 - **Dependencies**: System tracks proposal dependencies and superseding relationships
 - **Workflow**: Create new proposal → Mark as superseding old → Review → Approve → Old marked superseded
 
-**Implementation**: See `decision-014` and Phase 6 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
+**Implementation**: See `decision-014` and Phase 6 in `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: High - affects change management
 ```
@@ -424,7 +424,7 @@ status: resolved
 - **Validation Errors**: Block proposal creation with clear error messages
 - **Warnings**: Non-blocking issues (e.g., referenced node is deprecated)
 
-**Implementation**: Validation in `createProposal()` method, see Phase 6 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
+**Implementation**: Validation in `createProposal()` method, see Phase 6 in `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: Medium - affects data quality
 ```
@@ -486,7 +486,7 @@ status: resolved
   - Validation: On write (MongoDB validation), periodic integrity checks
   - Backup: Git snapshots + MongoDB native backups
 
-**See**: `docs/STORAGE_IMPLEMENTATION_PLAN.md` for implementation details
+**See**: `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` for implementation details
 
 **Impact**: High - affects data integrity and reliability
 ```
@@ -561,7 +561,7 @@ status: resolved
 - **Validation**: Schema validation on load, version checks
 - **Rollback**: Keep old format readers, can export to old format if needed
 
-**Implementation**: See Phase 2 and Phase 4 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
+**Implementation**: See Phase 2 and Phase 4 in `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: Medium - affects long-term maintenance
 ```
@@ -591,7 +591,7 @@ status: resolved
 - **Retention**: Git history provides long-term retention
 - **Disaster Recovery**: Restore from Git (file-based) or Git snapshots + MongoDB backups
 
-**Implementation**: See Phase 10 in `docs/STORAGE_IMPLEMENTATION_PLAN.md`
+**Implementation**: See Phase 10 in `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`
 
 **Impact**: Medium - affects data safety and portability
 ```
@@ -729,7 +729,7 @@ status: resolved
 
 **Answer**: Bidirectional flow (create, modify, comment, review) from Word/Google is supported by mapping doc actions to the store API; preferred path is an Office Add-in (direct API), with export/import + sync as fallback. Context relationships are visualized via a context map (diagram or table of nodes/edges) in or alongside docs; with an Add-in, a graph/tree view in the task pane gives an interactive, up-to-date view.
 
-**Resolution**: See `docs/DOCX_REVIEW_INTEGRATION.md` §5 (bidirectional flow), §6 (visualization), §7 (summary); `DECISIONS.md` decision-029; PLAN Phase 3 items 17–18, Phase 6 item 5; tasks task-066, task-067.
+**Resolution**: See `docs/appendix/DOCX_REVIEW_INTEGRATION.md` (bidirectional flow), §6 (visualization), §7 (summary); `DECISIONS.md` decision-029; PLAN Phase 3 items 17–18, Phase 6 item 5; tasks task-066, task-067.
 
 **Resolved At**: 2026-01-29
 ```

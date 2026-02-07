@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-This document tracks key architectural decisions made during the TruthLayer project (an Agentic Collaboration Approval Layer — ACAL). For **review-mode semantics** (proposal → review → apply), see `docs/REVIEW_MODE.md`. For **canonical walkthroughs** (day-in-the-life flows with concrete JSON and outcomes), see [Hello World](docs/HELLO_WORLD_SCENARIO.md) (accept/apply/Markdown) and [Conflict and Merge](docs/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, field-level merge, stale proposals). For the full design narrative and status, see `docs/WHITEPAPER.md`. For **when to use TruthLayer vs Office/Google Docs + Copilot/Gemini** (doc suite feature set: document-centric truth, consumption across suite and messaging, drafting discussions/emails), see whitepaper §2.4 and §6.9.
+This document tracks key architectural decisions made during the TruthLayer project (an Agentic Collaboration Approval Layer — ACAL). For **review-mode semantics** (proposal → review → apply), see `docs/core/REVIEW_MODE.md`. For **canonical walkthroughs** (day-in-the-life flows with concrete JSON and outcomes), see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) (accept/apply/Markdown) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md) (conflict detection, field-level merge, stale proposals). For the full design narrative and status, see `docs/WHITEPAPER.md`. For **when to use TruthLayer vs Office/Google Docs + Copilot/Gemini** (doc suite feature set: document-centric truth, consumption across suite and messaging, drafting discussions/emails), see whitepaper §2.4 and §6.9.
 
 ```ctx
 type: decision
@@ -337,19 +337,19 @@ status: accepted
 ```ctx
 type: decision
 id: decision-008
-status: accepted
+status: superseded
 ---
 **Decision**: VS Code/Cursor extension is required, not optional, for v1.
 
-**Rationale**:
+**Superseded by decision-031 (agentic-first):** Under the agentic-first design, the **primary interface** is the in-process agent; **one minimal review/apply surface** is required; rich UIs (Web, VS Code, Word/Google) are **optional**. So for v1, the VS Code/Cursor extension is **optional**, not required. The rationale below still applies to the extension when it is built (in-editor review, context awareness, authoring workflow); it is no longer a v1 requirement.
+
+**Original Rationale**:
 - In-editor review is essential for the "Google Docs review mode" experience
 - Context awareness in the IDE enables developers to see proposals, decisions, and risks while coding
 - Seamless authoring workflow - create proposals and review without leaving the editor
-- Critical for adoption - developers need integrated tooling, not separate CLI tools
 - Enables real-time context queries and proposal creation from within the editor
-- Makes the system practical for daily use, not just documentation
 
-**Required Features**:
+**Required Features (when extension is built)**:
 - ctx block syntax highlighting and validation
 - In-editor proposal creation and editing
 - Review UI for accepting/rejecting proposals
@@ -357,12 +357,8 @@ status: accepted
 - Integration with git for commit tracking
 - Visual indicators for proposal status and review state
 
-**Alternatives Considered**:
-- Making it optional (loses core value proposition, reduces adoption)
-- CLI-only approach (too disconnected from workflow, higher friction)
-- Web-based UI only (requires context switching, breaks flow)
-
 **Decided At**: 2026-01-26
+**Superseded At**: 2026-01-29 (decision-031, agentic-first)
 ```
 
 ```ctx
@@ -636,12 +632,12 @@ status: accepted
 - Global default strategy
 - Configurable auto-merge behavior
 
-**Examples** (see `docs/CONFLICT_AND_MERGE_SCENARIO.md` for full day-in-the-life walkthrough and playground scenarios `conflicts-and-merge`, `stale-proposal`):
+**Examples** (see `docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md` for full day-in-the-life walkthrough and playground scenarios `conflicts-and-merge`, `stale-proposal`):
 - Proposal A changes `content` field, Proposal B changes `status` → Auto-merge (no conflict)
 - Proposal A changes `content` to "X", Proposal B changes `content` to "Y" → Conflict, manual resolution
 - Proposal created when node version is 5, but node is now version 7 → Reject as stale
 
-**Implementation**: `src/store/core/conflicts.ts` — `detectConflictsForProposal`, `mergeProposals`, `isProposalStale`; `docs/RECONCILIATION_STRATEGIES.md`.
+**Implementation**: `src/store/core/conflicts.ts` — `detectConflictsForProposal`, `mergeProposals`, `isProposalStale`; `docs/appendix/RECONCILIATION_STRATEGIES.md`.
 
 **Alternatives Considered**:
 - Single strategy only (too rigid, doesn't fit all cases)
@@ -876,7 +872,7 @@ status: accepted
 
 **Rationale**:
 - Keeps enterprise IP and compliance concerns explicit: what may leave the perimeter is policy-driven.
-- Store remains agnostic; policy layer wraps retrieval and prompt building (see `docs/CONTEXTUALIZED_AI_MODEL.md` §3.4).
+- Store remains agnostic; policy layer wraps retrieval and prompt building (see `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` §3.4).
 - Enables audit trail ("which node IDs were in this prompt") for compliance.
 
 **Implementation**: Policy interface is **designed and documented**; retrieval policy module and sensitivity labels are **planned** (see PLAN Phase 4). Store today provides query/export/projection; policy enforcement is a thin layer on top.
@@ -930,7 +926,7 @@ status: accepted
 - Same truth yields deterministic Markdown; DOCX is produced from that Markdown (or from store via Markdown), so it is a derived projection.
 - Build: `node scripts/build-whitepaper-docx.js`; output: per-document DOCX in `dist/whitepaper-docx/`. Requires Pandoc and (for Mermaid) mermaid-cli (see `scripts/README.md`).
 
-**Implementation**: Documented in `docs/ARCHITECTURE.md` § Projections; script and usage in `scripts/README.md`.
+**Implementation**: Documented in `docs/core/ARCHITECTURE.md` § Projections; script and usage in `scripts/README.md`.
 
 **Decided At**: 2026-01-29
 ```
@@ -947,7 +943,42 @@ status: accepted
 - Context is a graph; users need a clear view of nodes and relationships (goals, decisions, tasks, dependencies) when reviewing or authoring.
 - Add-in gives best UX (explicit accept/reject, live context graph); export/import path supports "no extension" workflows.
 
-**Design**: `docs/DOCX_REVIEW_INTEGRATION.md` §5 (bidirectional flow), §6 (visualization), §7 (summary and recommendation). PLAN Phase 3 items 17–18, Phase 6 item 5; tasks task-066, task-067.
+**Design**: `docs/appendix/DOCX_REVIEW_INTEGRATION.md` §5 (bidirectional flow), §6 (visualization), §7 (summary and recommendation). PLAN Phase 3 items 17–18, Phase 6 item 5; tasks task-066, task-067.
+
+**Decided At**: 2026-01-29
+```
+
+```ctx
+type: decision
+id: decision-030
+status: accepted
+---
+**Decision**: Reorganize the solution around a **UX design pattern**: **human interaction** is the primary lens for design and documentation, given the high level of human interaction (explore, propose, comment, review, apply, resolve conflicts, view projections, context map).
+
+**Rationale**:
+- TruthLayer is heavily human-facing (contributors, reviewers, readers, admins) across multiple surfaces (Web, VS Code, Word/Google, CLI). Organizing by interaction patterns and roles makes the system easier to design, document, and implement consistently.
+- Technical architecture (store, types, projections, API) supports these patterns; describing the system through them keeps human needs central and avoids component-only documentation.
+- New features and docs can be scoped by: which interaction pattern(s), which role(s), which surface(s).
+
+**Implementation**:
+- **docs/core/UI_SPEC.md** is the canonical UX design pattern doc: roles, core interaction patterns, surfaces and pattern support, journey overview. ARCHITECTURE leads with this lens; UI_SPEC, DOCX_REVIEW, scenarios map to the same patterns. PLAN and CONTEXT reference it.
+
+**Decided At**: 2026-01-29
+```
+
+```ctx
+type: decision
+id: decision-031
+status: accepted
+---
+**Decision**: The design is **agentic-first** (clean slate). The **primary interface** is the **in-process agent** (LLM + store tools); **one minimal review/apply surface** is required for accept/reject/apply; rich UIs (Web, VS Code, Word/Google) are **optional**.
+
+**Rationale**:
+- Simplifies tooling: one agent API + one review surface instead of many full-featured clients. Thin clients (chat, voice, Slack, OpenClaw) talk to the agent; no need to build TruthLayer-specific UIs for every channel.
+- The agent covers explore, propose, comment, and review-queue summary; it cannot submitReview or applyProposal, so the approval layer remains human- or policy-gated. One dedicated surface for truth-changing actions keeps the model clear and auditable.
+- Optional rich surfaces remain available for teams that want full Web, VS Code, or Word/Google UX.
+
+**Implementation**: CONTEXT.md goal-001, WHITEPAPER §1 and §4, ARCHITECTURE, UX_AND_HUMAN_INTERACTION, UI_SPEC, PLAN Phase 5 (agent loop + minimal review surface), CONTEXTUALIZED_AI_MODEL §4. All docs updated from the ground up to reflect agentic-first.
 
 **Decided At**: 2026-01-29
 ```

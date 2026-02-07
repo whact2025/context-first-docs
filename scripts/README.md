@@ -75,8 +75,11 @@ Builds **one DOCX per document** from the whitepaper and supporting docs (`docs/
 
 **Usage**:
 ```bash
-# Full build: render Mermaid to PNG + produce one DOCX per document (requires Pandoc)
+# Full build: render Mermaid to PNG + produce one DOCX per document (requires Pandoc + Chrome for mmdc)
 npm run build:whitepaper-docx
+
+# If Chrome/Puppeteer is not installed: skip Mermaid rendering, still produce all DOCX (diagrams stay as code blocks)
+node scripts/build-whitepaper-docx.js --skip-mermaid
 
 # Or run the script directly
 node scripts/build-whitepaper-docx.js

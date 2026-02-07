@@ -1,0 +1,41 @@
+# Contextualized AI Model
+
+TruthLayer is designed to be the **context substrate** for agents: structured, governable truth that agents can read and propose against, without holding review/apply authority.
+
+## Retrieval pipeline
+
+- **Primary**: `queryNodes({ status: ["accepted"], type?, tags?, search?, limit, ... })` for scoped retrieval; default limit and max depth to avoid context overflow.
+- **Traversal**: `traverseReasoningChain`, `buildContextChain`, `followDecisionReasoning`, `queryWithReasoning` to follow typed relationships (goal → decision → risk → task) and build provenance-aware context.
+- **Optional vector index**: embed accepted nodes (or projections); self-hosted vector DB; at inference retrieve top-k, then optionally expand with traverseReasoningChain for related context. Use for large workspaces or semantic search beyond keyword.
+- **Export for fine-tuning**: export accepted nodes (and optional snapshot) to JSONL/JSON; map to instruction/response format; training data stays in-house; attach snapshot for audit.
+
+## Default: accepted-only context
+
+Agents should be fed:
+- **Accepted revision snapshots** (current accepted truth only unless explicitly loading a proposal for edit).
+- **Scoped traversals** (bounded depth, relationship types, node type filters) to control context size.
+- **Projections** derived from accepted truth (Markdown/DOCX) when human-readable context is needed.
+
+**Safety**: Read endpoints default to `status: ["accepted"]`. Proposals are isolated; agents never receive review/apply capability.
+
+## Avoiding leakage / prompt injection
+
+- **No direct mutation**: external content and agent output never directly mutate accepted truth; all changes are proposals, reviewed and applied by humans.
+- **Proposals isolate untrusted changes**: proposal content is not treated as truth until applied.
+- **Policy engine**: can detect risky operations (e.g. privilege escalation, changes to POLICY/SECURITY nodes) and block or require additional approval.
+- **Prompt-leakage controls**: per-workspace policies for allowed/forbidden node types, redaction rules for sensitive fields, maximum traversal depth; optional logging of node IDs and field names included in prompts (for vendor LLM audit).
+
+## Context policies (per workspace)
+
+- **Allowed node types** for agent read (e.g. goal, decision, task only).
+- **Forbidden node types** (e.g. HR, confidential policy).
+- **Redaction rules** for sensitive fields (e.g. strip PII from body before sending to model).
+- **Maximum traversal depth** and **max context size** (token or node count) to cap prompt size.
+- **Vendor vs self-hosted**: when using a vendor LLM, policy can restrict which nodes are sent and log what was included (prompt-leakage policy layer).
+
+## Model-agnostic
+
+TruthLayer does not require a specific model:
+- Local/self-hosted models can propose; full context can stay on-prem.
+- Cloud models can propose if policy allows; use context policies and redaction to minimize leakage.
+- Acceptance remains human-governed in all cases.

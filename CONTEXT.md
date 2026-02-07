@@ -1,19 +1,17 @@
 # Project Context
 
-This document contains the core context and background for the TruthLayer project itself (an Agentic Collaboration Approval Layer — ACAL).
+This document contains the core context and background for the TruthLayer project itself. **Canonical product and architecture docs live in [docs/](docs/README.md).**
 
 ```ctx
 type: context
 id: context-001
 status: accepted
 ---
-This project addresses the problem of context collapse in modern knowledge work (including software development).
-Decisions, rationale, and constraints often live in ephemeral channels like Slack or
-get lost in PR comments. This system provides a durable, reviewable, agent-safe way
-to maintain project context.
+This project addresses truth fragmentation in organizations: decisions, rationale, and constraints live in ephemeral channels or get lost; agents ingest stale or contradictory context.
 
-The project itself uses the same review-mode workflow to document itself — this file and others are
-managed through the ACAL workflow (proposals → review → apply), demonstrating the approach in practice.
+TruthLayer is enterprise truth governance for humans and agents: a **truth ledger + collaboration layer**. It enforces ACAL (Accepted → Candidate → Accepted → Ledger): accepted truth is immutable; all changes are proposals; proposals are reviewed (accept/reject with comments); accepted proposals are applied, producing new accepted revisions. Agents can read accepted truth and author proposals; they cannot accept, reject, or apply. One minimal governance UI is required; Agent Runtime and rich UIs (Web, VS Code, Word/Google) are optional.
+
+The project itself uses the same workflow to document itself — this file and others are managed through proposals → review → apply.
 ```
 
 ```ctx
@@ -21,21 +19,15 @@ type: goal
 id: goal-001
 status: accepted
 ---
-Create an agentic collaboration approval layer (ACAL) that enables:
-- Durable decision tracking
-- Agent-safe context consumption
-- Human-readable Markdown interface
-- Git-friendly workflows
-- Self-documenting projects (like this one)
-- In-editor review and context awareness via VS Code/Cursor extension
-- Pre-baked Cursor rules for AI-assisted proposal and risk authoring
-- Designated contributors and approvers with role-based access control
-- Automatic issue creation on proposal approval
-- Role-based Markdown editing (read-only vs editable)
-- Bidirectional sync - Markdown edits sync back to context store and referencing nodes
-- Hybrid reconciliation for concurrent edits - conflict detection, field-level merging, optimistic locking, manual resolution
-- Bidirectional flow with Word/Google - create, modify, comment, and review proposals from Word or Google Docs (see docs/DOCX_REVIEW_INTEGRATION.md)
-- Clear visualization of context relationships - context map (diagram or table) and optional graph/tree view in Office Add-in task pane
+Build **TruthLayer** as defined in docs/ (truth ledger + collaboration layer, ACAL):
+- **Truth Store** — Canonical graph (nodes + edges), accepted revisions ledger, proposals/reviews/apply artifacts.
+- **Policy & Governance** — RBAC, approval rules, validation, audit logging.
+- **Projection Engine** — Markdown/DOCX/HTML; change detection turns edits into proposal operations.
+- **Minimal Governance UI (required)** — List proposals, accept/reject/apply; see docs/core/UI_SPEC.md.
+- **The Agent** (we build it) — Agent that uses the API to query truth and propose changes; never review/apply; see docs/core/AGENT_API.md, docs/appendix/CONTEXTUALIZED_AI_MODEL.md.
+- Optional clients: VS Code extension, full Web UI, Word/Google (docs/appendix/OPTIONAL_INTEGRATIONS.md, docs/appendix/DOCX_REVIEW_INTEGRATION.md).
+- Designated contributors and approvers, conflict detection and reconciliation, issue creation on approval.
+- Context relationship visualization where applicable (docs/appendix/DOCX_REVIEW_INTEGRATION.md).
 ```
 
 ```ctx
