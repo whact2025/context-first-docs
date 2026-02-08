@@ -1,6 +1,6 @@
 # Project Risks
 
-This document tracks potential risks and mitigation strategies for TruthLayer. The design is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. Mitigations reference `server/` (Rust context store), `src/store/`, `src/playground/`, `src/api-client.ts`, and `docs/`. For **canonical walkthroughs**, see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md). For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **agent-behavior guardrails** (personal data, trade secrets, external model boundary, heightened review, retention, provenance, workspace isolation, when in doubt propose), see `docs/reference/SECURITY_GOVERNANCE.md`. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9. For **Word/Excel/Google** (optional), `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
+This document tracks potential risks and mitigation strategies for TruthLayer. The design is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. Mitigations reference `server/` (Rust context store), `src/store/`, `src/playground/`, `src/api-client.ts`, and `docs/`. For **canonical walkthroughs**, see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md). For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **agent-behavior guardrails** (personal data, trade secrets, external model boundary, heightened review, retention, provenance, workspace isolation, when in doubt propose), see `docs/reference/SECURITY_GOVERNANCE.md`. For **procurement and DPIA** (controller/processor, DSAR, retention, redaction vs crypto-shredding, subprocessor/LLM egress, residency), see `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9. For **Word/Excel/Google** (optional), `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 
 ```ctx
 type: risk
@@ -250,6 +250,7 @@ likelihood: possible
 
 **Mitigation**:
 - Follow guardrail behavior in `docs/reference/SECURITY_GOVERNANCE.md`: Personal data sensitivity (anonymize, flag for review); Truth scope discipline (structural references over personal details); Immutability with redaction (dedicated fields, avoid irreversible narrative); Trade secret awareness (abstraction over disclosure); Retention awareness (concise proposals, ephemeral discussion for context); Provenance and justification (separate what/why/sources from truth); When in doubt, propose don’t apply (surface uncertainty to reviewers).
+- Apply agent hints in `docs/core/AGENT_API.md` (personal data: detect/prefer anonymized/flag + heightened review; rewrite narrative into dedicated redactable fields; summarizing: default to abstraction, redacted projection for broad audience; additional reviewers for sensitive domains). See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md` for redaction vs crypto-shredding policy and DSAR workflow.
 - Wire guardrail guidance into agent docs and prompts (PLAN Phase 5 item 10); consider heightened review triggers for sensitive domains (SECURITY_GOVERNANCE § Heightened review triggers).
 ```
 
@@ -278,5 +279,6 @@ likelihood: possible
 
 **Mitigation**:
 - Follow `docs/reference/SECURITY_GOVERNANCE.md` § External model boundary: avoid including confidential or personal data for external models unless policy allows; prefer high-level descriptions over verbatim content; flag when a proposal assumes external processing.
+- Apply agent hint in `docs/core/AGENT_API.md` § External model usage: treat external model use as policy-governed; assume no egress if workspace policy unknown; when allowed, avoid verbatim sensitive content. See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md` § Subprocessor and LLM egress (allowlist/denylist, no-egress mode, residency).
 - Combine with prompt-leakage controls (risk-012) and retrieval policy (CONTEXTUALIZED_AI_MODEL); align agent behavior with future LLM routing policies.
 ```

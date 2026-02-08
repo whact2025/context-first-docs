@@ -2,10 +2,10 @@
 
 This document tracks questions that need answers as the project evolves. Each question is in a **ctx block** (fenced code block with language `ctx`) for machine-readable structure.
 
-- **Product:** TruthLayer = **Ratify truth. AI with Guardrails for Security & Compliance**; we build **The Agent** (reads truth, creates proposals; humans ratify). One minimal governance UI required; rich UIs optional.
+- **Product:** TruthLayer = **governance-first truth system** (**governed truth, guarded AI**) that happens to use AI; we build **The Agent** (reads truth, creates proposals; humans ratify). One minimal governance UI required; rich UIs optional.
 - **Walkthroughs:** [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md), [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md).
 - **The Agent (Phase 5):** `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`, PLAN Phase 5.
-- **Security & Compliance:** `docs/WHITEPAPER.md`, `docs/reference/SECURITY_GOVERNANCE.md` (including agent-behavior guardrails: personal data sensitivity, truth scope discipline, immutability with redaction, trade secret awareness, external model boundary, heightened review triggers, retention awareness, provenance and justification, workspace isolation, when in doubt propose don’t apply).
+- **Security & Compliance:** `docs/WHITEPAPER.md`, `docs/reference/SECURITY_GOVERNANCE.md` (including agent-behavior guardrails: personal data sensitivity, truth scope discipline, immutability with redaction, trade secret awareness, external model boundary, heightened review triggers, retention awareness, provenance and justification, workspace isolation, when in doubt propose don’t apply), `docs/reference/PRIVACY_AND_DATA_PROTECTION.md` (procurement/DPIA: controller/processor, DSAR, retention, redaction vs crypto-shredding, subprocessor/LLM egress, residency). Agent hints: `docs/core/AGENT_API.md` §§ personal data, summarizing and exporting, external model usage, additional reviewers.
 - **Doc suite / Word:** whitepaper §2.4, §6.9, decision-027; `docs/appendix/DOCX_REVIEW_INTEGRATION.md` §5–7, decision-029.
 
 ## Before Phase 2 (Persistence & Storage)
@@ -38,6 +38,19 @@ Open questions that affect how guardrail behavior is implemented or surfaced:
 | **question-041** | How to enforce or recommend workspace isolation in retrieval and prompt building (no cross-workspace context unless authorized)?                                                                             |
 
 See `docs/reference/SECURITY_GOVERNANCE.md` for the full set of guardrail sections (Personal data sensitivity through When in doubt, propose, don’t apply).
+
+## Privacy & data protection (implementation)
+
+Open questions that affect how privacy/DPIA commitments are implemented:
+
+| Question         | Topic                                                                                                                                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **question-042** | DSAR workflow tooling: how will export-by-data-subject and erasure/redaction runs be implemented (API, admin jobs, UI), and how will statutory response timelines be supported?                       |
+| **question-043** | Retention engine: when will scheduled retention jobs and per-workspace policy UI ship; what are the documented default periods per retention class (accepted truth, proposals, comments, audit logs)? |
+| **question-044** | External model / egress: how is “no egress if workspace policy unknown” enforced (config flag, policy node, API guard); where does allowlist/denylist live (server config, workspace policy)?         |
+| **question-045** | Should proposals have an explicit “contains personal data” or “recommend additional reviewers” field for UI and policy engine, or is description/comments-only sufficient for agent hints?            |
+
+See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md` and `docs/core/AGENT_API.md` §§ agent hints.
 
 ---
 
@@ -905,4 +918,52 @@ status: open
 **Context**: SECURITY_GOVERNANCE § Workspace isolation: workspace boundaries are hard trust and data-isolation limits; do not assume information from one workspace can be reused in another. Affects retrieval, prompt builder, and any context sent to external models.
 
 **Impact:** High — affects Phase 5 retrieval/prompt pipeline and risk-017 mitigation
+```
+
+```ctx
+type: question
+id: question-042
+status: open
+---
+**Question**: How will DSAR workflow tooling (export by data subject, erasure/redaction runs) be implemented, and how will statutory response timelines be supported?
+
+**Context**: PRIVACY_AND_DATA_PROTECTION § Data Subject Rights (DSAR): access (export), rectification (via proposals), erasure with redaction vs crypto-shredding. Implementation status is “designed”; operational playbooks and tooling (e.g. “erase by data subject id”) are on the roadmap.
+
+**Impact:** Medium — affects procurement commitments and DPIA; retention/redaction engine
+```
+
+```ctx
+type: question
+id: question-043
+status: open
+---
+**Question**: When will the retention engine (scheduled jobs, per-workspace policy UI) ship, and what are the documented default periods per retention class (accepted truth, proposals, comments, audit logs)?
+
+**Context**: PRIVACY_AND_DATA_PROTECTION § Retention policy model: retention classes, default periods, admin-configurable policies. Full retention engine is on the implementation roadmap.
+
+**Impact:** Medium — affects compliance and PRIVACY_AND_DATA_PROTECTION summary for procurement
+```
+
+```ctx
+type: question
+id: question-044
+status: open
+---
+**Question**: How is “no external egress if workspace policy unknown” enforced (config flag, policy node, API guard), and where does the external LLM/subprocessor allowlist/denylist live (server config root, workspace policy)?
+
+**Context**: AGENT_API § External model usage: assume no egress when policy unknown; ask for policy via proposal/comments. PRIVACY_AND_DATA_PROTECTION § Subprocessor and LLM egress: allowlist/denylist, no-egress mode. Enforcement mechanism is not yet specified.
+
+**Impact:** High — affects risk-018 mitigation and EU/regulated deployments
+```
+
+```ctx
+type: question
+id: question-045
+status: open
+---
+**Question**: Should proposals include an explicit “contains personal data” or “recommend additional reviewers” field for UI and policy engine, or is description/comments-only sufficient for agent hints?
+
+**Context**: AGENT_API agent hints: flag proposal and recommend heightened review when personal data is present; recommend additional reviewers for legal/policy/security, IP-sensitive, identity/access, personal data/retention. question-039 is about how heightened-review recommendations are surfaced; this question is whether the data model has dedicated fields for sensitivity/reviewer recommendation.
+
+**Impact:** Low–Medium — affects proposal schema, UI, and policy engine (SECURITY_GOVERNANCE § Heightened review triggers)
 ```

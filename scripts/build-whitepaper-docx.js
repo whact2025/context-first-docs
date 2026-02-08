@@ -8,10 +8,11 @@
  * - Writes one intermediate .md and one .docx per source document, each with a table of contents (--toc)
  * - Generates docs-index.docx with links to all documents
  *
- * Usage: node scripts/build-whitepaper-docx.js [--skip-pandoc] [--skip-mermaid] [--scale N]
+ * Usage: node scripts/build-whitepaper-docx.js [--skip-pandoc] [--skip-mermaid] [--scale N] [--single-docx]
  *   --skip-pandoc   Only render Mermaid to PNG and write .md files; do not run pandoc
  *   --skip-mermaid  Skip Mermaid rendering (leave diagram code in .md); use when Chrome/Puppeteer unavailable
  *   --scale N       PNG scale factor (default: 2 for high resolution)
+ *   --single-docx   Also build one combined DOCX (truthlayer-docs.docx) with internal links to sections
  *
  * Requirements: npm install (optionalDep @mermaid-js/mermaid-cli + Puppeteer), Pandoc on PATH for DOCX output
  */
@@ -39,6 +40,7 @@ const DOC_LIST = [
   { file: "core/USAGE.md", prefix: "usage", title: "Usage" },
   { file: "reference/DATA_MODEL_REFERENCE.md", prefix: "data", title: "Data Model Reference" },
   { file: "reference/SECURITY_GOVERNANCE.md", prefix: "sec", title: "Security & Governance" },
+  { file: "reference/PRIVACY_AND_DATA_PROTECTION.md", prefix: "privacy", title: "Privacy and Data Protection" },
   { file: "reference/OPERATIONS.md", prefix: "ops", title: "Operations" },
   { file: "appendix/SELF-REFERENCE.md", prefix: "self", title: "Self-Reference" },
   { file: "appendix/CHANGE_DETECTION.md", prefix: "chg", title: "Change Detection" },
@@ -55,15 +57,27 @@ const DOC_LIST = [
 
 const MERMAID_BLOCK_RE = /```mermaid\n([\s\S]*?)```/g;
 
-/** Map: source .md path (normalized) -> { docxName, title }. Used for index and for link rewriting. */
+/** Map: source .md path (normalized) -> { docxName, title, prefix }. Used for index and for link rewriting. */
 function buildMdToDocxMap() {
   const map = new Map();
-  for (const { file, title } of DOC_LIST) {
+  for (const { file, title, prefix } of DOC_LIST) {
     const slug = slugFromFile(file);
     const docxName = `${slug}.docx`;
-    map.set(normalizeDocsPath(file), { docxName, title });
+    map.set(normalizeDocsPath(file), { docxName, title, prefix });
   }
   return map;
+}
+
+/** Slug for heading IDs: lowercase, spaces/slashes to hyphen, strip other non-alphanumeric. */
+function slugifyHeading(text) {
+  return String(text)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/\//g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "section";
 }
 
 /** Normalize path to forward slashes, no leading ./, for consistent comparison. */
@@ -113,20 +127,54 @@ function rewriteCrossDocLinks(content, currentFile, mdToDocx) {
   });
 }
 
+/**
+ * Inject Pandoc heading IDs {#prefix-slug} into each heading so the combined doc has unique anchors.
+ * Skips lines that already have {#...}.
+ */
+function injectHeadingIds(content, prefix) {
+  const headingRe = /^(#{1,6})\s+(.+?)(?:\s*\{#[^}]+\})?\s*$/gm;
+  return content.replace(headingRe, (match, hashes, title) => {
+    if (match.includes("{#")) return match;
+    const slug = slugifyHeading(title);
+    return `${hashes} ${title} {#${prefix}-${slug}}`;
+  });
+}
+
+/**
+ * Rewrite links for single-DOCX: [label](path#anchor) -> [label](#prefix-anchor) so they point inside the combined doc.
+ * Resolves path relative to currentFile so relative links work.
+ */
+function rewriteLinksForSingleDoc(content, currentFile, mdToDocx) {
+  const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
+  return content.replace(LINK_RE, (match, label, href) => {
+    const resolved = resolveLinkToDocsPath(currentFile, href);
+    if (resolved == null) return match;
+    const info = mdToDocx.get(resolved);
+    if (!info) return match;
+    const hashIndex = href.indexOf("#");
+    const anchorPart = hashIndex >= 0 ? href.slice(hashIndex + 1) : "";
+    const anchorSlug = anchorPart ? slugifyHeading(anchorPart) : "";
+    const targetId = anchorSlug ? `${info.prefix}-${anchorSlug}` : info.prefix;
+    return `[${label}](#${targetId})`;
+  });
+}
+
 function parseArgs() {
   const args = process.argv.slice(2);
   let skipPandoc = false;
   let skipMermaid = false;
   let scale = 2;
+  let singleDocx = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--skip-pandoc") skipPandoc = true;
     if (args[i] === "--skip-mermaid") skipMermaid = true;
+    if (args[i] === "--single-docx") singleDocx = true;
     if (args[i] === "--scale" && args[i + 1] != null) {
       scale = Math.max(1, parseInt(args[i + 1], 10) || 2);
       i++;
     }
   }
-  return { skipPandoc, skipMermaid, scale };
+  return { skipPandoc, skipMermaid, scale, singleDocx };
 }
 
 function exec(cmd, args, cwd) {
@@ -175,7 +223,7 @@ function slugFromFile(file) {
 }
 
 async function main() {
-  const { skipPandoc, skipMermaid, scale } = parseArgs();
+  const { skipPandoc, skipMermaid, scale, singleDocx } = parseArgs();
   const outputDir = defaultOutputDir;
 
   await mkdir(outputDir, { recursive: true });
@@ -189,8 +237,9 @@ async function main() {
   }
 
   const mdToDocx = buildMdToDocxMap();
+  const singleChunks = [];
 
-  for (const { file, prefix } of DOC_LIST) {
+  for (const { file, prefix, title } of DOC_LIST) {
     const filePath = path.join(docsDir, file);
     let content;
     try {
@@ -216,6 +265,12 @@ async function main() {
     await writeFile(mdPath, processed, "utf8");
     console.log(`Wrote ${mdPath}`);
 
+    if (singleDocx) {
+      const withIds = injectHeadingIds(afterMermaid, prefix);
+      const singleContent = rewriteLinksForSingleDoc(withIds, file, mdToDocx);
+      singleChunks.push("\n\n# " + title + " {#" + prefix + "}\n\n" + singleContent);
+    }
+
     if (!skipPandoc) {
       try {
         await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", mdName, "-o", docxName], outputDir);
@@ -223,6 +278,20 @@ async function main() {
       } catch (e) {
         console.error(`Pandoc failed for ${file}: ${e.message}`);
       }
+    }
+  }
+
+  if (singleDocx && singleChunks.length > 0 && !skipPandoc) {
+    const combinedMd = "# TruthLayer Documentation\n\nGoverned truth. Guarded AI.\n" + singleChunks.join("\n\n");
+    const singleMdPath = path.join(outputDir, "truthlayer-docs.md");
+    const singleDocxPath = path.join(outputDir, "truthlayer-docs.docx");
+    await writeFile(singleMdPath, combinedMd, "utf8");
+    console.log(`Wrote ${singleMdPath}`);
+    try {
+      await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", "--toc-depth=3", "truthlayer-docs.md", "-o", "truthlayer-docs.docx"], outputDir);
+      console.log(`Wrote ${singleDocxPath}`);
+    } catch (e) {
+      console.error(`Pandoc failed for single DOCX: ${e.message}`);
     }
   }
 

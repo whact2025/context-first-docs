@@ -1,6 +1,6 @@
 # TruthLayer
 
-TruthLayer is a **truth ledger and collaboration layer** for organizations: a single place for accepted decisions, policy, and rationale, with a governed path for change. Agents read that truth and create proposals; humans review and apply. The result is **AI with guardrails**—stable context for agents, audit and RBAC for compliance. The solution **provides an MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use TruthLayer as a native tool for querying truth and creating proposals.
+TruthLayer is a **governance-first truth system** (**governed truth, guarded AI**): a truth ledger and collaboration layer for accepted decisions, policy, and rationale, with a governed path for change. Humans ratify; guardrails that apply to AI (ACAL, RBAC, audit) enforce. Agents read truth and create proposals within that model. The solution **provides an MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use TruthLayer as a native tool for querying truth and creating proposals.
 
 **Canonical documentation:** [docs/](docs/README.md) (whitepaper, architecture, API, scenarios).
 
@@ -26,23 +26,23 @@ First-time local setup: `node scripts/install.js` or `npm run install:all`. [INS
 
 ## What’s in this repo
 
-| Area | Description |
-|------|-------------|
-| **[docs/](docs/README.md)** | Whitepaper, architecture, Agent API, UI spec, scenarios, reference. Start here for design and usage. |
-| **Playground** | Web UI + embedded context server. Run via `npm run playground` or Docker (see above). |
-| **Server** | Rust API (nodes, proposals, review, apply). Used by the playground; also buildable as a standalone image for CI/API testing. |
-| **MCP server** | TruthLayer exposes an **MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool: query accepted truth, create proposals, traverse reasoning chains. Config: [.cursor/mcp.json](.cursor/mcp.json). See [docs/core/AGENT_API.md](docs/core/AGENT_API.md#mcp-exposure). |
-| **Scripts** | Install, build, tests, whitepaper DOCX, ctx-block extension. [scripts/README.md](scripts/README.md) |
+| Area                        | Description                                                                                                                                                                                                                                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[docs/](docs/README.md)** | Whitepaper, architecture, Agent API, UI spec, scenarios, reference. Start here for design and usage.                                                                                                                                                                                                  |
+| **Playground**              | Web UI + embedded context server. Run via `npm run playground` or Docker (see above).                                                                                                                                                                                                                 |
+| **Server**                  | Rust API (nodes, proposals, review, apply). Used by the playground; also buildable as a standalone image for CI/API testing.                                                                                                                                                                          |
+| **MCP server**              | TruthLayer exposes an **MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool: query accepted truth, create proposals, traverse reasoning chains. Config: [.cursor/mcp.json](.cursor/mcp.json). See [docs/core/AGENT_API.md](docs/core/AGENT_API.md#mcp-exposure). |
+| **Scripts**                 | Install, build, tests, whitepaper DOCX, ctx-block extension. [scripts/README.md](scripts/README.md)                                                                                                                                                                                                   |
 
 ---
 
 ## Development
 
-| Task | Command |
-|------|---------|
-| Install, build, test | `npm install && npm run build && npm test` |
-| Unit tests | `npm test` or `npm run test:coverage` |
-| Server API smoke test | `npm run test:server-api` (server must be running) |
+| Task                   | Command                                                                                                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Install, build, test   | `npm install && npm run build && npm test`                                                                             |
+| Unit tests             | `npm test` or `npm run test:coverage`                                                                                  |
+| Server API smoke test  | `npm run test:server-api` (server must be running)                                                                     |
 | Ctx blocks in Markdown | `npm run install:ctx-extension` then reload the editor. [vscode-ctx-markdown/README.md](vscode-ctx-markdown/README.md) |
 
 Project context and planning: [CONTEXT.md](CONTEXT.md), [DECISIONS.md](DECISIONS.md), [PLAN.md](PLAN.md), [RISKS.md](RISKS.md), [QUESTIONS.md](QUESTIONS.md). [docs/appendix/SELF-REFERENCE.md](docs/appendix/SELF-REFERENCE.md).

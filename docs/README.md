@@ -1,10 +1,10 @@
 # TruthLayer Docs
 
-**Ratify truth. AI with Guardrails for Security & Compliance.** Root README and CONTEXT are summaries that point here; this folder is the canonical source for product and architecture. TruthLayer is a collaboration and governance layer for "truth" inside an organization—software decisions, business policy, operating procedures, risks, and rationale. **We build an agent** that reads accepted truth and authors proposals; humans **ratify** (review and apply). The solution **provides an MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use TruthLayer as a native tool. Immutable accepted truth, proposal → review → **ratify** → apply workflow, and **guardrails** (RBAC, audit) deliver security and compliance by design.
+**Governed truth. Guarded AI.** Root README and CONTEXT are summaries that point here; this folder is the canonical source for product and architecture. TruthLayer is a **governance-first truth system** (**governed truth, guarded AI**): a truth ledger and collaboration layer for "truth" inside an organization—software decisions, business policy, operating procedures, risks, and rationale. Immutable accepted truth, proposal → review → **ratify** → apply workflow, and **guardrails that apply to AI** (RBAC, audit) by design. An **agent** reads accepted truth and authors proposals within that model; humans ratify. The solution **provides an MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use TruthLayer as a native tool.
 
 ## One invariant
 
-TruthLayer enforces **ACAL** (the guardrails):
+TruthLayer enforces **ACAL** (the guardrails that apply to AI):
 
 1. **Accepted truth is immutable.**
 2. All changes are **Proposals** (candidates).
@@ -17,14 +17,14 @@ The **agent** can read accepted truth and author proposals; it **cannot** accept
 
 ## Core narrative (start here)
 
-| Doc                                       | Purpose                                                                                        |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [Whitepaper](WHITEPAPER.md)               | AI with Guardrails for Security & Compliance; what TruthLayer is, ACAL, enterprise positioning |
-| [Architecture](core/ARCHITECTURE.md)      | Components, data flows, tenancy, storage                                                       |
-| [Review Mode (ACAL)](core/REVIEW_MODE.md) | Proposal lifecycle, statuses, review/apply semantics                                           |
-| [UI Specification](core/UI_SPEC.md)       | Minimal governance UI (required), UX, roles, views                                             |
-| [Agent API](core/AGENT_API.md)            | Agent-safe contract: read truth, create proposals; no review/apply; **MCP server** exposure    |
-| [Usage](core/USAGE.md)                    | How to use TruthLayer                                                                          |
+| Doc                                       | Purpose                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [Whitepaper](WHITEPAPER.md)               | Governance-first truth system (governed truth, guarded AI); ACAL, enterprise                |
+| [Architecture](core/ARCHITECTURE.md)      | Components, data flows, tenancy, storage                                                    |
+| [Review Mode (ACAL)](core/REVIEW_MODE.md) | Proposal lifecycle, statuses, review/apply semantics                                        |
+| [UI Specification](core/UI_SPEC.md)       | Minimal governance UI (required), UX, roles, views                                          |
+| [Agent API](core/AGENT_API.md)            | Agent-safe contract: read truth, create proposals; no review/apply; **MCP server** exposure |
+| [Usage](core/USAGE.md)                    | How to use TruthLayer                                                                       |
 
 ## Scenarios
 
@@ -36,6 +36,7 @@ The **agent** can read accepted truth and author proposals; it **cannot** accept
 
 - [Data Model Reference](reference/DATA_MODEL_REFERENCE.md) — canonical schema
 - [Security & Governance](reference/SECURITY_GOVERNANCE.md) — security & governance
+- [Privacy and Data Protection](reference/PRIVACY_AND_DATA_PROTECTION.md) — GDPR-ready posture for procurement / DPIA
 - [Operations](reference/OPERATIONS.md) — operations
 
 ---

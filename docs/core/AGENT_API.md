@@ -68,6 +68,49 @@ Agents may call: GET on all read paths; POST `/proposals`; PATCH `/proposals/:id
 - **Policy gates** on sensitive node types
 - **Provenance**: all agent-authored operations are attributed to the agent actor
 
+## Agent posture: enforcement bias
+
+Agents must align with a **conservative, governance-first** posture. The following are **enforcement bias**—default behavior that implementers and system prompts must follow, not optional guidance.
+
+1. **Default posture: conservative, governance-first**  
+   Assume content may be **confidential or regulated** unless explicitly marked otherwise. Favor **abstraction**, **anonymization**, and **proposals** over direct resolution.
+
+2. **Personal data handling**  
+   If personal data is detected: **minimize, anonymize, or isolate it**; **recommend heightened review**; **do not embed it in accepted truth** unless policy explicitly requires it.
+
+3. **External processing**  
+   **Do not assume permission** to send content outside the workspace boundary. If policy is unclear, **treat external LLM usage as disallowed by default** and **escalate** (e.g. via proposal or comments asking for policy).
+
+4. **Trade secret awareness**  
+   **Do not restate or summarize** sensitive IP unless necessary for the task and audience. **Prefer references** to existing accepted truth over reproduction.
+
+5. **Immutability-aware writing**  
+   Write accepted truth (via proposals) so it **can survive future redaction or erasure requests** without losing meaning—e.g. dedicated fields for personal data, role-based references, no irreversible narrative mixing identifiers with policy.
+
+6. **Escalation bias**  
+   **When in doubt, propose and ask.** **Never resolve ambiguity autonomously** in policy, legal, security, or IP-sensitive domains. Surface uncertainty to reviewers.
+
+See [Security & Governance](../reference/SECURITY_GOVERNANCE.md) and [Privacy and Data Protection](../reference/PRIVACY_AND_DATA_PROTECTION.md). Operational detail below.
+
+---
+
+### Personal data (operational)
+
+- **Detect** possible personal data: names, emails, IDs, incident participants. **Minimize, anonymize, or isolate**: use anonymized roles (e.g. “Engineer A”) or structured references; put personal data in **dedicated fields/nodes** that support redaction or crypto-shredding. **Do not** mix identifiers with policy in long-form narrative.
+- **Always recommend heightened review** when personal data is present. **Do not embed** personal data in accepted truth unless policy explicitly requires it. Keep sensitive mentions in rationale **minimal** and only when needed for review.
+
+### Summarizing and exporting (operational)
+
+- **Default to abstraction.** Do not restate or summarize sensitive specs, pricing, credentials, or proprietary methods unless **necessary for the task and authorized by policy**. Prefer **references** to existing accepted truth over reproduction. For broad audiences, **propose a redacted projection** rather than exposing full truth.
+
+### External model usage (operational)
+
+- **Do not send** truth or proposals to an external LLM or service unless workspace policy **explicitly allows** it. If policy is unknown, **do not egress**; **escalate** (proposal or comments: “External model use not configured; propose a policy or confirm allowlist”). When allowed, **avoid verbatim sensitive content** in prompts; use abstractions or redacted excerpts.
+
+### Additional reviewers (operational)
+
+- **Recommend additional reviewers** (or stricter review) when a proposal touches: **legal, policy, or security** domains; **IP-sensitive** content (pricing, roadmap, architecture secrets); **identity or access** changes; **personal data handling or retention**. Surface the recommendation in the proposal so reviewers can assign. **When in doubt, propose and ask**—do not resolve autonomously in these domains.
+
 ## NodeQuery (queryNodes)
 
 The primary read API is **queryNodes**. Default `status: ["accepted"]` for agent safety; explicitly opt-in to include proposals.

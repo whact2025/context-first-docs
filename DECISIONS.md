@@ -1013,6 +1013,23 @@ status: accepted
 **Decided At**: 2026-01-29
 ```
 
+```ctx
+type: decision
+id: decision-033
+status: accepted
+---
+**Decision**: Maintain a single **Privacy and Data Protection** doc for procurement and DPIA, and document **agent hints** in the Agent API.
+
+**Rationale**:
+- Procurement and legal need one annex they can staple into a DPIA or attach to a DPA: controller/processor posture, DSAR workflow, retention classes and defaults, redaction vs crypto-shredding policy, subprocessor/LLM egress, residency options (roadmap where not yet implemented), and security controls checklist.
+- Agent implementers and system prompts need explicit, actionable hints in one place: personal data (detect, prefer anonymized/structured, flag + heightened review; avoid irreversible narrative; rewrite into dedicated redactable fields; minimal sensitive rationale); summarizing/exporting (default to abstraction, no unrequested sensitive restatement, redacted projection for broad audience); external model usage (policy-governed, assume no egress if policy unknown, avoid verbatim sensitive content); additional reviewers when proposals touch legal/policy/security, IP-sensitive content, identity/access, or personal data/retention.
+- SECURITY_GOVERNANCE remains the authoritative security model; PRIVACY_AND_DATA_PROTECTION centralizes GDPR-ready statements for procurement; AGENT_API holds the agent-actionable hints and links back to both.
+
+**Implementation**: `docs/reference/PRIVACY_AND_DATA_PROTECTION.md` (controller/processor, DSAR, retention, redaction vs crypto-shredding, subprocessor/LLM egress, residency, security checklist, summary for procurement). `docs/core/AGENT_API.md` §§ Agent hint: personal data, summarizing and exporting, external model usage, additional reviewers. DOC_LIST and docs/README reference the privacy doc; SECURITY_GOVERNANCE links to it.
+
+**Decided At**: 2026-02-06
+```
+
 ```
 
 ```

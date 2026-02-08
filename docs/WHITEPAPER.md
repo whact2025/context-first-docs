@@ -17,7 +17,7 @@ Traditional docs are not designed for:
 
 ## What TruthLayer is
 
-TruthLayer is **AI with Guardrails for Security & Compliance**—a **truth ledger + collaboration layer** where humans **ratify** truth and **guardrails** enforce security and compliance:
+TruthLayer is a **governance-first truth system** (**governed truth, guarded AI**): a truth ledger and collaboration layer where humans **ratify** truth and **guardrails that apply to AI** enforce security and compliance. Agents read and propose within that model; they do not govern:
 
 - **Canonical truth store**: typed nodes (goals, decisions, constraints, risks, tasks, questions, etc.) and relationships (depends-on, mitigates, references, implements). Truth lives in an immutable accepted revision; each apply produces a new revision. See [Architecture](core/ARCHITECTURE.md), [Data Model Reference](reference/DATA_MODEL_REFERENCE.md).
 - **Review mode**: every change is a proposal (ordered operations: create/update/delete/move). Humans review (approve/reject with comments) and apply accepted proposals into a new accepted revision. See [Review Mode (ACAL)](core/REVIEW_MODE.md).
@@ -67,7 +67,7 @@ Markdown/DOCX are generated projections so they can be:
 - shareable
   …but the truth remains structured and governable.
 
-## Security & Compliance by design (the guardrails)
+## Security & Compliance by design (guardrails that apply to AI)
 
 - **RBAC**: propose/review/apply permissions per workspace and scope
 - **Audit logs**: every review and apply is recorded—full accountability for compliance

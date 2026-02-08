@@ -9,7 +9,7 @@ status: accepted
 ---
 This project addresses truth fragmentation in organizations: decisions, rationale, and constraints live in ephemeral channels or get lost; agents ingest stale or contradictory context.
 
-TruthLayer is **Ratify truth. AI with Guardrails for Security & Compliance**: enterprise truth governance for humans and agents via a **truth ledger + collaboration layer**. Humans **ratify** (review and apply); **guardrails** (ACAL, RBAC, audit) keep AI safe and compliant.
+TruthLayer is a **governance-first truth system** (**governed truth, guarded AI**): enterprise truth governance via a **truth ledger + collaboration layer**. Humans **ratify** (review and apply); **guardrails that apply to AI** (ACAL, RBAC, audit) enforce; agents read and propose within that model.
 
 **ACAL** (Accepted → Candidate → Accepted → Ledger): accepted truth is immutable; all changes are proposals; proposals are reviewed (accept/reject with comments); accepted proposals are applied, producing new accepted revisions. Agents can read accepted truth and author proposals; they cannot accept, reject, or apply. One minimal governance UI is required; **The Agent** and rich UIs (Web, VS Code, Word/Google) are optional.
 
@@ -31,6 +31,7 @@ Build **TruthLayer** as defined in docs/ (truth ledger + collaboration layer, AC
 - Optional clients: VS Code extension, full Web UI, Word/Google (docs/appendix/OPTIONAL_INTEGRATIONS.md, docs/appendix/DOCX_REVIEW_INTEGRATION.md).
 - Designated contributors and approvers, conflict detection and reconciliation, issue creation on approval.
 - Context relationship visualization where applicable (docs/appendix/DOCX_REVIEW_INTEGRATION.md).
+- **Privacy & Data Protection** for procurement/DPIA: controller/processor, DSAR, retention, redaction vs crypto-shredding, subprocessor/LLM egress, residency (docs/reference/PRIVACY_AND_DATA_PROTECTION.md). **Agent hints** for personal data, summarizing/exporting, external model usage, and additional reviewers (docs/core/AGENT_API.md).
 ```
 
 ```ctx
