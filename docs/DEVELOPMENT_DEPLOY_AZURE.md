@@ -141,19 +141,19 @@ export AZURE_CONTAINER_APP_NAME="truthlayer-playground"
 
 **Secrets** (Settings → Secrets and variables → Actions):
 
-| Secret               | Value                          |
-|----------------------|---------------------------------|
-| `AZURE_CLIENT_ID`    | Application (client) ID        |
-| `AZURE_TENANT_ID`    | Directory (tenant) ID          |
+| Secret                  | Value                      |
+| ----------------------- | -------------------------- |
+| `AZURE_CLIENT_ID`       | Application (client) ID    |
+| `AZURE_TENANT_ID`       | Directory (tenant) ID      |
 | `AZURE_SUBSCRIPTION_ID` | Your Azure subscription ID |
 
 **Variables** (Settings → Secrets and variables → Actions → Variables):
 
-| Variable                  | Example           | Description                    |
-|---------------------------|-------------------|--------------------------------|
-| `AZURE_ACR_NAME`         | `truthlayeracr`   | ACR name (no .azurecr.io)      |
-| `AZURE_RESOURCE_GROUP`   | `truthlayer-rg`   | Resource group name            |
-| `AZURE_CONTAINER_APP_NAME` | `truthlayer-playground` | Container App name     |
+| Variable                   | Example                 | Description               |
+| -------------------------- | ----------------------- | ------------------------- |
+| `AZURE_ACR_NAME`           | `truthlayeracr`         | ACR name (no .azurecr.io) |
+| `AZURE_RESOURCE_GROUP`     | `truthlayer-rg`         | Resource group name       |
+| `AZURE_CONTAINER_APP_NAME` | `truthlayer-playground` | Container App name        |
 
 The workflow runs only when these three variables are set (non-empty).
 
@@ -224,7 +224,6 @@ If your Container App is in an environment with a different name than the defaul
 
 - **"Failed to retrieve credentials for container registry. Please provide the registry username and password"**  
   The deploy action (or the Container App when pulling the image) cannot authenticate to ACR. Use ACR admin credentials:
-
   1. **Enable admin user** on the registry (Azure Portal → ACR → **Access keys** → Enable Admin user), or:
      ```bash
      az acr update --name <ACR_NAME> --resource-group truthlayer-rg --admin-enabled true
@@ -248,3 +247,6 @@ If your Container App is in an environment with a different name than the defaul
   ```
 
   To confirm our app is serving: open `https://<your-app-url>/api/scenarios`; a JSON list means the playground is running.
+
+- **Image built and pushed but live app not updated**  
+  The deploy workflow now includes a **"Send traffic to latest revision"** step so each deploy sends 100% traffic to the new revision. If a past run built the image but the site still showed the old version, run the workflow again (push to `main` or **Actions** → **Deploy playground to Azure** → **Run workflow**), or fix the current app with the same commands as above (`revision set-mode` then `ingress traffic set ... latest=100`). Check **Revision management** in the portal to see which revision has the new image and which has traffic.

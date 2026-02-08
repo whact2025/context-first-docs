@@ -68,3 +68,14 @@ jobs:
           imageToBuild: ${{ env.ACR_NAME }}.azurecr.io/truthlayer-playground:${{ env.IMAGE_TAG }}
           targetPort: 80
           ingress: external
+
+      - name: Send traffic to latest revision
+        run: |
+          az containerapp revision set-mode \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --mode multiple
+          az containerapp ingress traffic set \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --revision-weight latest=100
