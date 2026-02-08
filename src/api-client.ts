@@ -1,6 +1,7 @@
 /**
  * HTTP client for the TruthLayer Rust server.
- * Implements ContextStore by calling the server API (GET/POST).
+ * Implements ContextStore by calling the server API.
+ * Verbs: GET (read), POST (create, actions), PATCH (partial update).
  * Requires the server to be running (e.g. cd server && cargo run).
  */
 
@@ -119,7 +120,7 @@ export class RustServerClient {
 
   async updateProposal(proposalId: string, updates: Partial<Proposal>): Promise<void> {
     await fetchJson(`${this.base}/proposals/${encodeURIComponent(proposalId)}`, {
-      method: "POST",
+      method: "PATCH",
       body: JSON.stringify(updates),
     });
   }
@@ -154,7 +155,7 @@ export class RustServerClient {
     if (!proposal) throw new Error(`Proposal ${proposalId} not found`);
     const comments = [...(proposal.comments ?? []), comment];
     await fetchJson(`${this.base}/proposals/${encodeURIComponent(proposalId)}`, {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify({ comments }),
     });
   }

@@ -1,6 +1,6 @@
 # Project Risks
 
-This document tracks potential risks and mitigation strategies for TruthLayer. The design is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. Mitigations reference `server/` (Rust context store), `src/store/`, `src/playground/`, `src/api-client.ts`, and `docs/`. For **canonical walkthroughs**, see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md). For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9. For **Word/Excel/Google** (optional), `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
+This document tracks potential risks and mitigation strategies for TruthLayer. The design is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. Mitigations reference `server/` (Rust context store), `src/store/`, `src/playground/`, `src/api-client.ts`, and `docs/`. For **canonical walkthroughs**, see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md). For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **agent-behavior guardrails** (personal data, trade secrets, external model boundary, heightened review, retention, provenance, workspace isolation, when in doubt propose), see `docs/reference/SECURITY_GOVERNANCE.md`. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9. For **Word/Excel/Google** (optional), `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 
 ```ctx
 type: risk
@@ -11,7 +11,7 @@ likelihood: possible
 ---
 **Risk**: Developers may find ctx blocks intrusive or confusing.
 
-**Mitigation**: 
+**Mitigation**:
 - Provide clear documentation and examples
 - Make ctx blocks optional for simple use cases
 - Ensure Markdown still renders correctly even if ctx blocks are ignored
@@ -237,4 +237,46 @@ likelihood: possible
 **Mitigation**:
 - Document clear positioning: doc suite + Copilot/Gemini establish and consume truth for **document-centric** workflows (policy, contracts, SOPs, strategy; consumption across suite and messaging; drafting discussions/emails). TruthLayer targets **solution modeling** and **agent-safe structured truth** (typed graph, proposal/review/apply, accepted-only reads, deterministic projection, provenance). Many orgs use both (whitepaper §2.4, §6.9, decision-027).
 - In PLAN Phase 6: document "when to use which" for adopters; optional future integration points (e.g. export context to Doc for Copilot/Gemini) if needed.
+```
+
+```ctx
+type: risk
+id: risk-016
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: Agents or users embed **personal data, confidential IP, or unnecessary narrative** into accepted truth, or blend rationale with truth, reducing GDPR compliance, IP protection, and auditability.
+
+**Mitigation**:
+- Follow guardrail behavior in `docs/reference/SECURITY_GOVERNANCE.md`: Personal data sensitivity (anonymize, flag for review); Truth scope discipline (structural references over personal details); Immutability with redaction (dedicated fields, avoid irreversible narrative); Trade secret awareness (abstraction over disclosure); Retention awareness (concise proposals, ephemeral discussion for context); Provenance and justification (separate what/why/sources from truth); When in doubt, propose don’t apply (surface uncertainty to reviewers).
+- Wire guardrail guidance into agent docs and prompts (PLAN Phase 5 item 10); consider heightened review triggers for sensitive domains (SECURITY_GOVERNANCE § Heightened review triggers).
+```
+
+```ctx
+type: risk
+id: risk-017
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: Content from one **workspace** is reused or inferred in another (e.g. in retrieval or prompts), causing IP or GDPR purpose-limitation violations.
+
+**Mitigation**:
+- Treat workspace boundaries as hard trust and data-isolation limits per `docs/reference/SECURITY_GOVERNANCE.md` § Workspace isolation. Do not assume information from one workspace can be reused in another unless explicitly authorized.
+- Enforce workspace scoping on all read/write paths (risk-010); add retrieval and prompt-building policy to restrict context to a single workspace unless policy allows cross-workspace (QUESTIONS.md question-041).
+```
+
+```ctx
+type: risk
+id: risk-018
+status: accepted
+severity: medium
+likelihood: possible
+---
+**Risk**: Data sent to **external models** (vendor LLMs, external APIs) includes confidential or personal data because agents or UIs do not treat the workspace boundary as a confidentiality boundary.
+
+**Mitigation**:
+- Follow `docs/reference/SECURITY_GOVERNANCE.md` § External model boundary: avoid including confidential or personal data for external models unless policy allows; prefer high-level descriptions over verbatim content; flag when a proposal assumes external processing.
+- Combine with prompt-leakage controls (risk-012) and retrieval policy (CONTEXTUALIZED_AI_MODEL); align agent behavior with future LLM routing policies.
 ```

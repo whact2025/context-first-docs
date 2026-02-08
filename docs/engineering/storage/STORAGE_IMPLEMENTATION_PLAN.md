@@ -1,6 +1,6 @@
 # Storage Implementation Plan
 
-Target: a v1 system that is safe, auditable, and enterprise-aligned, implementing the **ContextStore** interface (see [STORAGE_ARCHITECTURE.md](STORAGE_ARCHITECTURE.md)).
+Target: a v1 system that is safe, auditable, and enterprise-aligned, implementing the **ContextStore** interface (see [Storage Architecture](STORAGE_ARCHITECTURE.md)).
 
 ## Configuration (server-centric)
 
@@ -43,7 +43,7 @@ The storage factory and RBAC provider read from this config root; env vars may o
 
 - Parse projection; map edits to anchors; emit proposal operations (create, update, delete, move, etc.).
 - Validate operations against schema; optional policy findings.
-- See [../../appendix/CHANGE_DETECTION.md](../../appendix/CHANGE_DETECTION.md).
+- See [Change Detection](../../appendix/CHANGE_DETECTION.md).
 
 ## Phase 5 — Conflict detection + optional file backend
 
@@ -53,7 +53,7 @@ The storage factory and RBAC provider read from this config root; env vars may o
 ## Phase 6 — Audit export and backup
 
 - Audit log export (by workspace, date range) for compliance.
-- Production backup/restore; see [../../reference/OPERATIONS.md](../../reference/OPERATIONS.md).
+- Production backup/restore; see [Operations](../../reference/OPERATIONS.md).
 
 ## Success criteria
 

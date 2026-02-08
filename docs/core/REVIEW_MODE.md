@@ -47,7 +47,7 @@ Proposals contain an ordered list of **operations** that, when applied, mutate t
 | `insert`        | Insert content into a node (e.g. description block) | `sourceNodeId`, content/range                   |
 | (edge ops)      | Create/delete edges between nodes                   | `fromNodeId`, `toNodeId`, `type`                |
 
-Operations are validated against schema and policy before submit. See [../reference/DATA_MODEL_REFERENCE.md](../reference/DATA_MODEL_REFERENCE.md) for Operation schema.
+Operations are validated against schema and policy before submit. See [Data Model Reference](../reference/DATA_MODEL_REFERENCE.md) for Operation schema.
 
 ## Actions and permissions
 
@@ -86,4 +86,4 @@ Organizations may enforce additional rules, for example:
 - “Security policy” changes require an info-sec role.
 - High-risk changes require a change window.
 
-See: [../reference/SECURITY_GOVERNANCE.md](../reference/SECURITY_GOVERNANCE.md)
+See: [Security & Governance](../reference/SECURITY_GOVERNANCE.md)

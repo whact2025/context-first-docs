@@ -5,7 +5,7 @@ This document tracks questions that need answers as the project evolves. Each qu
 - **Product:** TruthLayer = **Ratify truth. AI with Guardrails for Security & Compliance**; we build **The Agent** (reads truth, creates proposals; humans ratify). One minimal governance UI required; rich UIs optional.
 - **Walkthroughs:** [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md), [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md).
 - **The Agent (Phase 5):** `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`, PLAN Phase 5.
-- **Security & Compliance:** `docs/WHITEPAPER.md`, `docs/reference/SECURITY_GOVERNANCE.md`.
+- **Security & Compliance:** `docs/WHITEPAPER.md`, `docs/reference/SECURITY_GOVERNANCE.md` (including agent-behavior guardrails: personal data sensitivity, truth scope discipline, immutability with redaction, trade secret awareness, external model boundary, heightened review triggers, retention awareness, provenance and justification, workspace isolation, when in doubt propose don’t apply).
 - **Doc suite / Word:** whitepaper §2.4, §6.9, decision-027; `docs/appendix/DOCX_REVIEW_INTEGRATION.md` §5–7, decision-029.
 
 ## Before Phase 2 (Persistence & Storage)
@@ -26,6 +26,18 @@ Open questions that block specific design or implementation decisions:
 | **question-035** | Guarantee agent never receives submitReview/applyProposal (enforcement) → AGENT_API safety section, tool allowlist |
 
 Resolving these will allow the referenced docs to be finalized where they depend on the answers.
+
+## Security & compliance (guardrail implementation)
+
+Open questions that affect how guardrail behavior is implemented or surfaced:
+
+| Question         | Topic                                                                                                                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **question-039** | How should heightened-review recommendations (policy, security, legal, pricing, IP, personal data, access expansion) be surfaced to agents and UIs—metadata on proposals, tool hints, or policy engine only? |
+| **question-040** | How should “when in doubt, propose, don’t apply” be reflected in agent tooling—e.g. explicit uncertainty flags on proposals, or guidance only in agent docs/prompts?                                         |
+| **question-041** | How to enforce or recommend workspace isolation in retrieval and prompt building (no cross-workspace context unless authorized)?                                                                             |
+
+See `docs/reference/SECURITY_GOVERNANCE.md` for the full set of guardrail sections (Personal data sensitivity through When in doubt, propose, don’t apply).
 
 ---
 
@@ -857,4 +869,40 @@ status: resolved
 - **Abstraction**: Storage factory and RBAC provider both read from the same server config; no repo-scattered config for runtime behavior.
 
 **Impact:** High - unblocks Phase 2 storage abstraction and file-based implementation
+```
+
+```ctx
+type: question
+id: question-039
+status: open
+---
+**Question**: How should heightened-review recommendations (policy, security, legal, pricing, IP, personal data, access expansion) be surfaced to agents and UIs—as metadata on proposals, tool hints, or policy engine only?
+
+**Context**: SECURITY_GOVERNANCE § Heightened review triggers recommends additional reviewers or stricter review when proposals affect sensitive domains, introduce/modify personal data handling, or expand access. Implementation can be soft (recommendations) or hard (policy engine).
+
+**Impact:** Medium — affects Phase 3 review workflow and Phase 5 agent/UI guidance
+```
+
+```ctx
+type: question
+id: question-040
+status: open
+---
+**Question**: How should “when in doubt, propose, don’t apply” be reflected in agent tooling—e.g. explicit uncertainty flags on proposals, or guidance only in agent docs/prompts?
+
+**Context**: SECURITY_GOVERNANCE § When in doubt, propose, don’t apply: when there is ambiguity about sensitivity, correctness, ownership, or policy, create a proposal with notes and questions; surface uncertainty to reviewers. Agents should not resolve ambiguity autonomously.
+
+**Impact:** Medium — affects Phase 5 agent loop and proposal creation UX
+```
+
+```ctx
+type: question
+id: question-041
+status: open
+---
+**Question**: How to enforce or recommend workspace isolation in retrieval and prompt building (no cross-workspace context unless explicitly authorized)?
+
+**Context**: SECURITY_GOVERNANCE § Workspace isolation: workspace boundaries are hard trust and data-isolation limits; do not assume information from one workspace can be reused in another. Affects retrieval, prompt builder, and any context sent to external models.
+
+**Impact:** High — affects Phase 5 retrieval/prompt pipeline and risk-017 mitigation
 ```

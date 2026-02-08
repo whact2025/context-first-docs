@@ -6,7 +6,7 @@
  * - Replaces Mermaid blocks in content with image references
  * - Rewrites cross-document links to point to the generated .docx files for easy navigation
  * - Writes one intermediate .md and one .docx per source document, each with a table of contents (--toc)
- * - Generates truth-layer-docs-index.docx with links to all documents
+ * - Generates docs-index.docx with links to all documents
  *
  * Usage: node scripts/build-whitepaper-docx.js [--skip-pandoc] [--skip-mermaid] [--scale N]
  *   --skip-pandoc   Only render Mermaid to PNG and write .md files; do not run pandoc
@@ -28,45 +28,89 @@ const docsDir = path.join(repoRoot, "docs");
 const defaultOutputDir = path.join(repoRoot, "dist", "whitepaper-docx");
 const isWindows = process.platform === "win32";
 
-/** Document list: whitepaper first, then appendix, then supporting docs (incl. UX and human interaction). */
+/** Document list: whitepaper first, then appendix, core, reference, scenarios, engineering. Paths relative to docs/. */
 const DOC_LIST = [
   { file: "WHITEPAPER.md", prefix: "wp", title: "Whitepaper" },
   { file: "WHITEPAPER_APPENDIX.md", prefix: "app", title: "Whitepaper Appendix" },
-  { file: "ARCHITECTURE.md", prefix: "arch", title: "Architecture" },
-  { file: "UX_AND_HUMAN_INTERACTION.md", prefix: "ux", title: "UX and Human Interaction" },
-  { file: "UI_SPEC.md", prefix: "ui", title: "UI Specification" },
-  { file: "DOCX_REVIEW_INTEGRATION.md", prefix: "docx", title: "DOCX / Word / Excel Review Integration" },
-  { file: "STORAGE_ARCHITECTURE.md", prefix: "storage", title: "Storage Architecture" },
-  { file: "CONTEXTUALIZED_AI_MODEL.md", prefix: "ctxai", title: "Contextualized AI Model" },
-  { file: "HELLO_WORLD_SCENARIO.md", prefix: "hello", title: "Hello World Scenario" },
-  { file: "CONFLICT_AND_MERGE_SCENARIO.md", prefix: "conflict", title: "Conflict and Merge Scenario" },
-  { file: "STORAGE_IMPLEMENTATION_PLAN.md", prefix: "impl", title: "Storage Implementation Plan" },
+  { file: "core/ARCHITECTURE.md", prefix: "arch", title: "Architecture" },
+  { file: "core/REVIEW_MODE.md", prefix: "review", title: "Review Mode (ACAL)" },
+  { file: "core/UI_SPEC.md", prefix: "ui", title: "UI Specification" },
+  { file: "core/AGENT_API.md", prefix: "agent", title: "Agent API" },
+  { file: "core/USAGE.md", prefix: "usage", title: "Usage" },
+  { file: "reference/DATA_MODEL_REFERENCE.md", prefix: "data", title: "Data Model Reference" },
+  { file: "reference/SECURITY_GOVERNANCE.md", prefix: "sec", title: "Security & Governance" },
+  { file: "reference/OPERATIONS.md", prefix: "ops", title: "Operations" },
+  { file: "appendix/SELF-REFERENCE.md", prefix: "self", title: "Self-Reference" },
+  { file: "appendix/CHANGE_DETECTION.md", prefix: "chg", title: "Change Detection" },
+  { file: "appendix/RECONCILIATION_STRATEGIES.md", prefix: "recon", title: "Reconciliation Strategies" },
+  { file: "appendix/OPTIONAL_INTEGRATIONS.md", prefix: "opt", title: "Optional Integrations" },
+  { file: "appendix/DOCX_REVIEW_INTEGRATION.md", prefix: "docx", title: "DOCX / Word / Excel Review Integration" },
+  { file: "appendix/CONTEXTUALIZED_AI_MODEL.md", prefix: "ctxai", title: "Contextualized AI Model" },
+  { file: "scenarios/HELLO_WORLD_SCENARIO.md", prefix: "hello", title: "Hello World Scenario" },
+  { file: "scenarios/CONFLICT_AND_MERGE_SCENARIO.md", prefix: "conflict", title: "Conflict and Merge Scenario" },
+  { file: "scenarios/BUSINESS_POLICY_SCENARIO.md", prefix: "biz", title: "Business Policy Scenario" },
+  { file: "engineering/storage/STORAGE_ARCHITECTURE.md", prefix: "storage", title: "Storage Architecture" },
+  { file: "engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md", prefix: "impl", title: "Storage Implementation Plan" },
 ];
 
 const MERMAID_BLOCK_RE = /```mermaid\n([\s\S]*?)```/g;
 
-/** Map: source .md basename -> output .docx filename (for cross-doc link rewriting). */
+/** Map: source .md path (normalized) -> { docxName, title }. Used for index and for link rewriting. */
 function buildMdToDocxMap() {
   const map = new Map();
-  for (const { file } of DOC_LIST) {
+  for (const { file, title } of DOC_LIST) {
     const slug = slugFromFile(file);
-    map.set(file, `truth-layer-${slug}.docx`);
+    const docxName = `${slug}.docx`;
+    map.set(normalizeDocsPath(file), { docxName, title });
   }
   return map;
 }
 
+/** Normalize path to forward slashes, no leading ./, for consistent comparison. */
+function normalizeDocsPath(p) {
+  return p.replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
 /**
- * Rewrite cross-document links in processed content so they point to the generated .docx files.
- * Replaces ](FILENAME.md) and ](docs/FILENAME.md) (optional #anchor) with ](truth-layer-slug.docx#anchor).
+ * Resolve a link href relative to the current file (path relative to docs/).
+ * Returns a path relative to docs/ (normalized), or null if not a .md link we can resolve.
  */
-function rewriteCrossDocLinks(content, mdToDocx) {
-  let out = content;
-  for (const [mdName, docxName] of mdToDocx) {
-    const escaped = mdName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`\\]\\((?:docs/)?${escaped}(#.*?)?\\)`, "g");
-    out = out.replace(re, (_, anchor) => `](${docxName}${anchor || ""})`);
+function resolveLinkToDocsPath(currentFile, href) {
+  const hashIndex = href.indexOf("#");
+  const pathPart = hashIndex >= 0 ? href.slice(0, hashIndex) : href;
+  if (!pathPart.toLowerCase().endsWith(".md")) return null;
+  let linkPath = pathPart.trim();
+  if (!linkPath) return null;
+  // Strip optional docs/ prefix (links from repo root)
+  if (linkPath.replace(/\/$/, "").toLowerCase().startsWith("docs/")) {
+    linkPath = linkPath.slice(5);
   }
-  return out;
+  const currentDir = path.dirname(currentFile);
+  const resolved = path.normalize(path.join(currentDir, linkPath));
+  return normalizeDocsPath(resolved);
+}
+
+/**
+ * Rewrite cross-document links: point to .docx and use the document title as the link label (no path/extension).
+ * Resolves each [label](path#anchor) relative to the current file; rewrites to [Title](slug.docx#anchor).
+ * If the link label looks like a path (contains / or .md), also try resolving the label as a docs path so we never emit path-style text.
+ */
+function rewriteCrossDocLinks(content, currentFile, mdToDocx) {
+  const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
+  return content.replace(LINK_RE, (match, label, href) => {
+    const hashIndex = href.indexOf("#");
+    const anchor = hashIndex >= 0 ? href.slice(hashIndex) : "";
+    let resolved = resolveLinkToDocsPath(currentFile, href);
+    let info = resolved != null ? mdToDocx.get(resolved) : null;
+    // Fallback: if label looks like a path, look up by normalized label so we never show path as link text
+    if (!info && /[/\\]|\.md\s*$/i.test(label)) {
+      const labelAsPath = normalizeDocsPath(path.normalize(label.trim()));
+      info = mdToDocx.get(labelAsPath);
+      if (info) resolved = labelAsPath;
+    }
+    if (!info) return match;
+    return `[${info.title}](${info.docxName}${anchor})`;
+  });
 }
 
 function parseArgs() {
@@ -161,11 +205,11 @@ async function main() {
 
     const { content: afterMermaid, imageCount } = await processMermaidInContent(content, prefix, outputDir, scale, skipMermaid);
     if (imageCount > 0) console.log(`${file}: rendered ${imageCount} Mermaid diagram(s) to PNG`);
-    const processed = rewriteCrossDocLinks(afterMermaid, mdToDocx);
+    const processed = rewriteCrossDocLinks(afterMermaid, file, mdToDocx);
 
     const slug = slugFromFile(file);
     const mdName = `${slug}.md`;
-    const docxName = `truth-layer-${slug}.docx`;
+    const docxName = `${slug}.docx`;
     const mdPath = path.join(outputDir, mdName);
     const docxPath = path.join(outputDir, docxName);
 
@@ -189,16 +233,16 @@ async function main() {
       "This folder contains the following documents. Use the links below to open any document.",
       "",
       ...DOC_LIST.map(({ file, title }) => {
-        const docxName = mdToDocx.get(file);
-        return docxName ? `- [${title}](${docxName})` : null;
+        const info = mdToDocx.get(normalizeDocsPath(file));
+        return info ? `- [${title}](${info.docxName})` : null;
       }).filter(Boolean),
       "",
     ].join("\n");
-    const indexMdPath = path.join(outputDir, "truth-layer-docs-index.md");
-    const indexDocxPath = path.join(outputDir, "truth-layer-docs-index.docx");
+    const indexMdPath = path.join(outputDir, "docs-index.md");
+    const indexDocxPath = path.join(outputDir, "docs-index.docx");
     await writeFile(indexMdPath, indexMd, "utf8");
     try {
-      await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", "truth-layer-docs-index.md", "-o", "truth-layer-docs-index.docx"], outputDir);
+      await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", "docs-index.md", "-o", "docs-index.docx"], outputDir);
       console.log(`Wrote ${indexDocxPath}`);
     } catch (e) {
       console.error(`Pandoc failed for index: ${e.message}`);

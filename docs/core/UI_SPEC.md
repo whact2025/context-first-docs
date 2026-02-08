@@ -82,7 +82,7 @@ The minimal governance UI typically uses:
 - **Apply**: applyProposal(proposalId) (requires apply permission); idempotent for already-applied.
 - **Audit**: audit log or review history and applied revisions (backend-dependent).
 
-See [AGENT_API.md](AGENT_API.md), [REVIEW_MODE.md](REVIEW_MODE.md).
+See [Agent API](AGENT_API.md), [Review Mode (ACAL)](REVIEW_MODE.md).
 
 ## Optional UI capabilities
 
@@ -91,4 +91,4 @@ See [AGENT_API.md](AGENT_API.md), [REVIEW_MODE.md](REVIEW_MODE.md).
 - “truth graph” explorer
 - agent-assisted proposal drafting
 
-See: [REVIEW_MODE.md](REVIEW_MODE.md)
+See: [Review Mode (ACAL)](REVIEW_MODE.md)

@@ -35,6 +35,7 @@ Accepted revisions are immutable snapshots (or derivable via event-sourcing).
 Nodes form the canonical graph.
 
 Required:
+
 - `workspaceId`
 - `nodeId: string`
 - `type: string` (enum)
@@ -47,6 +48,7 @@ Required:
 - `updatedAt, updatedBy` (for candidate/draft representations; accepted uses revision)
 
 Recommended common fields:
+
 - `rationale?: string`
 - `confidence?: "LOW"|"MEDIUM"|"HIGH"`
 - `sourceRefs?: SourceRef[]`
@@ -76,6 +78,7 @@ You can extend types per workspace with policy controls.
 - `createdAt, createdBy`
 
 Baseline edge types:
+
 - `DEPENDS_ON`
 - `SUPPORTS`
 - `CONTRADICTS`
@@ -122,6 +125,7 @@ Represents candidate changes against a base revision.
 ### Comment (anchored)
 
 Comments can anchor to:
+
 - a node
 - a field path within a node
 - an operation in a proposal
@@ -149,7 +153,7 @@ Projections are derived artifacts, never canonical truth.
 - `ProjectionSpec`: template + inclusion rules
 - `ProjectionOutput`: Markdown or DOCX + anchors map
 
-See: [../appendix/CHANGE_DETECTION.md](../appendix/CHANGE_DETECTION.md), [../appendix/DOCX_REVIEW_INTEGRATION.md](../appendix/DOCX_REVIEW_INTEGRATION.md).
+See: [Change Detection](../appendix/CHANGE_DETECTION.md), [DOCX / Word / Excel Review Integration](../appendix/DOCX_REVIEW_INTEGRATION.md).
 
 ## Implementation note
 

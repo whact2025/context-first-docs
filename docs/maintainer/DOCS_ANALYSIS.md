@@ -89,12 +89,12 @@ Not required for consistency; docs/ is already the source of truth.
 | README (root)                                                                      | Entry point; defers to docs/                                                                | Aligned to docs/.                   |
 | CONTEXT.md                                                                         | Project context; defers to docs/                                                            | Aligned to docs/.                   |
 | PLAN.md                                                                            | Roadmap; refs docs/                                                                         | Aligned; broken § refs removed.     |
-| [docs/README.md](../README.md)                                                     | Doc index + ACAL                                                                            | Canonical.                          |
-| [docs/core/ARCHITECTURE.md](../core/ARCHITECTURE.md)                               | Components (Truth Store, Policy, Projection, Change Detection, Clients, The Agent optional) | Canonical.                          |
-| [docs/WHITEPAPER.md](../WHITEPAPER.md)                                             | Problem, solution, ACAL, enterprise                                                         | Canonical.                          |
-| [docs/appendix/CONTEXTUALIZED_AI_MODEL.md](../appendix/CONTEXTUALIZED_AI_MODEL.md) | Context for agents; leakage policy                                                          | Canonical.                          |
-| [docs/core/AGENT_API.md](../core/AGENT_API.md)                                     | Safe agent contract                                                                         | Canonical.                          |
-| [docs/core/UI_SPEC.md](../core/UI_SPEC.md)                                         | Minimal governance UI                                                                       | Canonical.                          |
+| [Docs index](../README.md)           | Doc index + ACAL                                                                            | Canonical.                          |
+| [Architecture](../core/ARCHITECTURE.md) | Components (Truth Store, Policy, Projection, Change Detection, Clients, The Agent optional) | Canonical.                          |
+| [Whitepaper](../WHITEPAPER.md)       | Problem, solution, ACAL, enterprise                                                         | Canonical.                          |
+| [Contextualized AI Model](../appendix/CONTEXTUALIZED_AI_MODEL.md) | Context for agents; leakage policy                                                          | Canonical.                          |
+| [Agent API](../core/AGENT_API.md)    | Safe agent contract                                                                         | Canonical.                          |
+| [UI Specification](../core/UI_SPEC.md) | Minimal governance UI                                                                       | Canonical.                          |
 
 ---
 

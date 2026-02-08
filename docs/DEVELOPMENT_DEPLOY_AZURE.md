@@ -4,7 +4,7 @@ This doc describes one-time setup so the **Deploy playground to Azure** workflow
 
 ## Overview
 
-- **Workflow:** [../.github/workflows/deploy-playground-azure.yml](../.github/workflows/deploy-playground-azure.yml)
+- **Workflow:** [Azure deploy workflow](../.github/workflows/deploy-playground-azure.yml)
 - **Triggers:** Push to `main`/`master` that touches playground/server/Dockerfiles or `workflow_dispatch`.
 - **Steps:** Checkout → Azure login (OIDC) → Build image from `Dockerfile.playground` → Push to ACR → Deploy/update Container App.
 

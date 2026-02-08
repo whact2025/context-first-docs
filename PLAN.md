@@ -8,7 +8,7 @@ This document tracks the development roadmap and milestones for TruthLayer.
 - **UI**: One **minimal governance UI** is required (list proposals, accept/reject/apply). Optional: full Web UI, VS Code, Word/Google. See `docs/core/UI_SPEC.md`.
 - **Canonical walkthroughs**: [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) (proposal → review → apply) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md) — run via playground Scenario Runner (`npm run playground`).
 - **The Agent / Contextualize**: Phase 5; design in `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`, `docs/core/AGENT_API.md` (retrieval, prompt building, optional agent loop; prompt-leakage policy). Agent reads truth and creates proposals only; never review/apply.
-- **Security & Compliance**: Guardrails by design per `docs/WHITEPAPER.md` (RBAC, audit logs, policy hooks, data residency, LLM safety). See `docs/reference/SECURITY_GOVERNANCE.md` for the security model.
+- **Security & Compliance**: Guardrails by design per `docs/WHITEPAPER.md` (RBAC, audit logs, policy hooks, data residency, LLM safety). See `docs/reference/SECURITY_GOVERNANCE.md` for the security model and agent-behavior guardrails (personal data sensitivity, truth scope discipline, immutability with redaction, trade secret awareness, external model boundary, heightened review triggers, retention awareness, provenance and justification, workspace isolation, when in doubt propose don’t apply).
 - **Decisions**: Key decisions in `DECISIONS.md` (e.g. agent boundary, DOCX projection, Word/Google flow).
 - **Doc suite**: TruthLayer does not replace doc suites; many orgs use both. See `docs/WHITEPAPER.md` (competitive positioning, “enterprise foundation”).
 - **Word/Google review**: Optional bidirectional flow and context visualization: `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
@@ -101,6 +101,7 @@ Implement the **Contextualize** module and **The Agent** as in `docs/appendix/CO
 7. **Training format mapper** — Map export to instruction/response format; accepted-only. (Path B.)
 8. **(Optional) Vector index** — Embed accepted nodes; self-hosted vector DB; at inference retrieve top-k, optionally expand with `traverseReasoningChain`. (Path A at scale.)
 9. **Prompt leakage controls (policy interface)** — Sensitivity labels, retrieval policy module, logging of node IDs in prompts. See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`.
+10. **Agent guardrail guidance** — Surface guardrail behavior from `docs/reference/SECURITY_GOVERNANCE.md` (personal data sensitivity, truth scope discipline, trade secret awareness, external model boundary, heightened review triggers, retention awareness, provenance and justification, workspace isolation, when in doubt propose don’t apply) in agent documentation, system prompts, or tool metadata so agents and proposers align with compliance by default. See QUESTIONS.md question-039, question-040, question-041.
 
 **Phase 6: Installation & Integration (rich UIs optional)**
 1. Clean installation system - non-invasive setup for existing repositories

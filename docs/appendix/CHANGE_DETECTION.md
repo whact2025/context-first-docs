@@ -10,7 +10,7 @@ Change detection converts edited projections into structured proposal operations
 
 ## Outputs
 
-- **Proposal operations**: ordered list matching store operation types: **create**, **update**, **delete**, **move**, **status-change**, **insert**, and edge create/delete. Each operation has nodeId/payload as in [DATA_MODEL_REFERENCE.md](../reference/DATA_MODEL_REFERENCE.md).
+- **Proposal operations**: ordered list matching store operation types: **create**, **update**, **delete**, **move**, **status-change**, **insert**, and edge create/delete. Each operation has nodeId/payload as in [Data Model Reference](../reference/DATA_MODEL_REFERENCE.md).
 - Updated anchor map (if structure changed).
 - Policy findings (optional).
 
@@ -30,6 +30,7 @@ Change detection converts edited projections into structured proposal operations
 - **Doc structure changes**: treat as projection-spec change, not direct truth change.
 
 Related:
-- [DOCX_REVIEW_INTEGRATION.md](DOCX_REVIEW_INTEGRATION.md)
-- [RECONCILIATION_STRATEGIES.md](RECONCILIATION_STRATEGIES.md)
-- [DATA_MODEL_REFERENCE.md](../reference/DATA_MODEL_REFERENCE.md) (Operation schema)
+
+- [DOCX / Word / Excel Review Integration](DOCX_REVIEW_INTEGRATION.md)
+- [Reconciliation Strategies](RECONCILIATION_STRATEGIES.md)
+- [Data Model Reference](../reference/DATA_MODEL_REFERENCE.md) (Operation schema)

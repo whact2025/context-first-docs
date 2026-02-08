@@ -28,11 +28,11 @@ The canonical truth remains in the store; projections are generated outputs.
 - Policy and process documentation with approvals
 - Incident follow-ups and mitigation tracking
 
-**Dogfooding:** This repo uses ACAL to document itself (CONTEXT, DECISIONS, PLAN, etc.). See [../appendix/SELF-REFERENCE.md](../appendix/SELF-REFERENCE.md).
+**Dogfooding:** This repo uses ACAL to document itself (CONTEXT, DECISIONS, PLAN, etc.). See [Self-Reference](../appendix/SELF-REFERENCE.md).
 
 ## Getting started
 
-- **Run the playground**: From the repo root run **`npm run playground`**, then open http://localhost:4317. In Cursor/VS Code: **Run Task → "Playground (run both servers)"**. Or use **Docker**: **`docker compose up --build`** (single container with embedded server). See [../README.md](../README.md).
-- Run the Hello World scenario: [../scenarios/HELLO_WORLD_SCENARIO.md](../scenarios/HELLO_WORLD_SCENARIO.md)
-- Implement the minimal UI: [UI_SPEC.md](UI_SPEC.md)
-- Implement the schema: [../reference/DATA_MODEL_REFERENCE.md](../reference/DATA_MODEL_REFERENCE.md)
+- **Run the playground**: From the repo root run **`npm run playground`**, then open http://localhost:4317. In Cursor/VS Code: **Run Task → "Playground (run both servers)"**. Or use **Docker**: **`docker compose up --build`** (single container with embedded server). See [Docs index](../README.md).
+- Run the Hello World scenario: [Hello World Scenario](../scenarios/HELLO_WORLD_SCENARIO.md)
+- Implement the minimal UI: [UI Specification](UI_SPEC.md)
+- Implement the schema: [Data Model Reference](../reference/DATA_MODEL_REFERENCE.md)

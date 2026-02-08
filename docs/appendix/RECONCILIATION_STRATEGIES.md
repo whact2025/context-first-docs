@@ -1,6 +1,6 @@
 # Reconciliation Strategies
 
-TruthLayer reconciles concurrent edits at **semantic** (field and node) granularity. The store exposes **detectConflicts**, **isProposalStale**, and **mergeProposals**; resolution can be automatic (field-level merge) or human-led via proposal review. These APIs are implemented or to be extended in the **Rust server** (server/); see [../core/ARCHITECTURE.md](../core/ARCHITECTURE.md) and server/README.md.
+TruthLayer reconciles concurrent edits at **semantic** (field and node) granularity. The store exposes **detectConflicts**, **isProposalStale**, and **mergeProposals**; resolution can be automatic (field-level merge) or human-led via proposal review. These APIs are implemented or to be extended in the **Rust server** (server/); see [Architecture](../core/ARCHITECTURE.md) and server/README.md.
 
 ## API
 
@@ -41,4 +41,4 @@ TruthLayer reconciles concurrent edits at **semantic** (field and node) granular
 - Policy engine can block auto-merge for sensitive scopes.
 - Audit log records conflict detection and merge outcomes.
 
-See example: [CONFLICT_AND_MERGE_SCENARIO.md](../scenarios/CONFLICT_AND_MERGE_SCENARIO.md)
+See example: [Conflict and Merge Scenario](../scenarios/CONFLICT_AND_MERGE_SCENARIO.md)

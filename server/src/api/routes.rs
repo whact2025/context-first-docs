@@ -1,10 +1,12 @@
 //! Axum HTTP routes: health, nodes, proposals, review, apply.
+//!
+//! Verb usage: GET (read), POST (create / actions), PATCH (partial update).
 
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{get, patch, post},
     Json, Router,
 };
 use std::sync::Arc;
@@ -18,7 +20,7 @@ pub fn router(store: Arc<dyn ContextStore>) -> Router<()> {
         .route("/nodes", get(query_nodes))
         .route("/nodes/:id", get(get_node))
         .route("/proposals", get(list_proposals).post(create_proposal))
-        .route("/proposals/:id", get(get_proposal).put(update_proposal))
+        .route("/proposals/:id", get(get_proposal).patch(update_proposal))
         .route("/proposals/:id/reviews", get(get_review_history))
         .route("/proposals/:id/review", post(submit_review))
         .route("/proposals/:id/apply", post(apply_proposal))
@@ -121,6 +123,7 @@ async fn update_proposal(
     Json(updates): Json<serde_json::Value>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     store.update_proposal(&id, updates).await?;
+    // 200 OK with body for compatibility with clients that expect JSON
     Ok((
         StatusCode::OK,
         Json(serde_json::json!({ "ok": true })),

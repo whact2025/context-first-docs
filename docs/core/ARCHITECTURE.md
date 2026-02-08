@@ -6,12 +6,12 @@
    - **Canonical graph**: typed nodes (goal, decision, constraint, task, risk, question, etc.) and edges (depends-on, references, mitigates, implements, etc.).
    - **Accepted revisions ledger**: immutable snapshots; each apply produces a new revision (e.g. rev_1 → apply → rev_2).
    - **Proposals, reviews, comments**: proposals hold ordered operations (create/update/delete/move/status-change); reviews immutable once closed.
-   - **Store interface**: ContextStore exposes queryNodes, getNode, getProposal, createProposal, submitReview, applyProposal; optional traverseReasoningChain, detectConflicts, mergeProposals, isProposalStale. **Current implementation**: the **Rust server** (server/) implements ContextStore (in-memory, HTTP API); TypeScript client in `src/api-client.ts` (RustServerClient). Playground and scenarios use the server; TS retains apply-proposal and graph helpers for preview. **Implementation status** (what’s implemented vs designed): see [server/README.md](../../server/README.md#implementation-status). See [AGENT_API.md](AGENT_API.md), [../reference/DATA_MODEL_REFERENCE.md](../reference/DATA_MODEL_REFERENCE.md).
+   - **Store interface**: ContextStore exposes queryNodes, getNode, getProposal, createProposal, submitReview, applyProposal; optional traverseReasoningChain, detectConflicts, mergeProposals, isProposalStale. **Current implementation**: the **Rust server** (server/) implements ContextStore (in-memory, HTTP API); TypeScript client in `src/api-client.ts` (RustServerClient). Playground and scenarios use the server; TS retains apply-proposal and graph helpers for preview. **Implementation status** (what’s implemented vs designed): see [Server README](../../server/README.md#implementation-status). See [Agent API](AGENT_API.md), [Data Model Reference](../reference/DATA_MODEL_REFERENCE.md).
 
 2. **Policy & Governance**
-   - **RBAC**: workspace roles (Reader, Contributor, Reviewer, Applier, Admin); roles supplied by an **RBAC provider abstraction** (Git/GitLab, Azure AD, DLs, or configured provider; see question-007, [../reference/SECURITY_GOVERNANCE.md](../reference/SECURITY_GOVERNANCE.md)). Agents get propose only, never review/apply.
+   - **RBAC**: workspace roles (Reader, Contributor, Reviewer, Applier, Admin); roles supplied by an **RBAC provider abstraction** (Git/GitLab, Azure AD, DLs, or configured provider; see question-007, [Security & Governance](../reference/SECURITY_GOVERNANCE.md)). Agents get propose only, never review/apply.
    - **Validation**: schema (node/edge types) and org policy (e.g. POLICY nodes require two approvers).
-   - **Audit logging**: every review and apply recorded with actor, timestamp, revision IDs. See [../reference/SECURITY_GOVERNANCE.md](../reference/SECURITY_GOVERNANCE.md).
+   - **Audit logging**: every review and apply recorded with actor, timestamp, revision IDs. See [Security & Governance](../reference/SECURITY_GOVERNANCE.md).
 
 3. **Projection Engine**
    - generates Markdown/DOCX/HTML views
@@ -20,19 +20,19 @@
 
 4. **Change Detection**
    - **Inputs**: projection output, anchor map, edited content. **Outputs**: proposal operations (CREATE_NODE, UPDATE_NODE, etc.); policy findings optional.
-   - **Strategy**: parse sections, resolve edits to anchors, validate, emit proposal. See [../appendix/CHANGE_DETECTION.md](../appendix/CHANGE_DETECTION.md).
+   - **Strategy**: parse sections, resolve edits to anchors, validate, emit proposal. See [Change Detection](../appendix/CHANGE_DETECTION.md).
 
 5. **Clients**
-   - **Minimal Governance UI (required)**: list proposals, semantic diff, comments, accept/reject, apply, audit. See [UI_SPEC.md](UI_SPEC.md).
-   - **Optional**: VS Code extension, web app, CLI, Office add-in. See [../appendix/OPTIONAL_INTEGRATIONS.md](../appendix/OPTIONAL_INTEGRATIONS.md).
+   - **Minimal Governance UI (required)**: list proposals, semantic diff, comments, accept/reject, apply, audit. See [UI Specification](UI_SPEC.md).
+   - **Optional**: VS Code extension, web app, CLI, Office add-in. See [Optional Integrations](../appendix/OPTIONAL_INTEGRATIONS.md).
 
 6. **Agent** (we build it)
    - The product includes an **agent** that uses the agent-safe API: **Read** (queryNodes, getNode, default status: accepted); **Write** (createProposal, updateProposal only); never submitReview or applyProposal.
-   - **Traversal**: traverseReasoningChain, buildContextChain, followDecisionReasoning, queryWithReasoning for provenance chains. See [AGENT_API.md](AGENT_API.md), [../appendix/CONTEXTUALIZED_AI_MODEL.md](../appendix/CONTEXTUALIZED_AI_MODEL.md).
+   - **Traversal**: traverseReasoningChain, buildContextChain, followDecisionReasoning, queryWithReasoning for provenance chains. See [Agent API](AGENT_API.md), [Contextualized AI Model](../appendix/CONTEXTUALIZED_AI_MODEL.md).
    - Deployment can be in-process or via API; thin clients (chat, Slack, etc.) talk to the agent. One minimal governance UI is required for humans to review/apply.
 
 7. **MCP server** (we provide it)
-   - TruthLayer **exposes an MCP (Model Context Protocol) server** so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool. MCP tools map to the agent-safe API: query accepted truth, create proposals, traverse reasoning chains; no review/apply. Optional MCP resources expose read-only context (e.g. nodes, proposals list). This makes TruthLayer the guardrail layer that AI calls from the IDE and other MCP clients. See [AGENT_API.md](AGENT_API.md#mcp-exposure), [../appendix/OPTIONAL_INTEGRATIONS.md](../appendix/OPTIONAL_INTEGRATIONS.md).
+   - TruthLayer **exposes an MCP (Model Context Protocol) server** so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool. MCP tools map to the agent-safe API: query accepted truth, create proposals, traverse reasoning chains; no review/apply. Optional MCP resources expose read-only context (e.g. nodes, proposals list). This makes TruthLayer the guardrail layer that AI calls from the IDE and other MCP clients. See [Agent API](AGENT_API.md#mcp-exposure), [Optional Integrations](../appendix/OPTIONAL_INTEGRATIONS.md).
 
 ## Core data flows
 
@@ -50,7 +50,7 @@ Projection (Markdown/DOCX) → user edits → change detection → proposal oper
 
 ### Conflict handling
 
-Concurrent proposals → detectConflicts(proposalId) → mergeable vs needsResolution; optional mergeProposals(ids); isProposalStale(proposalId) for optimistic locking. To be extended in the Rust server; design in [../appendix/RECONCILIATION_STRATEGIES.md](../appendix/RECONCILIATION_STRATEGIES.md).
+Concurrent proposals → detectConflicts(proposalId) → mergeable vs needsResolution; optional mergeProposals(ids); isProposalStale(proposalId) for optimistic locking. To be extended in the Rust server; design in [Reconciliation Strategies](../appendix/RECONCILIATION_STRATEGIES.md).
 
 ## Tenancy
 
@@ -65,4 +65,4 @@ Deployments run a **server** (local or remote). All runtime configuration—stor
 - **File-backed**: Git-friendly; JSON/YAML; paths under server config root (e.g. `data/workspaces/{workspaceId}/`); atomic writes and locking per workspace.
 - **Database-backed**: MongoDB recommended for v1; connection/config from server config root; indexes on workspaceId + nodeId, revisionId, proposal status; apply as transaction.
 
-See: [../engineering/storage/STORAGE_ARCHITECTURE.md](../engineering/storage/STORAGE_ARCHITECTURE.md), [../engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md](../engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md).
+See: [Storage Architecture](../engineering/storage/STORAGE_ARCHITECTURE.md), [Storage Implementation Plan](../engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md).

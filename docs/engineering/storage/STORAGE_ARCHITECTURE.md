@@ -32,6 +32,7 @@ File-backed implementations may load a workspace into memory and delegate to the
 ### Database-backed (recommended v1)
 
 **MongoDB**:
+
 - Collections (or equivalent): workspaces, revisions, nodes, edges, proposals, reviews, comments, audit_log.
 - **Indexes**: workspaceId + nodeId (unique per workspace); workspaceId + revisionId; workspaceId + proposal status + createdAt; workspaceId + edge (from/to/type) for traversal.
 - **Transactions**: apply must run in a transaction: validate proposal ACCEPTED, insert new revision, update proposal APPLIED + AppliedMetadata, write audit log.
@@ -47,10 +48,11 @@ File-backed implementations may load a workspace into memory and delegate to the
 ## Apply atomicity
 
 Apply must be **atomic** and **idempotent**:
+
 1. Validate proposal status is ACCEPTED (and not already APPLIED).
 2. Compute new accepted revision from base revision + proposal operations.
 3. Write new revision to store; stamp proposal with AppliedMetadata (appliedAt, appliedBy, appliedFromReviewId, appliedFromProposalId, appliedToRevisionId, previousRevisionId).
 4. Write audit log entry.
 5. If already applied (e.g. retry), treat as no-op or return existing appliedToRevisionId.
 
-See: [STORAGE_IMPLEMENTATION_PLAN.md](STORAGE_IMPLEMENTATION_PLAN.md)
+See: [Storage Implementation Plan](STORAGE_IMPLEMENTATION_PLAN.md)
