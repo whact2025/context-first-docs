@@ -3,12 +3,15 @@
 The product can have many clients, but **one UI surface is required**:
 
 > A reviewer/apply interface that can:
+>
 > - list proposals
 > - display diffs semantically
 > - collect comments
 > - accept/reject
 > - apply accepted proposals
 > - show audit history
+
+The current **playground** provides a **prototype** of this minimal governance UI; the required production UI may be refined from it.
 
 ## UX and human interaction
 
@@ -25,6 +28,7 @@ TruthLayer is designed around a simple human reality: people need drafts and dis
 ### 1) Proposal list
 
 Filters:
+
 - workspace
 - status
 - author
@@ -34,6 +38,7 @@ Filters:
 ### 2) Proposal detail
 
 Show:
+
 - base revision
 - operations summary (created/updated nodes/edges)
 - semantic diff per node (field-level)
@@ -43,6 +48,7 @@ Show:
 ### 3) Review flow
 
 Actions:
+
 - request changes
 - approve
 - reject
@@ -52,6 +58,7 @@ Reviews must be immutable after closure.
 ### 4) Apply flow (separate)
 
 Apply must:
+
 - require `apply` permission
 - produce a new accepted revision
 - stamp `AppliedMetadata`

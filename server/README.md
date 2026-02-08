@@ -44,18 +44,24 @@ Under the config root you can place:
 
 If no file is found, defaults are used (memory backend, listen on `127.0.0.1:3080`).
 
+## Implementation status
+
+- **Implemented:** Health, nodes (query, get by ID), proposals (list, create, get), review, apply, reset. In-memory store only.
+- **Conflict / stale / merge:** Design in `docs/appendix/RECONCILIATION_STRATEGIES.md` and scenarios; `detectConflicts`, `isProposalStale`, `mergeProposals` are not yet exposed on the HTTP API. To be extended in the server.
+- **Workspace (current behavior):** Single workspace (default). `workspaceId` in the API contract is reserved for future use; the server does not yet scope by workspace.
+
 ## HTTP API (minimal slice)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Health check |
-| GET | `/nodes` | Query nodes (default query) |
-| GET | `/nodes/:id` | Get node by ID |
-| GET | `/proposals` | List open proposals |
-| POST | `/proposals` | Create proposal (JSON body) |
-| GET | `/proposals/:id` | Get proposal |
-| POST | `/proposals/:id/review` | Submit review (JSON body) |
-| POST | `/proposals/:id/apply` | Apply accepted proposal |
+| Method | Path                    | Description                 |
+| ------ | ----------------------- | --------------------------- |
+| GET    | `/health`               | Health check                |
+| GET    | `/nodes`                | Query nodes (default query) |
+| GET    | `/nodes/:id`            | Get node by ID              |
+| GET    | `/proposals`            | List open proposals         |
+| POST   | `/proposals`            | Create proposal (JSON body) |
+| GET    | `/proposals/:id`        | Get proposal                |
+| POST   | `/proposals/:id/review` | Submit review (JSON body)   |
+| POST   | `/proposals/:id/apply`  | Apply accepted proposal     |
 
 Types mirror the TypeScript definitions in `src/types/` (node, proposal, query). More endpoints and full query filters can be added incrementally.
 

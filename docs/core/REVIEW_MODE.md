@@ -37,15 +37,15 @@ Changes exist as **Proposals** with their own lifecycle.
 
 Proposals contain an ordered list of **operations** that, when applied, mutate the graph. Supported types:
 
-| Operation | Description | Payload |
-|-----------|-------------|---------|
-| `create` | Create a new node | `node: AnyNode` |
-| `update` | Update an existing node (field-level) | `nodeId`, `changes: { content?, status?, ... }` |
-| `delete` | Delete a node (and optionally edges) | `nodeId` |
-| `move` | Move node in hierarchy or change relationships | `nodeId`, target refs |
-| `status-change` | Change node status only | `nodeId`, `status` |
-| `insert` | Insert content into a node (e.g. description block) | `sourceNodeId`, content/range |
-| (edge ops) | Create/delete edges between nodes | `fromNodeId`, `toNodeId`, `type` |
+| Operation       | Description                                         | Payload                                         |
+| --------------- | --------------------------------------------------- | ----------------------------------------------- |
+| `create`        | Create a new node                                   | `node: AnyNode`                                 |
+| `update`        | Update an existing node (field-level)               | `nodeId`, `changes: { content?, status?, ... }` |
+| `delete`        | Delete a node (and optionally edges)                | `nodeId`                                        |
+| `move`          | Move node in hierarchy or change relationships      | `nodeId`, target refs                           |
+| `status-change` | Change node status only                             | `nodeId`, `status`                              |
+| `insert`        | Insert content into a node (e.g. description block) | `sourceNodeId`, content/range                   |
+| (edge ops)      | Create/delete edges between nodes                   | `fromNodeId`, `toNodeId`, `type`                |
 
 Operations are validated against schema and policy before submit. See [../reference/DATA_MODEL_REFERENCE.md](../reference/DATA_MODEL_REFERENCE.md) for Operation schema.
 
@@ -71,6 +71,8 @@ Every applied proposal must record:
 
 This metadata is mandatory for auditability, idempotency, and governance.
 
+**Current status:** Explicit applied state (e.g. `appliedAt`/`appliedBy`) is required by design; full implementation is tracked in PLAN task-061.
+
 ## Idempotency
 
 - Applying the same proposal twice must be a no-op (or error) based on `appliedFromProposalId`.
@@ -79,6 +81,7 @@ This metadata is mandatory for auditability, idempotency, and governance.
 ## Policy hooks
 
 Organizations may enforce additional rules, for example:
+
 - Certain node types require two approvers.
 - “Security policy” changes require an info-sec role.
 - High-risk changes require a change window.

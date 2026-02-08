@@ -14,6 +14,19 @@ This document tracks questions that need answers as the project evolves. Each qu
 - **question-006** (issue creation) resolved: explicit optional path; approval blocked until issues created or user retries.
 - **question-011** (namespaces) can be deferred: implement workspaceId-only first.
 
+## Design blockers
+
+Open questions that block specific design or implementation decisions:
+
+| Question         | Blocks                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **question-008** | Multi-approval workflow semantics (when approvers disagree) → REVIEW_MODE, UI_SPEC                                 |
+| **question-010** | Withdraw/reopen proposal lifecycle → REVIEW_MODE, proposal state machine                                           |
+| **question-034** | Agent attribution in audit log → SECURITY_GOVERNANCE, AGENT_API                                                    |
+| **question-035** | Guarantee agent never receives submitReview/applyProposal (enforcement) → AGENT_API safety section, tool allowlist |
+
+Resolving these will allow the referenced docs to be finalized where they depend on the answers.
+
 ---
 
 ## Questions (ctx blocks)
@@ -39,7 +52,7 @@ status: resolved
 **Impact**: High - affects core workflow design
 ```
 
-```ctx
+````ctx
 type: question
 id: question-002
 status: resolved
@@ -147,7 +160,7 @@ status: resolved
   - Production-ready (proper database with transactions, indexing, scaling)
 - **Git Integration**: Periodic snapshots to Git repository for backup, version history, audit trail
 
-**Decision**: 
+**Decision**:
 - **Both Implementations**: File-based (intended default) and MongoDB (production) both available
 - **Abstraction Layer**: `ContextStore` interface allows seamless switching
 - **Scaling Path**: Start with file-based, scale up to MongoDB via configuration
@@ -156,7 +169,7 @@ status: resolved
 **Impact**: High - fundamental architectural decision enabling scalability path
 
 **Updated At**: 2026-01-26 (support both file-based and MongoDB via abstraction layer)
-```
+````
 
 ```ctx
 type: question

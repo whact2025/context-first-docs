@@ -9,7 +9,7 @@ status: accepted
 ---
 **Decision**: Use Markdown as the human interface, not as the source of truth.
 
-**Rationale**: 
+**Rationale**:
 - Markdown is familiar to developers and renders well on GitHub/GitLab
 - Git workflows work naturally with Markdown files
 - However, Markdown alone is not structured enough for agent consumption
@@ -106,7 +106,7 @@ status: accepted
 **Decided At**: 2026-02
 ```
 
-```ctx
+````ctx
 type: decision
 id: decision-005
 status: accepted
@@ -132,22 +132,22 @@ graph TB
         API[GraphQL API]
         App[Application Code]
     end
-    
+
     subgraph "Storage Abstraction"
         Interface[ContextStore Interface]
     end
-    
+
     subgraph "Storage Implementations"
         FileStore[File-Based Store<br/>JSON Graph in Git]
         MongoStore[MongoDB Store<br/>Self-Hosted]
     end
-    
+
     UI --> API
     API --> App
     App --> Interface
     Interface --> FileStore
     Interface --> MongoStore
-    
+
     style Interface fill:#e1f5ff
     style FileStore fill:#fff4e1
     style MongoStore fill:#e8f5e9
@@ -156,55 +156,57 @@ graph TB
 **Workflow**: Changes flow: UI/Agent → Proposal → Review → Approval → Storage Update (via `ContextStore` interface)
 
 **Storage Architecture**:
+
 ```mermaid
 graph TB
     subgraph "UI Layer"
         UI[VS Code/Cursor Extension<br/>Web UI]
     end
-    
+
     subgraph "API Layer"
         GraphQL[GraphQL Server<br/>Self-Hosted]
-        Schema[Schema: .context/schema.graphql]
+        Schema[".context/schema.graphql"]
         GraphQL -.-> Schema
     end
-    
+
     subgraph "Storage Abstraction"
         Interface[ContextStore Interface]
     end
-    
+
     subgraph "File-Based Implementation"
         FileStore[File-Based Store]
-        GraphJSON[graph.json (example path)]
-        NodeFiles[.context/nodes/]
+        GraphJSON["graph.json example path"]
+        NodeFiles[".context/nodes/"]
         FileStore --> GraphJSON
         FileStore --> NodeFiles
     end
-    
+
     subgraph "MongoDB Implementation"
         MongoStore[MongoDB Store<br/>Self-Hosted]
-        Collections[(Collections:<br/>nodes, proposals,<br/>reviews, relationships)]
+        Collections["Collections: nodes, proposals, reviews, relationships"]
         MongoStore --> Collections
     end
-    
+
     subgraph "Git Repository"
         Git[Git Repository<br/>Backup/Archive]
-        Snapshots[.context/snapshots/]
+        Snapshots[".context/snapshots/"]
         Git --> Snapshots
     end
-    
+
     UI -->|GraphQL API| GraphQL
     GraphQL --> Interface
     Interface --> FileStore
     Interface --> MongoStore
     FileStore -.->|Periodic| Git
     MongoStore -.->|Periodic| Git
-    
+
     style Interface fill:#e1f5ff
     style FileStore fill:#fff4e1
     style MongoStore fill:#e8f5e9
 ```
 
 **File-Based Storage** (Intended default for development/small projects):
+
 - **Format**: JSON graph format (example path: `.context/graph.json`) and optional per-node files
 - **Location**: `.context/` directory in Git repository
 - **Benefits**:
@@ -219,6 +221,7 @@ graph TB
   - ⚠️ No ACID transactions
 
 **MongoDB Storage** (Recommended for Production/Large Projects):
+
 - **Database**: Self-hosted MongoDB (within organization)
 - **Collections**: `nodes`, `proposals`, `reviews`, `relationships`
 - **Benefits**:
@@ -233,22 +236,24 @@ graph TB
 - **Git Integration**: Periodic snapshots to Git for backup, version history, audit trail
 
 **Storage Selection**:
+
 - **Development/Small Projects**: File-based storage (intended default)
 - **Production/Large Projects**: MongoDB storage (recommended)
 - **Scaling Path**: Switch from file-based to MongoDB via configuration change (same `ContextStore` interface)
 
 **GraphQL Schema** (`.context/schema.graphql`):
+
 - Type-safe API definition
 - Self-documenting (introspection)
 - Human-readable schema changes (reviewable in PRs)
 - Validation contract
 - Works with both storage implementations
-- See `docs/STORAGE_ARCHITECTURE.md` for full schema design
+- See `docs/engineering/storage/STORAGE_ARCHITECTURE.md` for full schema design
 
 **Important**: Both storage implementations use the same `ContextStore` interface, allowing seamless scaling from file-based to MongoDB. All infrastructure is self-hosted within organization.
 
-
 **Implementation Strategy**:
+
 1. Start with file-based storage (simple, Git-friendly)
 2. Implement MongoDB storage (production-ready)
 3. Both use same `ContextStore` interface (abstraction layer)
@@ -257,7 +262,8 @@ graph TB
 
 **Decided At**: 2026-01-26
 **Updated At**: 2026-01-26 (support both file-based and MongoDB via abstraction layer)
-```
+
+````
 
 ```ctx
 type: decision
@@ -1005,4 +1011,8 @@ status: accepted
 **Implementation**: CONTEXT.md goal-001, WHITEPAPER §1 and §4, ARCHITECTURE, UX_AND_HUMAN_INTERACTION, UI_SPEC, PLAN Phase 5 (agent loop + minimal review surface), CONTEXTUALIZED_AI_MODEL §4. All docs updated from the ground up to reflect agentic-first.
 
 **Decided At**: 2026-01-29
+```
+
+```
+
 ```

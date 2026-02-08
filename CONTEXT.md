@@ -9,7 +9,9 @@ status: accepted
 ---
 This project addresses truth fragmentation in organizations: decisions, rationale, and constraints live in ephemeral channels or get lost; agents ingest stale or contradictory context.
 
-TruthLayer is **Ratify truth. AI with Guardrails for Security & Compliance**: enterprise truth governance for humans and agents via a **truth ledger + collaboration layer**. Humans **ratify** (review and apply); **guardrails** (ACAL, RBAC, audit) keep AI safe and compliant. It enforces ACAL (Accepted → Candidate → Accepted → Ledger): accepted truth is immutable; all changes are proposals; proposals are reviewed (accept/reject with comments); accepted proposals are applied, producing new accepted revisions. Agents can read accepted truth and author proposals; they cannot accept, reject, or apply. One minimal governance UI is required; the Agent and rich UIs (Web, VS Code, Word/Google) are optional.
+TruthLayer is **Ratify truth. AI with Guardrails for Security & Compliance**: enterprise truth governance for humans and agents via a **truth ledger + collaboration layer**. Humans **ratify** (review and apply); **guardrails** (ACAL, RBAC, audit) keep AI safe and compliant.
+
+**ACAL** (Accepted → Candidate → Accepted → Ledger): accepted truth is immutable; all changes are proposals; proposals are reviewed (accept/reject with comments); accepted proposals are applied, producing new accepted revisions. Agents can read accepted truth and author proposals; they cannot accept, reject, or apply. One minimal governance UI is required; **The Agent** and rich UIs (Web, VS Code, Word/Google) are optional.
 
 The project itself uses the same workflow to document itself — this file and others are managed through proposals → review → apply.
 ```
@@ -138,7 +140,7 @@ type: note
 id: note-001
 status: accepted
 ---
-**Note on Self-Reference**: 
+**Note on Self-Reference**:
 
 This project is self-referential - it uses its own ACAL semantics to document
 itself. The Markdown files in the project root contain ctx blocks that embed semantic
@@ -147,5 +149,5 @@ canonical context store in `.context/`.
 
 Currently, the files are committed for demonstration/self-reference. The repo includes a **Rust server** (server/) as the context store for the playground and scenarios; Markdown import/projection and apply/graph helpers remain in TS. Persistent file-based storage is still planned; synchronization can be automated end-to-end once that is in place.
 
-See `docs/SELF-REFERENCE.md` for more details.
+See `docs/appendix/SELF-REFERENCE.md` for more details.
 ```

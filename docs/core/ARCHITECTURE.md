@@ -6,12 +6,12 @@
    - **Canonical graph**: typed nodes (goal, decision, constraint, task, risk, question, etc.) and edges (depends-on, references, mitigates, implements, etc.).
    - **Accepted revisions ledger**: immutable snapshots; each apply produces a new revision (e.g. rev_1 → apply → rev_2).
    - **Proposals, reviews, comments**: proposals hold ordered operations (create/update/delete/move/status-change); reviews immutable once closed.
-   - **Store interface**: ContextStore exposes queryNodes, getNode, getProposal, createProposal, submitReview, applyProposal; optional traverseReasoningChain, detectConflicts, mergeProposals, isProposalStale. **Current implementation**: the **Rust server** (server/) implements ContextStore (in-memory, HTTP API); TypeScript client in `src/api-client.ts` (RustServerClient). Playground and scenarios use the server; TS retains apply-proposal and graph helpers for preview. See [AGENT_API.md](AGENT_API.md), [../reference/DATA_MODEL_REFERENCE.md](../reference/DATA_MODEL_REFERENCE.md), server/README.md.
+   - **Store interface**: ContextStore exposes queryNodes, getNode, getProposal, createProposal, submitReview, applyProposal; optional traverseReasoningChain, detectConflicts, mergeProposals, isProposalStale. **Current implementation**: the **Rust server** (server/) implements ContextStore (in-memory, HTTP API); TypeScript client in `src/api-client.ts` (RustServerClient). Playground and scenarios use the server; TS retains apply-proposal and graph helpers for preview. **Implementation status** (what’s implemented vs designed): see [server/README.md](../../server/README.md#implementation-status). See [AGENT_API.md](AGENT_API.md), [../reference/DATA_MODEL_REFERENCE.md](../reference/DATA_MODEL_REFERENCE.md).
 
 2. **Policy & Governance**
    - **RBAC**: workspace roles (Reader, Contributor, Reviewer, Applier, Admin); roles supplied by an **RBAC provider abstraction** (Git/GitLab, Azure AD, DLs, or configured provider; see question-007, [../reference/SECURITY_GOVERNANCE.md](../reference/SECURITY_GOVERNANCE.md)). Agents get propose only, never review/apply.
    - **Validation**: schema (node/edge types) and org policy (e.g. POLICY nodes require two approvers).
-   - **Audit logging**: every review and apply recorded with actor, timestamp, revision IDs. See [SECURITY_GOVERNANCE.md](SECURITY_GOVERNANCE.md).
+   - **Audit logging**: every review and apply recorded with actor, timestamp, revision IDs. See [../reference/SECURITY_GOVERNANCE.md](../reference/SECURITY_GOVERNANCE.md).
 
 3. **Projection Engine**
    - generates Markdown/DOCX/HTML views
