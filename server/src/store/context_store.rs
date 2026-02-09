@@ -4,7 +4,8 @@
 use async_trait::async_trait;
 
 use crate::types::{
-    Comment, ContextNode, NodeId, NodeQuery, NodeQueryResult, Proposal, ProposalQuery, Review,
+    Comment, ConflictDetectionResult, ContextNode, MergeResult, NodeId, NodeQuery, NodeQueryResult,
+    Proposal, ProposalQuery, Review,
 };
 
 #[async_trait]
@@ -27,7 +28,13 @@ pub trait ContextStore: Send + Sync {
 
     async fn submit_review(&self, review: Review) -> Result<(), StoreError>;
 
-    async fn apply_proposal(&self, proposal_id: &str) -> Result<(), StoreError>;
+    /// Apply an accepted proposal to the store. Records AppliedMetadata and sets status to Applied.
+    /// Idempotent: if the proposal is already Applied, returns Ok without mutating.
+    async fn apply_proposal(&self, proposal_id: &str, applied_by: &str) -> Result<(), StoreError>;
+
+    /// Withdraw a proposal (author only). Allowed only from Open (DRAFT/SUBMITTED/CHANGES_REQUESTED); status → Withdrawn.
+    /// Returns error if proposal is already Accepted, Rejected, Withdrawn, or Applied.
+    async fn withdraw_proposal(&self, proposal_id: &str) -> Result<(), StoreError>;
 
     async fn get_review_history(&self, proposal_id: &str) -> Result<Vec<Review>, StoreError>;
 
@@ -42,6 +49,19 @@ pub trait ContextStore: Send + Sync {
     async fn get_accepted_nodes(&self) -> Result<Vec<ContextNode>, StoreError>;
 
     async fn get_open_proposals(&self) -> Result<Vec<Proposal>, StoreError>;
+
+    /// Compare proposal's operations (by node and field) with other open proposals.
+    /// Returns conflicts, mergeable (proposal IDs), needsResolution (proposal IDs).
+    /// Per AGENT_API § Conflict detection and merge; RECONCILIATION_STRATEGIES.
+    async fn detect_conflicts(&self, proposal_id: &str) -> Result<ConflictDetectionResult, StoreError>;
+
+    /// True if the base revision or target nodes have changed since the proposal was created (optimistic locking).
+    /// Per AGENT_API § Conflict detection and merge.
+    async fn is_proposal_stale(&self, proposal_id: &str) -> Result<bool, StoreError>;
+
+    /// Attempts field-level merge; returns merged, conflicts, auto_merged.
+    /// Per AGENT_API § Conflict detection and merge; RECONCILIATION_STRATEGIES.
+    async fn merge_proposals(&self, proposal_ids: &[String]) -> Result<MergeResult, StoreError>;
 
     /// Reset store state (for dev/demo only). In-memory clears all; other backends may return error.
     async fn reset(&self) -> Result<(), StoreError>;

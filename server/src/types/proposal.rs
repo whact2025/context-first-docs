@@ -12,6 +12,8 @@ pub enum ProposalStatus {
     Accepted,
     Rejected,
     Withdrawn,
+    /// Terminal: proposal has been applied to accepted truth. Prevents double-apply.
+    Applied,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +75,19 @@ pub struct UpdateChanges {
     pub extra: Option<std::collections::HashMap<String, serde_json::Value>>,
 }
 
+/// Metadata recorded when a proposal is applied. Required for audit and idempotency.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppliedMetadata {
+    pub applied_at: String,
+    pub applied_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub applied_from_review_id: Option<String>,
+    pub applied_from_proposal_id: String,
+    pub applied_to_revision_id: String,
+    pub previous_revision_id: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Proposal {
@@ -84,6 +99,9 @@ pub struct Proposal {
     pub comments: Option<Vec<Comment>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relations: Option<Vec<String>>,
+    /// Present only when status is Applied. Mandatory for audit and idempotent apply.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub applied: Option<AppliedMetadata>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

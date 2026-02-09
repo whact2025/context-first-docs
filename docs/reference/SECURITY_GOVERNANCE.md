@@ -1,6 +1,6 @@
 # Security & Governance
 
-This is the authoritative enterprise security model for TruthLayer, a **governance-first truth system** (**governed truth, guarded AI**) that happens to use AI: humans **ratify** proposals (review and apply); **guardrails that apply to AI**—RBAC, policy hooks, audit logging—enforce security and compliance; agents never hold review/apply authority.
+This is the authoritative enterprise security model for TruthLayer, a **governance-first truth system** (**governed truth, guarded AI**) that happens to use AI: humans **ratify** proposals (review and apply); **guardrails that apply to AI**—RBAC, policy hooks, audit logging—enforce security and compliance. Review and apply are **committed on behalf of a human** (the human is the actor in the audit); agents may assist as a tool (e.g. draft review, prepare apply) but cannot be the committing actor.
 
 **Related:** [Privacy and Data Protection](PRIVACY_AND_DATA_PROTECTION.md) — Controller/Processor, data subject rights, retention, subprocessor/LLM egress, security controls checklist for procurement and DPIA. **Agent posture:** Agents follow an **enforcement bias** (conservative, governance-first; personal data minimize/anonymize/escalate; no external egress without explicit policy; trade secret awareness; immutability-aware writing; when in doubt propose and ask). See [Agent API](core/AGENT_API.md) § Agent posture: enforcement bias.
 
@@ -49,6 +49,11 @@ Log:
 - permission changes
 
 Audit logs are immutable and exportable per workspace.
+
+**Agent attribution (differentiate two cases):**
+
+- **Proposal created by an agent:** When the proposal creator is an agent (actor `type=AGENT`), the audit log records the agent as the creating actor (e.g. "proposal created by Agent &lt;agentId&gt;"). This applies to **agent-originated** flows (e.g. RAG, connectors) where the agent attracts/imports proposals from existing systems.
+- **Proposal committed by a human, with optional "agent-assisted" context:** When review or apply is committed by a human, the human is the committing actor. If the client or Git integration supplies **agent-assisted** context (e.g. "agent-assisted by Cursor"), the audit log may record it as optional metadata—e.g. "committed by human X, agent-assisted by Y"—for compliance and transparency. This is **agent-assisted authoring**, not agent-originated creation.
 
 ## Threat model highlights
 

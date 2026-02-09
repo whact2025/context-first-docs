@@ -67,6 +67,39 @@ jobs:
         run: cargo test --manifest-path server/Cargo.toml
         timeout-minutes: 10
 
+  rust-server-coverage:
+    name: Rust server (coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: server/target
+          key: rust-server-coverage-${{ hashFiles('server/Cargo.lock', 'server/Cargo.toml') }}
+          restore-keys: rust-server-coverage-
+
+      - name: Generate coverage
+        run: |
+          cd server
+          cargo llvm-cov --lcov --output-path lcov.info
+          cargo llvm-cov report
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-server-coverage
+          path: server/lcov.info
+
   server-docker-api:
     name: Server Docker image + API tests
     runs-on: ubuntu-latest
@@ -95,5 +128,11 @@ jobs:
             sleep 1
           done
 
-      - name: Run API tests against server
+      - name: Run API smoke tests against server
         run: npm run test:server-api -- http://127.0.0.1:3080
+
+      - name: Run integration tests against server
+        env:
+          TRUTHTLAYER_SERVER_URL: http://127.0.0.1:3080
+          NODE_OPTIONS: --experimental-vm-modules
+        run: node node_modules/jest/bin/jest.js --testPathPattern=api-client.integration

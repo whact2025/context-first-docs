@@ -49,10 +49,15 @@ async function main() {
     checks.push({ name: 'GET /nodes', pass: false, detail: e.message });
   }
 
-  // GET /proposals
+  // GET /proposals (paginated: { proposals, total, limit, offset, hasMore })
   try {
-    const { ok } = await get('/proposals');
-    checks.push({ name: 'GET /proposals', pass: ok, detail: ok ? 200 : 'fail' });
+    const { ok, status, body } = await get('/proposals');
+    const hasProposals = Array.isArray(body?.proposals);
+    checks.push({
+      name: 'GET /proposals',
+      pass: ok && hasProposals,
+      detail: ok ? status : 'fail',
+    });
   } catch (e) {
     checks.push({ name: 'GET /proposals', pass: false, detail: e.message });
   }

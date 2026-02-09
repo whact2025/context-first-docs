@@ -53,6 +53,8 @@ Actions:
 - approve
 - reject
 
+**Multi-approval:** When multiple approvals are required, **one reject blocks** apply; all required reviewers must approve. Reviewers see existing reviews and comments before deciding (default). The proposal is the unit—no partial approval of operations. See [Review Mode (ACAL)](REVIEW_MODE.md) § Multi-approval.
+
 Reviews must be immutable after closure.
 
 ### 4) Apply flow (separate)

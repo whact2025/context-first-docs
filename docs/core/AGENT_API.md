@@ -6,8 +6,8 @@ This document defines the **safe agent contract**.
 
 1. Agents may read **Accepted** truth.
 2. Agents may create and update **Proposals** they own (or are delegated).
-3. Agents may not accept/reject reviews.
-4. Agents may not apply proposals.
+3. Agents may **not be the committing actor** for review or apply. A human may use an agent as a **tool** (e.g. to draft a review or prepare an apply), but the **commit** (submitReview, applyProposal) must be **on behalf of the human**—the audit log attributes review/apply to the human, not the agent.
+4. The server **rejects** submitReview and applyProposal when the actor is `type=AGENT`; only a human actor (or session acting on behalf of a human) may commit. So: agents assist; humans commit.
 
 ## Authentication
 
@@ -22,10 +22,10 @@ Agents authenticate as `type=AGENT` actors and are granted scoped permissions:
 The API uses standard REST semantics:
 
 - **GET** — Read (idempotent). Used for nodes, proposals, review history.
-- **POST** — Create or action. Used for creating proposals, submitting a review, applying a proposal, reset (dev).
+- **POST** — Create or action. Used for creating proposals, submitting a review, applying a proposal, withdrawing a proposal (author only), reset (dev).
 - **PATCH** — Partial update. Used for updating a proposal (metadata, operations, comments).
 
-Agents may use GET (read), POST `/proposals` (create), and PATCH `/proposals/:id` (update). They must not call POST on `/proposals/:id/review` or `/proposals/:id/apply`.
+Agents may use GET (read), POST `/proposals` (create), and PATCH `/proposals/:id` (update). When the **actor** is an agent, the server must reject POST `/proposals/:id/review`, POST `/proposals/:id/apply`, and POST `/proposals/:id/withdraw` so that review, apply, and withdraw are always committed **on behalf of a human**. (A human may use an agent to draft the review or prepare the apply, then commit with their own session.)
 
 ## Current HTTP API (Rust server)
 
@@ -44,12 +44,13 @@ The reference implementation (server/) exposes the following. Base URL is typica
 
 **Create and actions (POST)**
 
-| Method | Path                    | Description                                        |
-| ------ | ----------------------- | -------------------------------------------------- |
-| POST   | `/proposals`            | Create proposal. Body: Proposal JSON. Returns 201. |
-| POST   | `/proposals/:id/review` | Submit a review (human only). Body: Review JSON.   |
-| POST   | `/proposals/:id/apply`  | Apply proposal (human only). No body.              |
-| POST   | `/reset`                | Reset store (dev only). No body.                   |
+| Method | Path                      | Description                                                                                                                                                                               |
+| ------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/proposals`              | Create proposal. Body: Proposal JSON. Returns 201.                                                                                                                                        |
+| POST   | `/proposals/:id/review`   | Submit a review (human only). Body: Review JSON.                                                                                                                                          |
+| POST   | `/proposals/:id/apply`    | Apply proposal (human only). Optional body: `{ "appliedBy": "actorId" }` for audit; if omitted, server may use session or default. Proposal status → APPLIED; store AppliedMetadata (appliedAt, appliedBy, appliedFromProposalId, appliedToRevisionId, previousRevisionId). Idempotent: if already APPLIED, return 200 without re-applying. See § Applied state and idempotent apply. |
+| POST   | `/proposals/:id/withdraw` | Withdraw proposal (author only). No body. Allowed only from DRAFT, SUBMITTED, or CHANGES_REQUESTED; proposal status → WITHDRAWN. See [Review Mode](REVIEW_MODE.md) § Withdraw and reopen. |
+| POST   | `/reset`                  | Reset store (dev only). No body.                                                                                                                                                          |
 
 **Partial update (PATCH)**
 
@@ -57,7 +58,14 @@ The reference implementation (server/) exposes the following. Base URL is typica
 | ------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | PATCH  | `/proposals/:id` | Partially update a proposal. Body: JSON object with fields to update (e.g. `operations`, `comments`, `title`, `description`). |
 
-Agents may call: GET on all read paths; POST `/proposals`; PATCH `/proposals/:id`. Agents must not call POST `/proposals/:id/review` or POST `/proposals/:id/apply`.
+Agents may call: GET on all read paths; POST `/proposals`; PATCH `/proposals/:id`. Agents must not call POST `/proposals/:id/review`, POST `/proposals/:id/apply`, or POST `/proposals/:id/withdraw` (withdraw is author-only; server rejects when actor is `type=AGENT`).
+
+### Applied state and idempotent apply
+
+- **Proposal status APPLIED:** After a successful apply, the proposal’s status is **APPLIED** (terminal). UIs can distinguish **ACCEPTED** (approved, not yet applied) from **APPLIED** (changes committed to accepted truth).
+- **AppliedMetadata (required when APPLIED):** Every applied proposal must have `applied` set with: `appliedAt`, `appliedBy`, `appliedFromProposalId`, `appliedToRevisionId`, `previousRevisionId`; optionally `appliedFromReviewId`. See [Data Model Reference](../reference/DATA_MODEL_REFERENCE.md) AppliedMetadata, [Review Mode](REVIEW_MODE.md) § "Applied" metadata.
+- **Idempotent apply:** Applying the same proposal again (same proposalId) must **not** mutate the graph a second time. The server either returns **200** with no-op (already applied) or **409 Conflict** if the implementation treats re-apply as an error. Clients can rely on "apply once" semantics; UIs can disable the Apply action when status is already APPLIED.
+- **Double-apply prevention:** The server must reject or no-op apply when `proposal.status === APPLIED`; only proposals in status **ACCEPTED** may be applied (once).
 
 ## Safety features
 
@@ -67,6 +75,32 @@ Agents may call: GET on all read paths; POST `/proposals`; PATCH `/proposals/:id
 - **Depth & scope limits** on traversal
 - **Policy gates** on sensitive node types
 - **Provenance**: all agent-authored operations are attributed to the agent actor
+
+## Agent identity, audit, and two scenarios
+
+These concepts are distinct and must not be confused.
+
+### Agent identity and audit (attribution when the agent creates a proposal)
+
+Agents authenticate as `type=AGENT` with a **stable agent identity** (e.g. `agentId`, or deployment/process identifier) so the audit trail can record "proposal created by Agent X" and support compliance. Multiple agent instances can be namespaced per workspace or team; RBAC uses the same actor model (agent as principal for proposals it creates). See QUESTIONS.md question-034 (resolved).
+
+### Agent-assisted (authoring): human in the loop, tooling adds context
+
+**Agent-assisted** describes the case where a **human** is the committing actor and an IDE or tool (e.g. Cursor, Git-integrated workflow) helps **author** the change. The human commits; the agent does not appear as the principal in review/apply. Optional context can be supplied so the system knows the change was authored with agent assistance:
+
+- **Source of context:** Git (e.g. commit trailers, message), or the client when creating/updating a proposal (e.g. "agent-assisted by Cursor").
+- **Use:** Audit and compliance can record "committed by human X, agent-assisted by Y"; optional proposal metadata (e.g. `agentAssisted`, `agentAssistedBy`) supports filtering and policy.
+- **Principal:** Always the human. This is **not** the same as the proposal being created by an agent as principal.
+
+### Agent-originated (RAG / attracting proposals from existing systems)
+
+**Agent-originated** (or **agent-as-importer**) describes the case where an agent or integration is used to **attract or import** truth proposals **from existing systems**—e.g. RAG over external docs, connectors to Confluence/Notion, sync from other knowledge bases. The agent discovers or selects content from outside TruthLayer and creates (or suggests) proposals from that data.
+
+- **Flow:** Content is pulled from external systems; the agent (or a human acting on behalf of an integration) creates the proposal. The **creator** may be the agent (`createdBy` = agent actorId) or a human who triggered the import.
+- **Distinction:** This is about **origin** (content from existing systems) and **how** it entered TruthLayer (RAG, connector, sync), not "human wrote it with AI pair programming." Attribution and metadata may differ: e.g. `createdBy` = agent when the agent creates the proposal; optional fields like `source: "import"`, `importedFrom`, or `importedBy` for audit.
+- **Use case:** Attract truth proposals from existing systems into the governance workflow, rather than authoring proposals purely inside TruthLayer with agent assistance.
+
+Summary: **Agent-assisted** = human authors/commits, tooling adds "agent assisted" context for audit. **Agent-originated** = agent (or integration) attracts/imports proposals from existing systems; different flow and possibly different attribution (e.g. agent as creator).
 
 ## Agent posture: enforcement bias
 
@@ -145,7 +179,7 @@ The current Rust server implements a subset of NodeQuery via GET `/nodes` query 
 For in-process or SDK use, the same contract is exposed as a **ContextStore** interface. The reference implementation is the **Rust server** (server/), which exposes this contract over HTTP; the TypeScript client (src/api-client.ts) implements ContextStore against the server. See [Architecture](ARCHITECTURE.md) and server/README.md.
 
 - **Read**: `getNode(nodeId)`, `queryNodes(query)`, `getProposal(proposalId)`, `queryProposals(query)`, `getProposalComments(proposalId)`, `getReviewHistory(proposalId)`.
-- **Agent write**: `createProposal(proposal)`, `updateProposal(proposalId, updates)`, `addProposalComment(proposalId, comment)`. **Agents must not call**: `submitReview(review)`, `applyProposal(proposalId)`.
+- **Agent write**: `createProposal(proposal)`, `updateProposal(proposalId, updates)`, `addProposalComment(proposalId, comment)`. **Agents must not call**: `submitReview(review)`, `applyProposal(proposalId)`, `withdrawProposal(proposalId)` (withdraw is author-only; see [Review Mode](REVIEW_MODE.md) § Withdraw and reopen).
 - **Conflict**: `detectConflicts(proposalId)` → `{ conflicts, mergeable, needsResolution }`; `isProposalStale(proposalId)` → boolean; `mergeProposals(proposalIds)` → MergeResult (field-level merge).
 
 ## Traversal and reasoning APIs

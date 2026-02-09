@@ -59,6 +59,11 @@ export interface ContextStore {
   applyProposal(proposalId: string): Promise<void>;
 
   /**
+   * Withdraw an open proposal (author only). Status becomes withdrawn.
+   */
+  withdrawProposal(proposalId: string): Promise<void>;
+
+  /**
    * Create issues from an approved proposal.
    * Called automatically when a proposal is approved (if configured).
    */

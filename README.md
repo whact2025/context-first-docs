@@ -42,8 +42,11 @@ First-time local setup: `node scripts/install.js` or `npm run install:all`. [INS
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Install, build, test   | `npm install && npm run build && npm test`                                                                             |
 | Unit tests             | `npm test` or `npm run test:coverage`                                                                                  |
-| Server API smoke test  | `npm run test:server-api` (server must be running)                                                                     |
+| Integration tests      | `npm run test:integration` — starts the Rust server, runs tests, then stops it (in-memory store).                      |
+| Server API smoke test  | `npm run test:server-api` (server must be running). Uses real server (in-memory store).                                |
 | Ctx blocks in Markdown | `npm run install:ctx-extension` then reload the editor. [vscode-ctx-markdown/README.md](vscode-ctx-markdown/README.md) |
+
+The playground and the scripts above use the **real Rust server** with an **in-memory store** by default (`npm run server` → `cd server && cargo run`).
 
 Project context and planning: [CONTEXT.md](CONTEXT.md), [DECISIONS.md](DECISIONS.md), [PLAN.md](PLAN.md), [RISKS.md](RISKS.md), [QUESTIONS.md](QUESTIONS.md). [docs/appendix/SELF-REFERENCE.md](docs/appendix/SELF-REFERENCE.md).
 

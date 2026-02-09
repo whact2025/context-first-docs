@@ -35,17 +35,35 @@ Sets GitHub Actions secrets and variables for the Azure deploy workflow from you
 
 **File**: `test-server-api.mjs`
 
-Smoke-tests the server REST API (health, nodes, proposals). Use after starting the server (locally or in a container).
+Smoke-tests the server REST API (health, nodes, proposals) against the **real Rust server**. The server uses an **in-memory store** by default. Use after starting the server (locally or in a container).
 
 **Usage** (from repo root):
 
 ```bash
+# Terminal 1: start the server (in-memory store)
+npm run server
+
+# Terminal 2: run the smoke test
 npm run test:server-api
 # or with a custom base URL:
 node scripts/test-server-api.mjs http://localhost:3080
 ```
 
 CI runs this against the server running in a Docker container after building the server image.
+
+### Integration tests (TypeScript client vs real server)
+
+The TypeScript test suite includes **integration tests** that call the real Rust server (no mocks). The server uses the **in-memory store** by default.
+
+**Usage** (from repo root):
+
+```bash
+npm run test:integration
+```
+
+This **starts the Rust server automatically**, runs the integration tests in `tests/api-client.integration.test.ts`, then **stops the server**. No need to run the server in a separate terminal. The script is `scripts/run-integration-with-server.mjs`.
+
+Unit tests (`npm test`) do not start the server and use mocks.
 
 ---
 

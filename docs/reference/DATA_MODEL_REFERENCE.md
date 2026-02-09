@@ -94,7 +94,7 @@ Represents candidate changes against a base revision.
 - `workspaceId`
 - `proposalId: string`
 - `baseRevisionId: string`
-- `status: ProposalStatus`
+- `status: ProposalStatus` — one of `DRAFT` | `SUBMITTED` | `CHANGES_REQUESTED` | `ACCEPTED` | `REJECTED` | `WITHDRAWN` | `APPLIED`. Lifecycle and transitions: [Review Mode (ACAL)](core/REVIEW_MODE.md).
 - `title: string`
 - `description?: string`
 - `createdAt, createdBy`
@@ -102,6 +102,7 @@ Represents candidate changes against a base revision.
 - `operations: Operation[]`
 - `policyFindings?: PolicyFinding[]`
 - `applied?: AppliedMetadata` (present only when APPLIED)
+- **Optional (agent-assisted authoring):** `agentAssisted?: boolean`; `agentAssistedBy?: string` (e.g. "Cursor", or identifier from Git/client). Used when a **human** is the committing actor and tooling adds context that the change was authored with agent assistance. Not used for **agent-originated** proposals (where content was attracted/imported from existing systems via RAG or connectors); for those, `createdBy` may be the agent actorId and optional import metadata (e.g. `source: "import"`, `importedFrom`) may be defined elsewhere.
 
 #### Operation (patch-like)
 

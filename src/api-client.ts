@@ -32,6 +32,15 @@ import type { IssueCreationResult } from "./types/issues.js";
 
 const DEFAULT_BASE = "http://127.0.0.1:3080";
 
+/** Server response for GET /proposals (paginated). */
+interface ProposalListResponse {
+  proposals: Proposal[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 function getBase(): string {
   return typeof process !== "undefined" && process.env?.TRUTHTLAYER_SERVER_URL
     ? process.env.TRUTHTLAYER_SERVER_URL
@@ -101,14 +110,17 @@ export class RustServerClient {
   }
 
   async queryProposals(query: ProposalQuery): Promise<Proposal[]> {
-    const list = await fetchJson<Proposal[]>(`${this.base}/proposals`);
-    let out = list;
+    const params = new URLSearchParams();
+    if (query.limit != null) params.set("limit", String(query.limit));
+    if (query.offset != null) params.set("offset", String(query.offset));
+    const qs = params.toString();
+    const url = qs ? `${this.base}/proposals?${qs}` : `${this.base}/proposals`;
+    const result = await fetchJson<ProposalListResponse>(url);
+    let out = result.proposals;
     if (query.status?.length) {
       out = out.filter((p) => query.status!.includes(p.status));
     }
-    const limit = query.limit ?? 50;
-    const offset = query.offset ?? 0;
-    return out.slice(offset, offset + limit);
+    return out;
   }
 
   async createProposal(proposal: Proposal): Promise<void> {
@@ -132,10 +144,25 @@ export class RustServerClient {
     });
   }
 
-  async applyProposal(proposalId: string): Promise<void> {
+  async applyProposal(
+    proposalId: string,
+    options?: { appliedBy?: string }
+  ): Promise<void> {
+    const body =
+      options?.appliedBy != null
+        ? JSON.stringify({ appliedBy: options.appliedBy })
+        : undefined;
     await fetchJson(`${this.base}/proposals/${encodeURIComponent(proposalId)}/apply`, {
       method: "POST",
+      ...(body != null ? { body } : {}),
     });
+  }
+
+  async withdrawProposal(proposalId: string): Promise<void> {
+    await fetchJson(
+      `${this.base}/proposals/${encodeURIComponent(proposalId)}/withdraw`,
+      { method: "POST" }
+    );
   }
 
   async getReviewHistory(proposalId: string): Promise<Review[]> {

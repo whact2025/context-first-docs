@@ -16,16 +16,23 @@ This document tracks questions that need answers as the project evolves. Each qu
 
 ## Design blockers
 
-Open questions that block specific design or implementation decisions:
+Open questions that block specific design or implementation decisions. _(Resolved items are recorded in the question ctx blocks below and in the referenced docs.)_
 
-| Question         | Blocks                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **question-008** | Multi-approval workflow semantics (when approvers disagree) → REVIEW_MODE, UI_SPEC                                 |
-| **question-010** | Withdraw/reopen proposal lifecycle → REVIEW_MODE, proposal state machine                                           |
-| **question-034** | Agent attribution in audit log → SECURITY_GOVERNANCE, AGENT_API                                                    |
-| **question-035** | Guarantee agent never receives submitReview/applyProposal (enforcement) → AGENT_API safety section, tool allowlist |
+| Question              | Blocks                                                                                  |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| _(none at this time)_ | All previously listed design blockers (question-008, 010, 034, 035) have been resolved. |
 
-Resolving these will allow the referenced docs to be finalized where they depend on the answers.
+## Potential design blockers (reanalysis)
+
+Outstanding items that can block specific design or implementation. _(Resolved or addressed items are recorded in the question ctx blocks below and in the referenced docs.)_
+
+| Area                       | Blocker                                                                                                                                                                                                                     | Blocks                                                                     |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Issue creation**         | [**question-009**](#question-009) (issue templates: where stored, how versioned); [**question-025**](#question-025) (issues when proposal superseded/rolled back). question-006 resolved (explicit path, block on failure). | Finalizing issue-creation design and Phase 3 "issue creation on approval." |
+| **Agent abuse**            | [**question-018**](#question-018): Rate limiting / preventing agents from creating too many proposals.                                                                                                                      | Phase 4/5 agent API and production deployment.                             |
+| **Phase 5 – retrieval**    | [**question-029**](#question-029) (sensitivity labels: where they live, who sets them); [**question-031**](#question-031) (vector index: who triggers rebuild, staleness).                                                  | Prompt-leakage policy; Path A at scale.                                    |
+| **Phase 5 – export / LLM** | [**question-030**](#question-030) (fine-tuning export: accepted-only guarantee, export versioning for audit); [**question-036**](#question-036) (self-hosted vs vendor LLM, prompt-leakage policy).                         | Phase 5 Path B (fine-tuning); positioning and vendor-LLM path.             |
+| **Optional**               | [**question-021**](#question-021) (bulk approve/reject): blocks only if v1 UI/API requires bulk. [**question-011**](#question-011) (namespaces): deferred; becomes a blocker if namespace-scoped RBAC or query is added.    | Bulk operations in UI/API; namespace feature set.                          |
 
 ## Security & compliance (guardrail implementation)
 
@@ -293,16 +300,17 @@ status: resolved
 ```ctx
 type: question
 id: question-008
-status: open
+status: resolved
 ---
 **Question**: What happens in multi-approval workflows when approvers disagree?
 
-**Context**:
-- Some proposals require multiple approvals
-- What if one approver approves but another rejects?
-- Does rejection override approval?
-- Can approvers see each other's reviews before deciding?
-- How do you handle partial approval (some operations approved, others rejected)?
+**Answer**: Rejection wins. A proposal is applied only when all required reviewers have approved; any one reject blocks apply. The proposal is the unit of approval (no partial approval of operations). Reviewers see existing reviews and comments before submitting their own (default).
+
+**Resolution** (see `docs/core/REVIEW_MODE.md` § Multi-approval, `docs/core/UI_SPEC.md` § Review flow):
+- **Disagreement:** One reject ⇒ proposal is not applied. Approval requires all required reviewers to approve. No tie-breaking or majority rule.
+- **Proposal as unit:** The whole proposal is approved or rejected. There is no "partial approval" of individual operations. To accept only part, a reviewer rejects and the author (or someone) creates a new proposal with the desired subset.
+- **Visibility:** Reviewers see other reviewers' decisions and comments before submitting their own (default). Optional "blind" mode (reviews hidden until all submitted) may be supported later if required by policy.
+- **Audit:** Every review (approve/reject) is recorded with actor and timestamp; rejection reason is captured in comments or review payload.
 
 **Impact**: High - affects review workflow and conflict resolution
 ```
@@ -328,16 +336,17 @@ status: open
 ```ctx
 type: question
 id: question-010
-status: open
+status: resolved
 ---
 **Question**: Can proposals be withdrawn or reopened after rejection?
 
-**Context**:
-- Proposal status includes "withdrawn" but workflow unclear
-- Can author withdraw their own proposal?
-- Can rejected proposals be reopened with changes?
-- Should withdrawn/rejected proposals be editable?
-- What's the lifecycle of a proposal?
+**Answer**: Yes, authors may withdraw; rejected and withdrawn proposals are terminal and are not reopened. To iterate, create a new proposal.
+
+**Resolution** (see `docs/core/REVIEW_MODE.md` § Proposal status, § Proposal status transitions, § Withdraw and reopen, § Actions and permissions):
+- **Withdraw:** The **author** may withdraw their own proposal from **DRAFT**, **SUBMITTED**, or **CHANGES_REQUESTED**. Status becomes **WITHDRAWN** (terminal); preserved for audit.
+- **Reopen:** **No reopen.** **REJECTED** and **WITHDRAWN** are terminal. To iterate, create a **new proposal** (optionally referencing the old one).
+- **Editability:** Proposals are editable in **DRAFT** and **CHANGES_REQUESTED**; after REJECTED, WITHDRAWN, or APPLIED they are immutable except for comments.
+- **Lifecycle:** DRAFT → SUBMITTED → CHANGES_REQUESTED | ACCEPTED | REJECTED | WITHDRAWN; ACCEPTED → APPLIED. Withdraw allowed from DRAFT, SUBMITTED, CHANGES_REQUESTED.
 
 **Impact**: Medium - affects proposal management
 ```
@@ -807,14 +816,15 @@ status: open
 ```ctx
 type: question
 id: question-034
-status: open
+status: resolved
 ---
 **Question**: How is **The Agent** (we build it) attributed in the audit log when it creates a proposal?
 
-**Context**:
-- SECURITY_GOVERNANCE says every action is attributed to an Actor; agents authenticate as `type=AGENT` with least privilege.
-- Need a stable agent identity (e.g. agentId, deploymentId) so audit trail shows "proposal created by Agent X" and supports compliance.
-- Multiple agent instances (e.g. per workspace or per team)? How do we namespace or identify them in audit and RBAC?
+**Answer**: Use a stable agent identity (e.g. agentId, deployment/process identifier); audit records "proposal created by Agent &lt;agentId&gt;". Multiple agent instances can be namespaced per workspace or team; RBAC uses the same actor model. Optionally, when a **human** commits and the client or Git supplies "agent-assisted" context, the audit may record "committed by human X, agent-assisted by Y" for transparency.
+
+**Resolution** (see `docs/core/AGENT_API.md` § Agent identity, audit, and two scenarios; `docs/reference/SECURITY_GOVERNANCE.md` § Audit logging; `docs/reference/DATA_MODEL_REFERENCE.md` Proposal optional fields):
+- **Agent as creator:** When the agent creates a proposal, `createdBy` is the agent actorId; audit shows "proposal created by Agent X". Applies to **agent-originated** flows (RAG, connectors attracting proposals from existing systems).
+- **Agent-assisted (authoring):** When a human commits (review/apply), the human is the committing actor. Optional "agent-assisted" context from Git or client (e.g. "agent-assisted by Cursor") can be recorded as audit metadata and as optional proposal fields (`agentAssisted`, `agentAssistedBy`). This is distinct from agent-originated: agent-assisted = human authors/commits with tooling context; agent-originated = agent attracts/imports proposals from existing systems.
 
 **Impact**: Medium - affects audit and compliance (guardrails)
 ```
@@ -822,15 +832,16 @@ status: open
 ```ctx
 type: question
 id: question-035
-status: open
+status: resolved
 ---
 **Question**: How do we guarantee the agent never receives submitReview or applyProposal as tools?
 
-**Context**:
-- The agent is **human-directed**: it receives explicit human requests and acts accordingly (e.g. "draft a proposal for X", "find decisions about Y"). It can read truth and create/update proposals in response to those requests.
-- The agent must **never** have submitReview or applyProposal as tools—ratification stays with humans in the governance UI, even when a human asks the agent to "help get this approved" (the human must perform review/apply themselves).
-- Is enforcement purely by API (agent is never given those endpoints) or do we need runtime checks (reject if actor type=AGENT)?
-- Should the agent-facing API be a strict subset of the full store API with those methods omitted?
+**Answer**: The agent **may be used as a tool** for review and apply (e.g. draft review text, prepare apply payload), but the **commit must be on behalf of the human**. The **committing actor** for submitReview and applyProposal is always a human; the audit log attributes review/apply to that human, not to the agent. So: agents may assist; the human commits.
+
+**Resolution** (see `docs/core/AGENT_API.md` § Non-negotiable rules, Safety; `docs/reference/SECURITY_GOVERNANCE.md`):
+- **Agent as tool:** A human may use an agent to draft a review (approve/reject + comment) or to prepare an apply. The **commit** (the actual submitReview or applyProposal call) is made **on behalf of the human**—e.g. human approves in a UI that used the agent to prefill the review, or human triggers apply in a flow where the agent prepared the context. The audit log shows the **human** as the actor.
+- **Enforcement:** The server **rejects** submitReview and applyProposal when the **actor** is `type=AGENT`. Only a human actor (or a session acting on behalf of a human) may commit review/apply. So the agent-facing API omits or denies those operations when the principal is the agent; when the principal is a human, the human may use any tool (including an agent) to draft, and then the human's session commits.
+- **Invariant:** Review/apply authority is held by humans; the committing actor for review/apply is always a human. Agents assist; they do not commit as principal.
 
 **Impact**: High - affects security and guardrails
 ```
