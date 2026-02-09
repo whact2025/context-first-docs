@@ -3,6 +3,7 @@ import http from "node:http";
 import MarkdownIt from "markdown-it";
 
 import { createRustServerClient } from "../api-client.js";
+import { initTelemetry } from "../telemetry.js";
 import type { ContextStore } from "../types/context-store.js";
 import { projectToMarkdown } from "../markdown/projection.js";
 import { ctxRenderPlugin } from "../markdown/ctx-render-plugin.js";
@@ -2446,8 +2447,10 @@ const server = http.createServer(async (req, res) => {
 });
 
 const port = Number(process.env.PORT || 4317);
-server.listen(port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Scenario runner listening on http://localhost:${port}`);
+initTelemetry().then(() => {
+  server.listen(port, () => {
+    // eslint-disable-next-line no-console
+    console.log(`Scenario runner listening on http://localhost:${port}`);
+  });
 });
 

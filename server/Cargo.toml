@@ -15,8 +15,15 @@ tower-http = { version = "0.5", features = ["cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = { version = "0.4", features = ["serde"] }
+# OpenTelemetry: correlated tracing (client → server)
+opentelemetry = "0.31"
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "metrics", "http-proto", "reqwest-client"] }
+opentelemetry-stdout = { version = "0.31", default-features = false, features = ["trace", "metrics"] }
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+tracing-opentelemetry = "0.26"
+tower = { version = "0.4", features = ["util"] }
 
 [dev-dependencies]
-tower = { version = "0.4", features = ["util"] }
 http-body-util = "0.1"
 http = "1"

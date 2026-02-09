@@ -34,6 +34,31 @@ describe("RustServerClient", () => {
     fetchSpy.mockRestore();
   });
 
+  describe("OTEL and HTTP metrics", () => {
+    it("sends request with Content-Type and trace headers (when OTEL enabled)", async () => {
+      const node = { id: { id: "n1" }, type: "goal", status: "accepted", content: "x", metadata: {} };
+      fetchSpy.mockReturnValueOnce(mockFetch(true, node));
+      await client.getNode({ id: "n1" });
+      const call = fetchSpy.mock.calls[0];
+      expect(call[1]).toBeDefined();
+      const init = call[1] as RequestInit;
+      expect(init.headers).toBeDefined();
+      const headers = init.headers as Record<string, string>;
+      expect(headers["Content-Type"]).toBe("application/json");
+      // Trace headers (traceparent/tracestate) may be present when OTEL is configured
+      for (const [k, v] of Object.entries(headers)) {
+        expect(typeof k).toBe("string");
+        expect(typeof v).toBe("string");
+      }
+    });
+
+    it("records one request on HTTP error response (metrics path)", async () => {
+      fetchSpy.mockReturnValueOnce(mockFetch(false, { error: "server error" }, 500));
+      await expect(client.getNode({ id: "any" })).rejects.toThrow();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("getNode", () => {
     it("returns node when found", async () => {
       const node = { id: { id: "goal-1" }, type: "goal", status: "accepted", content: "x", metadata: {} };

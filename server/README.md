@@ -21,6 +21,8 @@ Optional: pass config root as first argument, or set env:
 - `TRUTHTLAYER_STORAGE` — `memory` | `file` | `mongodb` (default: `memory`)
 - `TRUTHTLAYER_LISTEN` — listen address (default: `127.0.0.1:3080`)
 - `TRUTHTLAYER_MONGO_URI` — MongoDB URI when backend is `mongodb`
+- `OTEL_EXPORTER_OTLP_ENDPOINT` — when set, enable OTLP trace export and W3C trace context propagation (client→server). See [OTEL_LOGGING.md](../docs/OTEL_LOGGING.md) (Azure Monitor, Grafana, etc.).
+- `OTEL_CONSOLE_SPANS` — when set to `true` or `1`, also print spans to stdout (local dev). Can be used with or without an OTLP endpoint.
 
 ## Config root layout
 

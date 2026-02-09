@@ -21,6 +21,8 @@ pub struct ServerConfig {
     pub rbac_provider: Option<String>,
     /// HTTP listen address.
     pub listen_addr: String,
+    /// Optional OTLP trace exporter endpoint (e.g. https://ingestion.in.applicationinsights.azure.com/v1/traces or Grafana OTLP). When set, server exports traces and continues client trace context.
+    pub otel_exporter_otlp_endpoint: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -32,6 +34,7 @@ impl Default for ServerConfig {
             mongo_uri: None,
             rbac_provider: None,
             listen_addr: "127.0.0.1:3080".to_string(),
+            otel_exporter_otlp_endpoint: None,
         }
     }
 }
@@ -111,6 +114,12 @@ pub fn load_config(config_root_override: Option<PathBuf>) -> ServerConfig {
     }
     if let Ok(v) = std::env::var("TRUTHTLAYER_MONGO_URI") {
         cfg.mongo_uri = Some(v);
+    }
+    if let Ok(v) = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT") {
+        let s = v.trim().to_string();
+        if !s.is_empty() {
+            cfg.otel_exporter_otlp_endpoint = Some(s);
+        }
     }
 
     cfg

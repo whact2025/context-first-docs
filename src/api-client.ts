@@ -3,8 +3,13 @@
  * Implements ContextStore by calling the server API.
  * Verbs: GET (read), POST (create, actions), PATCH (partial update).
  * Requires the server to be running (e.g. cd server && cargo run).
+ *
+ * When OTEL is enabled, each request is wrapped in a span (HTTP {method}) and
+ * W3C trace context is injected so the server continues the same trace.
  */
 
+import { trace, context, metrics } from "@opentelemetry/api";
+import { injectTraceHeaders } from "./telemetry.js";
 import type {
   AnyNode,
   NodeId,
@@ -47,16 +52,63 @@ function getBase(): string {
     : DEFAULT_BASE;
 }
 
+const tracer = trace.getTracer("truthlayer-client", "1.0.0");
+const meter = metrics.getMeter("truthlayer-client", "1.0.0");
+const clientRequestCount = meter.createCounter("http.client.request.count", {
+  description: "Total HTTP client requests",
+});
+const clientRequestDuration = meter.createHistogram(
+  "http.client.request.duration",
+  { description: "HTTP client request duration", unit: "s" }
+);
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+  const method = (init?.method ?? "GET").toUpperCase();
+  const span = tracer.startSpan(`HTTP ${method}`, {
+    attributes: {
+      "http.method": method,
+      "http.url": url,
+    },
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error((err as { error?: string }).error ?? res.statusText);
+  const start = performance.now();
+  let recorded = false;
+  function recordMetrics(statusCode: number): void {
+    if (recorded) return;
+    recorded = true;
+    const durationSec = (performance.now() - start) / 1000;
+    clientRequestCount.add(1, {
+      "http.method": method,
+      "http.status_code": statusCode,
+    });
+    clientRequestDuration.record(durationSec, {
+      "http.method": method,
+      "http.status_code": statusCode,
+    });
   }
-  return res.json() as Promise<T>;
+  try {
+    return await context.with(trace.setSpan(context.active(), span), async () => {
+      const traceHeaders = await injectTraceHeaders();
+      const res = await fetch(url, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          ...traceHeaders,
+          ...init?.headers,
+        },
+      });
+      recordMetrics(res.status);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error((err as { error?: string }).error ?? res.statusText);
+      }
+      return res.json() as Promise<T>;
+    });
+  } catch (e) {
+    recordMetrics(0);
+    throw e;
+  } finally {
+    span.end();
+  }
 }
 
 function nodeKey(id: NodeId): string {
