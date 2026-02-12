@@ -116,7 +116,7 @@ Represents candidate changes against a base revision.
 - `workspaceId`
 - `proposalId: string`
 - `baseRevisionId: string`
-- `status: ProposalStatus` — one of `DRAFT` | `SUBMITTED` | `CHANGES_REQUESTED` | `ACCEPTED` | `REJECTED` | `WITHDRAWN` | `APPLIED`. Lifecycle and transitions: [Review Mode (ACAL)](core/REVIEW_MODE.md).
+- `status: ProposalStatus` — one of `DRAFT` | `SUBMITTED` | `CHANGES_REQUESTED` | `ACCEPTED` | `REJECTED` | `WITHDRAWN` | `APPLIED`. Lifecycle and transitions: [Review Mode (ACAL)](../core/REVIEW_MODE.md).
 - `title: string`
 - `description?: string`
 - `createdAt, createdBy`

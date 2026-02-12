@@ -33,6 +33,18 @@ See [server/README.md](../server/README.md) for configuration and API endpoints.
 
 ---
 
+## Audience briefs
+
+Higher-level documents for specific audiences — start here before diving into the technical narrative.
+
+| Doc | Audience | Focus |
+| --- | -------- | ----- |
+| [Investor Brief](INVESTOR_BRIEF.md) | Investors, advisors | Market opportunity, differentiators, current state, vision |
+| [Customer Overview](CUSTOMER_OVERVIEW.md) | Enterprise buyers, architects, security teams | Value proposition, use cases, security, deployment |
+| [Collaborator Guide](COLLABORATOR_GUIDE.md) | Contributors, partners, evaluators | Architecture, getting started, open areas, development workflow |
+
+---
+
 ## Core narrative (start here)
 
 | Doc                                       | Purpose                                                                                     |
@@ -94,6 +106,9 @@ All APIs and stored objects include **workspaceId**. A workspace is the unit of:
 
 ## Rule of thumb
 
+- **I'm evaluating an investment or partnership** -> [Investor Brief](INVESTOR_BRIEF.md).
+- **I'm evaluating this for my organization** -> [Customer Overview](CUSTOMER_OVERVIEW.md).
+- **I want to contribute or integrate** -> [Collaborator Guide](COLLABORATOR_GUIDE.md).
 - **What is this and why should I care?** -> Core narrative above.
 - **How would we implement this?** -> Engineering.
 - **What else could we do later?** -> Appendix.

@@ -2,7 +2,7 @@
 
 This is the authoritative enterprise security model for TruthLayer, a **governance-first truth system** (**governed truth, guarded AI**) that happens to use AI: humans **ratify** proposals (review and apply); **guardrails that apply to AI**—RBAC, policy hooks, audit logging—enforce security and compliance. Review and apply are **committed on behalf of a human** (the human is the actor in the audit); agents may assist as a tool (e.g. draft review, prepare apply) but cannot be the committing actor.
 
-**Related:** [Privacy and Data Protection](PRIVACY_AND_DATA_PROTECTION.md) — Controller/Processor, data subject rights, retention, subprocessor/LLM egress, security controls checklist for procurement and DPIA. **Agent posture:** Agents follow an **enforcement bias** (conservative, governance-first; personal data minimize/anonymize/escalate; no external egress without explicit policy; trade secret awareness; immutability-aware writing; when in doubt propose and ask). See [Agent API](core/AGENT_API.md) § Agent posture: enforcement bias.
+**Related:** [Privacy and Data Protection](PRIVACY_AND_DATA_PROTECTION.md) — Controller/Processor, data subject rights, retention, subprocessor/LLM egress, security controls checklist for procurement and DPIA. **Agent posture:** Agents follow an **enforcement bias** (conservative, governance-first; personal data minimize/anonymize/escalate; no external egress without explicit policy; trade secret awareness; immutability-aware writing; when in doubt propose and ask). See [Agent API](../core/AGENT_API.md) § Agent posture: enforcement bias.
 
 ## Server enforcement (implemented)
 
@@ -146,7 +146,7 @@ If personal data is detected:
 - **Avoid embedding personal data in accepted truth** unless explicitly required by policy.
 - **Flag the proposal and recommend heightened review** so a human can confirm necessity and retention before apply.
 
-**Agent hint:** Implementers and agents should follow the same rules; see [Agent API](core/AGENT_API.md) § Agent hint: personal data.
+**Agent hint:** Implementers and agents should follow the same rules; see [Agent API](../core/AGENT_API.md) § Agent hint: personal data.
 
 **Why this matters:** This pushes GDPR data minimization upstream into agent behavior, not just storage policy.
 

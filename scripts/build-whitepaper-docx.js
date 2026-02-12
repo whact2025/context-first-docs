@@ -8,13 +8,14 @@
  * - Writes one intermediate .md and one .docx per source document, each with a table of contents (--toc)
  * - Generates docs-index.docx with links to all documents
  *
- * Usage: node scripts/build-whitepaper-docx.js [--skip-pandoc] [--skip-mermaid] [--scale N] [--single-docx]
+ * Usage: node scripts/build-whitepaper-docx.js [--skip-pandoc] [--skip-mermaid] [--scale N] [--single-docx] [--watermark TEXT]
  *   --skip-pandoc   Only render Mermaid to PNG and write .md files; do not run pandoc
  *   --skip-mermaid  Skip Mermaid rendering (leave diagram code in .md); use when Chrome/Puppeteer unavailable
  *   --scale N       PNG scale factor (default: 2 for high resolution)
  *   --single-docx   Also build one combined DOCX (truthlayer-docs.docx) with internal links to sections
+ *   --watermark TEXT Add a diagonal text watermark (e.g., CONFIDENTIAL) to every generated DOCX
  *
- * Requirements: npm install (optionalDep @mermaid-js/mermaid-cli + Puppeteer), Pandoc on PATH for DOCX output
+ * Requirements: npm install (optionalDep @mermaid-js/mermaid-cli + Puppeteer, adm-zip for --watermark), Pandoc on PATH for DOCX output
  */
 
 import { execFile, execSync } from "node:child_process";
@@ -29,8 +30,15 @@ const docsDir = path.join(repoRoot, "docs");
 const defaultOutputDir = path.join(repoRoot, "dist", "whitepaper-docx");
 const isWindows = process.platform === "win32";
 
-/** Document list: whitepaper first, then appendix, core, reference, scenarios, engineering. Paths relative to docs/. */
+/** GitHub base URL for links that escape the docs/ folder (points to main branch). */
+const GITHUB_BLOB_BASE = "https://github.com/whact2025/context-first-docs/blob/main";
+
+/** Document list: README (entry point), audience briefs, then whitepaper, appendix, core, reference, scenarios, engineering. Paths relative to docs/. */
 const DOC_LIST = [
+  { file: "README.md", prefix: "idx", title: "TruthLayer Docs — Start Here" },
+  { file: "INVESTOR_BRIEF.md", prefix: "inv", title: "Investor Brief" },
+  { file: "CUSTOMER_OVERVIEW.md", prefix: "cust", title: "Customer Overview" },
+  { file: "COLLABORATOR_GUIDE.md", prefix: "collab", title: "Collaborator Guide" },
   { file: "WHITEPAPER.md", prefix: "wp", title: "Whitepaper" },
   { file: "WHITEPAPER_APPENDIX.md", prefix: "app", title: "Whitepaper Appendix" },
   { file: "core/ARCHITECTURE.md", prefix: "arch", title: "Architecture" },
@@ -51,11 +59,12 @@ const DOC_LIST = [
   { file: "scenarios/HELLO_WORLD_SCENARIO.md", prefix: "hello", title: "Hello World Scenario" },
   { file: "scenarios/CONFLICT_AND_MERGE_SCENARIO.md", prefix: "conflict", title: "Conflict and Merge Scenario" },
   { file: "scenarios/BUSINESS_POLICY_SCENARIO.md", prefix: "biz", title: "Business Policy Scenario" },
+  { file: "OTEL_LOGGING.md", prefix: "otel", title: "OpenTelemetry (OTEL) Logging" },
   { file: "engineering/storage/STORAGE_ARCHITECTURE.md", prefix: "storage", title: "Storage Architecture" },
   { file: "engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md", prefix: "impl", title: "Storage Implementation Plan" },
 ];
 
-const MERMAID_BLOCK_RE = /```mermaid\n([\s\S]*?)```/g;
+const MERMAID_BLOCK_RE = /```mermaid\r?\n([\s\S]*?)```/g;
 
 /** Map: source .md path (normalized) -> { docxName, title, prefix }. Used for index and for link rewriting. */
 function buildMdToDocxMap() {
@@ -112,6 +121,9 @@ function resolveLinkToDocsPath(currentFile, href) {
 function rewriteCrossDocLinks(content, currentFile, mdToDocx) {
   const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
   return content.replace(LINK_RE, (match, label, href) => {
+    // Skip external URLs and anchors
+    if (/^https?:\/\/|^mailto:|^#/.test(href)) return match;
+
     const hashIndex = href.indexOf("#");
     const anchor = hashIndex >= 0 ? href.slice(hashIndex) : "";
     let resolved = resolveLinkToDocsPath(currentFile, href);
@@ -122,8 +134,19 @@ function rewriteCrossDocLinks(content, currentFile, mdToDocx) {
       info = mdToDocx.get(labelAsPath);
       if (info) resolved = labelAsPath;
     }
-    if (!info) return match;
-    return `[${info.title}](${info.docxName}${anchor})`;
+    if (info) return `[${info.title}](${info.docxName}${anchor})`;
+
+    // External reference (escapes docs/ folder) — rewrite to GitHub main branch URL
+    const pathPart = hashIndex >= 0 ? href.slice(0, hashIndex) : href;
+    if (pathPart && /^\.\.[\\/]/.test(pathPart)) {
+      const currentDir = path.dirname(currentFile); // relative to docs/
+      const resolvedFromDocs = path.normalize(path.join(currentDir, pathPart));
+      // resolvedFromDocs is relative to docs/, strip leading ".." to get repo-root-relative path
+      const repoRelative = normalizeDocsPath(resolvedFromDocs).replace(/^(\.\.\/)+/, "");
+      return `[${label}](${GITHUB_BLOB_BASE}/${repoRelative}${anchor})`;
+    }
+
+    return match;
   });
 }
 
@@ -165,6 +188,7 @@ function parseArgs() {
   let skipMermaid = false;
   let scale = 2;
   let singleDocx = false;
+  let watermarkText = null;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--skip-pandoc") skipPandoc = true;
     if (args[i] === "--skip-mermaid") skipMermaid = true;
@@ -173,8 +197,138 @@ function parseArgs() {
       scale = Math.max(1, parseInt(args[i + 1], 10) || 2);
       i++;
     }
+    if (args[i] === "--watermark" && args[i + 1] != null) {
+      watermarkText = args[i + 1];
+      i++;
+    }
   }
-  return { skipPandoc, skipMermaid, scale, singleDocx };
+  return { skipPandoc, skipMermaid, scale, singleDocx, watermarkText };
+}
+
+/* ── Watermark injection ────────────────────────────────────────────── */
+
+function escapeXml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Build OOXML for a header part containing a diagonal VML text watermark.
+ * Uses the standard WordArt (shapetype 136) approach that Word, LibreOffice, and Google Docs all render.
+ */
+function buildWatermarkHeaderXml(text) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+       xmlns:o="urn:schemas-microsoft-com:office:office"
+       xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+       xmlns:v="urn:schemas-microsoft-com:vml"
+       xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+       xmlns:w10="urn:schemas-microsoft-com:office:word"
+       xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
+  <w:p>
+    <w:pPr><w:pStyle w:val="Header"/></w:pPr>
+    <w:r>
+      <w:rPr><w:noProof/></w:rPr>
+      <w:pict>
+        <v:shapetype id="_x0000_t136" coordsize="21600,21600" o:spt="136" adj="10800"
+                     path="m@7,l@8,m@5,21600l@6,21600e">
+          <v:formulas>
+            <v:f eqn="sum #0 0 10800"/>
+            <v:f eqn="prod #0 2 1"/>
+            <v:f eqn="sum 21600 0 @1"/>
+            <v:f eqn="sum 0 0 @2"/>
+            <v:f eqn="sum 21600 0 @3"/>
+            <v:f eqn="if @0 @3 0"/>
+            <v:f eqn="if @0 21600 @1"/>
+            <v:f eqn="if @0 0 @2"/>
+            <v:f eqn="if @0 @4 21600"/>
+            <v:f eqn="mid @5 @6"/>
+            <v:f eqn="mid @8 @5"/>
+            <v:f eqn="mid @7 @8"/>
+            <v:f eqn="mid @6 @7"/>
+            <v:f eqn="sum @6 0 @5"/>
+          </v:formulas>
+          <v:path textpathok="t" o:connecttype="custom"
+                  o:connectlocs="@9,0;@10,10800;@11,21600;@12,10800"
+                  o:connectangles="270,180,90,0"/>
+          <v:textpath on="t" fitshape="t"/>
+          <v:handles>
+            <v:h position="#0,bottomRight" xrange="6629,14971"/>
+          </v:handles>
+          <o:lock v:ext="edit" text="t" shapetype="t"/>
+        </v:shapetype>
+        <v:shape id="PowerPlusWaterMarkObject" o:spid="_x0000_s2049"
+                 type="#_x0000_t136"
+                 style="position:absolute;margin-left:0;margin-top:0;width:527.85pt;height:131.95pt;rotation:315;z-index:-251658752;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin"
+                 o:allowincell="f" fillcolor="silver" stroked="f">
+          <v:fill opacity=".5"/>
+          <v:textpath style="font-family:&quot;Calibri&quot;;font-size:1pt" string="${escapeXml(text)}"/>
+        </v:shape>
+      </w:pict>
+    </w:r>
+  </w:p>
+</w:hdr>`;
+}
+
+/**
+ * Inject a diagonal text watermark into an existing DOCX file (in-place).
+ * Creates a new header part with the VML watermark shape, wires it into
+ * [Content_Types].xml, word/_rels/document.xml.rels, and every <w:sectPr>
+ * in word/document.xml.
+ */
+async function addWatermarkToDocx(docxPath, text) {
+  const AdmZip = (await import("adm-zip")).default;
+  const zip = new AdmZip(docxPath);
+
+  // Pick a header filename that doesn't collide with existing ones
+  let headerNum = 1;
+  while (zip.getEntry(`word/header${headerNum}.xml`)) headerNum++;
+  const headerFile = `header${headerNum}.xml`;
+  const headerPartPath = `word/${headerFile}`;
+
+  // 1. Add watermark header part
+  zip.addFile(headerPartPath, Buffer.from(buildWatermarkHeaderXml(text), "utf8"));
+
+  // 2. Update [Content_Types].xml
+  const ctEntry = zip.getEntry("[Content_Types].xml");
+  let ct = ctEntry.getData().toString("utf8");
+  if (!ct.includes(headerPartPath)) {
+    ct = ct.replace(
+      "</Types>",
+      `<Override PartName="/${headerPartPath}" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>\n</Types>`
+    );
+    zip.updateFile("[Content_Types].xml", Buffer.from(ct, "utf8"));
+  }
+
+  // 3. Add relationship in word/_rels/document.xml.rels
+  const relsPath = "word/_rels/document.xml.rels";
+  const relsEntry = zip.getEntry(relsPath);
+  let rels = relsEntry.getData().toString("utf8");
+  const rId = `rIdWatermark`;
+  if (!rels.includes(rId)) {
+    rels = rels.replace(
+      "</Relationships>",
+      `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="${headerFile}"/>\n</Relationships>`
+    );
+    zip.updateFile(relsPath, Buffer.from(rels, "utf8"));
+  }
+
+  // 4. Wire the header into every <w:sectPr> in document.xml
+  const docEntry = zip.getEntry("word/document.xml");
+  let doc = docEntry.getData().toString("utf8");
+
+  // Remove any existing default headerReference so ours takes precedence
+  doc = doc.replace(/<w:headerReference\s+w:type="default"[^/]*\/>/g, "");
+
+  // Insert our headerReference right after each <w:sectPr ...>
+  doc = doc.replace(
+    /(<w:sectPr[^>]*>)/g,
+    `$1<w:headerReference w:type="default" r:id="${rId}"/>`
+  );
+  zip.updateFile("word/document.xml", Buffer.from(doc, "utf8"));
+
+  // 5. Write the modified DOCX back
+  zip.writeZip(docxPath);
 }
 
 function exec(cmd, args, cwd) {
@@ -223,7 +377,7 @@ function slugFromFile(file) {
 }
 
 async function main() {
-  const { skipPandoc, skipMermaid, scale, singleDocx } = parseArgs();
+  const { skipPandoc, skipMermaid, scale, singleDocx, watermarkText } = parseArgs();
   const outputDir = defaultOutputDir;
 
   await mkdir(outputDir, { recursive: true });
@@ -274,7 +428,12 @@ async function main() {
     if (!skipPandoc) {
       try {
         await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", mdName, "-o", docxName], outputDir);
-        console.log(`Wrote ${docxPath}`);
+        if (watermarkText) {
+          await addWatermarkToDocx(docxPath, watermarkText);
+          console.log(`Wrote ${docxPath} (watermark: ${watermarkText})`);
+        } else {
+          console.log(`Wrote ${docxPath}`);
+        }
       } catch (e) {
         console.error(`Pandoc failed for ${file}: ${e.message}`);
       }
@@ -289,7 +448,12 @@ async function main() {
     console.log(`Wrote ${singleMdPath}`);
     try {
       await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", "--toc-depth=3", "truthlayer-docs.md", "-o", "truthlayer-docs.docx"], outputDir);
-      console.log(`Wrote ${singleDocxPath}`);
+      if (watermarkText) {
+        await addWatermarkToDocx(singleDocxPath, watermarkText);
+        console.log(`Wrote ${singleDocxPath} (watermark: ${watermarkText})`);
+      } else {
+        console.log(`Wrote ${singleDocxPath}`);
+      }
     } catch (e) {
       console.error(`Pandoc failed for single DOCX: ${e.message}`);
     }
@@ -312,7 +476,12 @@ async function main() {
     await writeFile(indexMdPath, indexMd, "utf8");
     try {
       await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", "docs-index.md", "-o", "docs-index.docx"], outputDir);
-      console.log(`Wrote ${indexDocxPath}`);
+      if (watermarkText) {
+        await addWatermarkToDocx(indexDocxPath, watermarkText);
+        console.log(`Wrote ${indexDocxPath} (watermark: ${watermarkText})`);
+      } else {
+        console.log(`Wrote ${indexDocxPath}`);
+      }
     } catch (e) {
       console.error(`Pandoc failed for index: ${e.message}`);
     }
