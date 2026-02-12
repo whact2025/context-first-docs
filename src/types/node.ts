@@ -83,7 +83,33 @@ export interface NodeMetadata {
   referencedInCommits?: string[];
   /** Version number for optimistic locking (increments on each change) */
   version: number;
+  /** Sensitivity classification for governance (default: "internal"). */
+  sensitivity?: Sensitivity;
+  /** SHA-256 hash of node content at apply time (IP fingerprinting). */
+  contentHash?: string;
+  /** Source attribution for provenance tracking. */
+  sourceAttribution?: SourceAttribution;
+  /** IP classification for governance. */
+  ipClassification?: IpClassification;
+  /** License identifier for content (e.g. "proprietary", "CC-BY-4.0"). */
+  license?: string;
 }
+
+// --- Governance types ---
+
+/** Sensitivity levels for content classification (ordered low→high). */
+export type Sensitivity = "public" | "internal" | "confidential" | "restricted";
+
+/** Source attribution for provenance tracking. */
+export type SourceAttribution = "human-authored" | "agent-generated" | "imported" | "derived";
+
+/** IP classification for governance. */
+export type IpClassification =
+  | "trade-secret"
+  | "patent-pending"
+  | "proprietary"
+  | "internal"
+  | "open";
 
 /**
  * Base interface for all context nodes.

@@ -1,0 +1,23 @@
+{
+  "rules": [
+    {
+      "type": "min_approvals",
+      "node_types": [],
+      "min": 1
+    },
+    {
+      "type": "agent_restriction",
+      "blocked_actions": ["apply", "review"]
+    },
+    {
+      "type": "agent_proposal_limit",
+      "max_operations": 10,
+      "max_content_length": 50000
+    },
+    {
+      "type": "egress_control",
+      "max_sensitivity": "internal",
+      "destinations": []
+    }
+  ]
+}

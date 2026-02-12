@@ -53,6 +53,28 @@ Recommended common fields:
 - `confidence?: "LOW"|"MEDIUM"|"HIGH"`
 - `sourceRefs?: SourceRef[]`
 
+#### Governance metadata (implemented)
+
+Nodes carry governance metadata for sensitivity classification and IP protection:
+
+```
+  Sensitivity levels (low → high)
+  ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌────────────┐
+  │  public   │  │ internal │  │ confidential │  │ restricted │
+  │           │  │ (default)│  │              │  │            │
+  └──────────┘  └──────────┘  └──────────────┘  └────────────┘
+       ▲              ▲               ▲                ▲
+  Agents can     Agent default    Audited when      Requires
+  always read    max level        agent reads       explicit
+                                                    policy
+```
+
+- `sensitivity?: "public" | "internal" | "confidential" | "restricted"` -- Content sensitivity classification. Default: `internal`. Used for agent egress control (agents are redacted from nodes above their allowed level).
+- `contentHash?: string` — SHA-256 hash of node content, computed automatically on apply. Enables detection of unauthorized content duplication.
+- `sourceAttribution?: "human-authored" | "agent-generated" | "imported" | "derived"` — Provenance tracking for content origin.
+- `ipClassification?: "trade-secret" | "patent-pending" | "proprietary" | "internal" | "open"` — IP classification for governance.
+- `license?: string` — License identifier (e.g. `"proprietary"`, `"CC-BY-4.0"`).
+
 #### Node types (baseline)
 
 - `GOAL`

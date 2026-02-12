@@ -32,6 +32,24 @@ Changes exist as **Proposals** with their own lifecycle.
 - **ACCEPTED** → APPLIED (human runs apply; terminal)
 - **REJECTED**, **WITHDRAWN**, **APPLIED** — terminal (no transitions out)
 
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT
+    DRAFT --> SUBMITTED : submit
+    DRAFT --> WITHDRAWN : withdraw
+    SUBMITTED --> CHANGES_REQUESTED : request changes
+    SUBMITTED --> ACCEPTED : approve
+    SUBMITTED --> REJECTED : reject
+    SUBMITTED --> WITHDRAWN : withdraw
+    CHANGES_REQUESTED --> SUBMITTED : resubmit
+    CHANGES_REQUESTED --> REJECTED : reject
+    CHANGES_REQUESTED --> WITHDRAWN : withdraw
+    ACCEPTED --> APPLIED : apply
+    REJECTED --> [*]
+    WITHDRAWN --> [*]
+    APPLIED --> [*]
+```
+
 (Implementation may use equivalent statuses: e.g. open → accepted/rejected → applied. Same semantics: draft → submit → review → accept/reject/withdraw → apply.)
 
 ### Withdraw and reopen
@@ -97,12 +115,25 @@ When a proposal **requires multiple approvals** (e.g. policy requires two review
 
 See QUESTIONS.md question-008 (resolved).
 
-## Policy hooks
+## Policy hooks (implemented)
 
-Organizations may enforce additional rules, for example:
+The server enforces configurable policy rules loaded from `policies.json`. Rules are evaluated at proposal create, review, and apply time; violations return 422 with details.
 
-- Certain node types require two approvers.
-- “Security policy” changes require an info-sec role.
-- High-risk changes require a change window.
+**Implemented rule types:**
+
+| Rule                     | Description                                                               |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `min_approvals`          | Minimum number of approvals before apply (optionally scoped to node types) |
+| `required_reviewer_role` | At least one reviewer must hold a specific role (e.g. InfoSec)            |
+| `change_window`          | Restrict applies to specific time windows (CAB-style)                     |
+| `agent_restriction`      | Block agents from specific operations (e.g. review, apply)               |
+| `agent_proposal_limit`   | Limit agent proposal size (max operations, max content length)            |
+| `egress_control`         | Cap the sensitivity level agents can read (default: internal)             |
+
+Examples:
+
+- POLICY nodes require 2 reviewers (`min_approvals`).
+- SECURITY policy changes require an InfoSec reviewer (`required_reviewer_role`).
+- High-risk updates require a CAB window (`change_window`).
 
 See: [Security & Governance](../reference/SECURITY_GOVERNANCE.md)

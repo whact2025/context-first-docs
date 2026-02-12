@@ -52,6 +52,11 @@ function getBase(): string {
     : DEFAULT_BASE;
 }
 
+/** Auth token from environment or explicit configuration. */
+function getAuthToken(): string | undefined {
+  return typeof process !== "undefined" ? process.env?.TRUTHLAYER_AUTH_TOKEN : undefined;
+}
+
 const tracer = trace.getTracer("truthlayer-client", "1.0.0");
 const meter = metrics.getMeter("truthlayer-client", "1.0.0");
 const clientRequestCount = meter.createCounter("http.client.request.count", {
@@ -88,10 +93,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   try {
     return await context.with(trace.setSpan(context.active(), span), async () => {
       const traceHeaders = await injectTraceHeaders();
+      const authToken = getAuthToken();
       const res = await fetch(url, {
         ...init,
         headers: {
           "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
           ...traceHeaders,
           ...init?.headers,
         },

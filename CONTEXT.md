@@ -148,7 +148,7 @@ itself. The Markdown files in the project root contain ctx blocks that embed sem
 nodes. As the system matures, these will be automatically synchronized with the
 canonical context store in `.context/`.
 
-Currently, the files are committed for demonstration/self-reference. The repo includes a **Rust server** (server/) as the context store for the playground and scenarios; Markdown import/projection and apply/graph helpers remain in TS. Persistent file-based storage is still planned; synchronization can be automated end-to-end once that is in place.
+Currently, the files are committed for demonstration/self-reference. The repo includes a **Rust server** (server/) as the context store for the playground and scenarios; Markdown import/projection and apply/graph helpers remain in TS. The server supports two storage backends: in-memory (default) and file-based (`TRUTHTLAYER_STORAGE=file`) with atomic writes and JSON persistence. Governance enforcement (JWT auth, RBAC, policy engine, audit log, sensitivity labels, IP protection) is implemented. End-to-end synchronization and full projection automation remain next steps.
 
 See `docs/appendix/SELF-REFERENCE.md` for more details.
 ```

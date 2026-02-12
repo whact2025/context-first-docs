@@ -3,6 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::sensitivity::Sensitivity;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum NodeType {
@@ -137,6 +139,21 @@ pub struct NodeMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub referenced_in_commits: Option<Vec<String>>,
     pub version: u32,
+    /// Sensitivity classification for the node (default: internal).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sensitivity: Option<Sensitivity>,
+    /// SHA-256 hash of node content at apply time (fingerprinting for IP protection).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_hash: Option<String>,
+    /// Source attribution for provenance tracking.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_attribution: Option<String>,
+    /// IP classification for governance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ip_classification: Option<String>,
+    /// License identifier for content.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub license: Option<String>,
 }
 
 /// Context node: unified struct for all node types.

@@ -8,9 +8,9 @@ use async_trait::async_trait;
 
 use crate::store::context_store::{ContextStore, StoreError};
 use crate::types::{
-    AppliedMetadata, Comment, ConflictDetectionResult, ConflictSeverity, ContextNode, FieldChange,
-    MergeConflictField, MergeResult, NodeId, NodeQuery, NodeQueryResult, NodeStatus, Operation,
-    Proposal, ProposalConflict, ProposalQuery, ProposalStatus, Review, ReviewAction,
+    AppliedMetadata, AuditEvent, Comment, ConflictDetectionResult, ConflictSeverity, ContextNode,
+    FieldChange, MergeConflictField, MergeResult, NodeId, NodeQuery, NodeQueryResult, NodeStatus,
+    Operation, Proposal, ProposalConflict, ProposalQuery, ProposalStatus, Review, ReviewAction,
 };
 
 fn node_key(id: &NodeId) -> String {
@@ -54,6 +54,8 @@ pub struct InMemoryStore {
     reviews: RwLock<HashMap<String, Vec<Review>>>,
     /// Incremented on each apply; used for appliedToRevisionId / previousRevisionId.
     revision_counter: RwLock<u64>,
+    /// Immutable audit log (append-only).
+    audit_log: RwLock<Vec<AuditEvent>>,
 }
 
 impl Default for InMemoryStore {
@@ -67,6 +69,7 @@ impl InMemoryStore {
         Self {
             nodes: RwLock::new(HashMap::new()),
             proposals: RwLock::new(HashMap::new()),
+            audit_log: RwLock::new(Vec::new()),
             reviews: RwLock::new(HashMap::new()),
             revision_counter: RwLock::new(0),
         }
@@ -85,6 +88,9 @@ impl InMemoryStore {
                 node.metadata.modified_at = modified_at.to_string();
                 node.metadata.modified_by = modified_by.to_string();
                 node.metadata.version += 1;
+                // Content fingerprinting: SHA-256 hash for IP protection
+                node.metadata.content_hash =
+                    Some(crate::sensitivity::content_hash(&node.content));
                 nodes.insert(key, node);
             }
             Operation::Update {
@@ -100,6 +106,9 @@ impl InMemoryStore {
                 if let Some(ref c) = changes.content {
                     existing.content = c.clone();
                     existing.description = Some(c.clone());
+                    // Recompute content hash on content change
+                    existing.metadata.content_hash =
+                        Some(crate::sensitivity::content_hash(c));
                 }
                 if let Some(s) = changes.status {
                     existing.status = s;
@@ -461,7 +470,10 @@ impl ContextStore for InMemoryStore {
         .await
     }
 
-    async fn detect_conflicts(&self, proposal_id: &str) -> Result<ConflictDetectionResult, StoreError> {
+    async fn detect_conflicts(
+        &self,
+        proposal_id: &str,
+    ) -> Result<ConflictDetectionResult, StoreError> {
         let (proposal, open) = {
             let proposals = self
                 .proposals
@@ -478,7 +490,8 @@ impl ContextStore for InMemoryStore {
                 .collect();
             (proposal, open)
         };
-        let node_ids_self: std::collections::HashSet<String> = operations_node_keys(&proposal.operations);
+        let node_ids_self: std::collections::HashSet<String> =
+            operations_node_keys(&proposal.operations);
         let mut conflicts = Vec::new();
         let mut needs_resolution = Vec::new();
         for other in &open {
@@ -532,7 +545,9 @@ impl ContextStore for InMemoryStore {
                 .nodes
                 .read()
                 .map_err(|e| StoreError::Internal(e.to_string()))?;
-            let node_keys: Vec<String> = operations_node_keys(&proposal.operations).into_iter().collect();
+            let node_keys: Vec<String> = operations_node_keys(&proposal.operations)
+                .into_iter()
+                .collect();
             let current_versions: std::collections::HashMap<String, u32> = node_keys
                 .iter()
                 .filter_map(|k| nodes.get(k).map(|n| (k.clone(), n.metadata.version)))
@@ -570,12 +585,16 @@ impl ContextStore for InMemoryStore {
             ));
         }
         // Field-level: (node_key, field) -> (proposal_id, value)
-        let mut by_field: std::collections::HashMap<(String, String), Vec<(String, serde_json::Value)>> =
-            std::collections::HashMap::new();
+        let mut by_field: std::collections::HashMap<
+            (String, String),
+            Vec<(String, serde_json::Value)>,
+        > = std::collections::HashMap::new();
         for prop in &proposals {
             for op in &prop.operations {
                 match op {
-                    Operation::Update { node_id, changes, .. } => {
+                    Operation::Update {
+                        node_id, changes, ..
+                    } => {
                         let key = node_id.key();
                         if let Some(ref c) = changes.content {
                             by_field
@@ -587,7 +606,10 @@ impl ContextStore for InMemoryStore {
                             by_field
                                 .entry((key.clone(), "status".to_string()))
                                 .or_default()
-                                .push((prop.id.clone(), serde_json::to_value(s).unwrap_or(serde_json::Value::Null)));
+                                .push((
+                                    prop.id.clone(),
+                                    serde_json::to_value(s).unwrap_or(serde_json::Value::Null),
+                                ));
                         }
                     }
                     _ => {}
@@ -657,7 +679,71 @@ impl ContextStore for InMemoryStore {
         proposals.clear();
         reviews.clear();
         *rev = 0;
+        // Note: audit log is NOT cleared on reset (intentional — audit is immutable).
         Ok(())
+    }
+
+    async fn append_audit(&self, event: AuditEvent) -> Result<(), StoreError> {
+        let mut log = self
+            .audit_log
+            .write()
+            .map_err(|e| StoreError::Internal(e.to_string()))?;
+        log.push(event);
+        Ok(())
+    }
+
+    async fn query_audit(
+        &self,
+        actor: Option<&str>,
+        action: Option<&str>,
+        resource_id: Option<&str>,
+        from: Option<&str>,
+        to: Option<&str>,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> Result<Vec<AuditEvent>, StoreError> {
+        let log = self
+            .audit_log
+            .read()
+            .map_err(|e| StoreError::Internal(e.to_string()))?;
+        let filtered: Vec<&AuditEvent> = log
+            .iter()
+            .filter(|e| {
+                if let Some(a) = actor {
+                    if e.actor_id != a {
+                        return false;
+                    }
+                }
+                if let Some(act) = action {
+                    let action_str = serde_json::to_string(&e.action)
+                        .unwrap_or_default()
+                        .replace('"', "");
+                    if action_str != act {
+                        return false;
+                    }
+                }
+                if let Some(rid) = resource_id {
+                    if e.resource_id != rid {
+                        return false;
+                    }
+                }
+                if let Some(f) = from {
+                    if e.timestamp.as_str() < f {
+                        return false;
+                    }
+                }
+                if let Some(t) = to {
+                    if e.timestamp.as_str() > t {
+                        return false;
+                    }
+                }
+                true
+            })
+            .collect();
+        let off = offset.unwrap_or(0) as usize;
+        let lim = limit.unwrap_or(100) as usize;
+        let page = filtered.into_iter().skip(off).take(lim).cloned().collect();
+        Ok(page)
     }
 }
 
@@ -676,6 +762,11 @@ mod tests {
             implemented_in_commit: None,
             referenced_in_commits: None,
             version: 1,
+            sensitivity: None,
+            content_hash: None,
+            source_attribution: None,
+            ip_classification: None,
+            license: None,
         }
     }
 
@@ -788,5 +879,95 @@ mod tests {
         store.reset().await.unwrap();
         let got = store.get_proposal("p-1").await.unwrap();
         assert!(got.is_none());
+    }
+
+    #[tokio::test]
+    async fn apply_sets_content_hash() {
+        let store = InMemoryStore::new();
+        let node = ContextNode {
+            id: NodeId {
+                id: "hash-node".to_string(),
+                namespace: None,
+            },
+            node_type: NodeType::Goal,
+            status: NodeStatus::Accepted,
+            title: Some("Hash test".to_string()),
+            description: None,
+            content: "Test content for hashing".to_string(),
+            text_range: None,
+            metadata: meta(),
+            relationships: None,
+            relations: None,
+            referenced_by: None,
+            source_files: None,
+            decision: None,
+            rationale: None,
+            alternatives: None,
+            decided_at: None,
+            state: None,
+            assignee: None,
+            due_date: None,
+            dependencies: None,
+            severity: None,
+            likelihood: None,
+            mitigation: None,
+            question: None,
+            answer: None,
+            answered_at: None,
+            constraint: None,
+            reason: None,
+        };
+        let proposal = Proposal {
+            id: "p-hash".to_string(),
+            status: ProposalStatus::Accepted,
+            operations: vec![Operation::Create {
+                id: "op-1".to_string(),
+                order: 1,
+                node: node.clone(),
+            }],
+            metadata: proposal_meta(),
+            comments: None,
+            relations: None,
+            applied: None,
+        };
+        store.create_proposal(proposal).await.unwrap();
+        store.apply_proposal("p-hash", "test-user").await.unwrap();
+
+        let got = store
+            .get_node(&NodeId {
+                id: "hash-node".to_string(),
+                namespace: None,
+            })
+            .await
+            .unwrap()
+            .unwrap();
+
+        // Verify content_hash was set on apply
+        assert!(
+            got.metadata.content_hash.is_some(),
+            "content_hash should be set after apply"
+        );
+        // Verify it's the correct SHA-256 hash
+        let expected_hash = crate::sensitivity::content_hash("Test content for hashing");
+        assert_eq!(got.metadata.content_hash.unwrap(), expected_hash);
+    }
+
+    #[tokio::test]
+    async fn audit_log_survives_reset() {
+        let store = InMemoryStore::new();
+        let event = crate::types::AuditEvent::new(
+            "test-actor",
+            "human",
+            crate::types::AuditAction::StoreReset,
+            "store",
+            crate::types::AuditOutcome::Success,
+        );
+        store.append_audit(event).await.unwrap();
+        store.reset().await.unwrap();
+        let events = store
+            .query_audit(None, None, None, None, None, None, None)
+            .await
+            .unwrap();
+        assert!(!events.is_empty(), "audit log should survive reset");
     }
 }

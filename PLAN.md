@@ -13,9 +13,9 @@ This document tracks the development roadmap and milestones for TruthLayer.
 - **Doc suite**: TruthLayer does not replace doc suites; many orgs use both. See `docs/WHITEPAPER.md` (competitive positioning, “enterprise foundation”).
 - **Word/Google review**: Optional bidirectional flow and context visualization: `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 
-**Current implementation (from code):** **Rust server** in `server/`: ContextStore trait, InMemoryStore, config from server config root, Axum HTTP API (nodes, proposals, reviews, apply, reset). **TypeScript**: `src/api-client.ts` (RustServerClient), `src/store/core/` (apply-proposal, graph, node-key), `src/store/preview-store.ts` (Map-backed preview for projection), Markdown projection and ctx blocks in `src/markdown/`, playground and Scenario Runner in `src/playground/`. Playground uses the Rust server for ACAL store; scenarios call `store.reset()` before each run. Coverage tests in `tests/store-core.coverage.test.ts` for applyAcceptedProposalToNodeMap and graph helpers. Persistence (file-based, MongoDB), full query/traversal/conflict in the server, GraphQL layer, and minimal governance UI are next per phases below and `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`.
+**Current implementation (from code):** **Rust server** in `server/`: ContextStore trait with two backends (InMemoryStore and FileStore), config from server config root, Axum HTTP API with JWT auth (HS256), RBAC enforcement on all routes, configurable policy engine (6 rule types from `policies.json`), immutable audit log (queryable + exportable), sensitivity labels with agent egress control, IP protection (SHA-256 content hash, source attribution), DSAR endpoints (export queries audit log; erase records audit event but does not yet mutate store data), and retention engine (background task with config loading; enforcement stub -- logs audit events but does not yet delete/archive). 54 tests covering routes, auth, RBAC, policy, sensitivity, store, and telemetry. **TypeScript**: `src/api-client.ts` (RustServerClient with auth token injection), `src/store/core/` (apply-proposal, graph, node-key), `src/store/preview-store.ts` (Map-backed preview for projection), Markdown projection and ctx blocks in `src/markdown/`, playground and Scenario Runner in `src/playground/`. Playground uses the Rust server for ACAL store; scenarios call `store.reset()` before each run. MongoDB backend, full query/traversal/conflict in the server, GraphQL layer, and minimal governance UI are next per phases below and `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`.
 
-**Server and configuration:** Agent deployments use a **server component** (local or remote). All runtime configuration—storage backend and paths, RBAC provider, and other runtime settings—lives in a **predefined location relative to the server** (config root). No repo-scattered runtime config. See QUESTIONS.md question-038 (storage/workspace config), question-007 (RBAC provider abstraction). The Rust server in `server/` (see `server/README.md`) is the reference implementation; extend with file/MongoDB backends, full query/traversal/conflict, RBAC.
+**Server and configuration:** Agent deployments use a **server component** (local or remote). All runtime configuration—storage backend and paths, RBAC provider, and other runtime settings—lives in a **predefined location relative to the server** (config root). No repo-scattered runtime config. See QUESTIONS.md question-038 (storage/workspace config), question-007 (RBAC provider abstraction). The Rust server in `server/` (see `server/README.md`) is the reference implementation with JWT auth, RBAC, policy engine, audit log, sensitivity labels, and file-based storage implemented; extend with MongoDB backend, full query/traversal/conflict.
 
 ```ctx
 type: plan
@@ -32,14 +32,14 @@ status: accepted
 7. ✅ Define graph model with typed relationships
 8. ✅ Design comprehensive Agent API with decision/rationale traversal (provenance chains)
 
-**Phase 2: Persistence & Storage Implementations** (Next)
+**Phase 2: Persistence & Storage Implementations**
 1. ✅ Rust server provides InMemoryStore baseline (server/); TS retains apply-proposal + graph in `src/store/core/` for preview and tests; coverage tests in `tests/store-core.coverage.test.ts` (see `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
-2. Storage abstraction layer - storage factory, **configuration from server config root** (backend choice, paths, RBAC provider config; see question-038), backend selection (see Phase 2)
-3. File-based storage implementation - JSON graph format; paths **under server config root** (e.g. `data/workspaces/{workspaceId}/` or equivalent; see question-038, STORAGE_ARCHITECTURE.md Phase 3)
+2. ✅ Storage abstraction layer - `ContextStore` trait (`store/context_store.rs`), `config.rs` loads from server config root (backend choice, paths, RBAC provider config; see question-038), `main.rs` selects backend (memory/file) at startup
+3. ✅ File-based storage implementation - `FileStore` persists nodes, proposals, reviews, and audit log as JSON under server config root data directory; atomic writes (temp file + rename); activated via `TRUTHTLAYER_STORAGE=file` (see task-048)
 4. MongoDB storage implementation - self-hosted MongoDB document database (for production/scaling); connection/config from server config root (see Phase 4)
 5. GraphQL API layer - schema definition, resolvers, type validation; authentication/authorization via **RBAC provider abstraction** (question-007)
-6. Conflict detection and resolution - build on the baseline (conflict detection, field-level merge, optimistic locking) with manual resolution + superseding workflow (see Phase 6). To be implemented in the **Rust server** (or extended there); canonical walkthrough: [Conflict and Merge scenario](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md).
-7. Decision/rationale traversal (provenance chains) - typed relationship paths, context building, decision reasoning (see Phase 7)
+6. ✅ Conflict detection and resolution - `detectConflicts`, `isProposalStale`, `mergeProposals` implemented on InMemoryStore (programmatic store API; not yet exposed on HTTP routes). Manual resolution UI and proposal superseding remain open. Canonical walkthrough: [Conflict and Merge scenario](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md).
+7. ✅ Decision/rationale traversal (provenance chains) - typed relationship paths, context building, decision reasoning implemented (see task-052, task-059)
 8. Issue creation system - create issues from approved proposals (see Phase 8)
 9. Reference tracking - bidirectional references, automatic updates (see Phase 9)
 10. Git integration - automatic commits (file-based), snapshots (MongoDB), commit tracking (see Phase 10)
@@ -166,9 +166,9 @@ Make project self-referential - use own system to document itself.
 ```ctx
 type: task
 id: task-006
-status: in-progress
+status: completed
 ---
-Implement file-based storage layer for context store (JSON graph format; example path: `.context/graph.json`).
+Implement file-based storage layer for context store. FileStore persists nodes, proposals, reviews, and audit log as JSON under the server config root data directory with atomic writes (temp file + rename). Activated via `TRUTHTLAYER_STORAGE=file`.
 ```
 
 ```ctx
@@ -370,9 +370,9 @@ Build GitHub/GitLab API integration - access PR/MR data, comments, and commit hi
 ```ctx
 type: task
 id: task-031
-status: open
+status: completed
 ---
-Implement role and permission system - contributors, approvers, and admins with proper access control.
+Implement role and permission system - JWT authentication (HS256) with hierarchical RBAC (Reader, Contributor, Reviewer, Applier, Admin) enforced on all routes. Agents hard-blocked from review and apply. Policy engine (6 rule types) validates at create/review/apply time.
 ```
 
 ```ctx
@@ -394,9 +394,9 @@ Implement approval requirements - support multi-approval workflows and required 
 ```ctx
 type: task
 id: task-034
-status: open
+status: completed
 ---
-Add role validation - check permissions before allowing proposal creation, review, and approval actions.
+Add role validation - require_role() and reject_agent() extractors enforce permissions on all routes. Agents receive 403 on review/apply.
 ```
 
 ```ctx
@@ -514,17 +514,17 @@ Rust server first slice + playground migration: add server/ (ContextStore trait,
 ```ctx
 type: task
 id: task-047
-status: open
+status: completed
 ---
-Implement storage abstraction layer - storage factory, **configuration read from server config root** (storage backend, paths, RBAC; see question-038), storage backend selection (file-based, MongoDB, memory).
+Implement storage abstraction layer - `ContextStore` trait in `store/context_store.rs`, `config.rs` loads configuration from server config root (storage backend, paths, RBAC; see question-038), `main.rs` selects between memory and file backends at startup. MongoDB backend selection is stubbed (falls back to memory with a warning).
 ```
 
 ```ctx
 type: task
 id: task-048
-status: open
+status: completed
 ---
-Implement file-based storage - FileBasedStore class, JSON Graph file management under **server config root** (e.g. data/workspaces/{workspaceId}/), Git integration, file locking/concurrency.
+Implement file-based storage - FileStore class persists nodes, proposals, reviews, and audit log as JSON files under server config root data directory. Atomic writes (temp file + rename). Activated via `TRUTHTLAYER_STORAGE=file`.
 ```
 
 ```ctx
@@ -546,9 +546,9 @@ Design and implement GraphQL API layer - schema definition (in repo or server co
 ```ctx
 type: task
 id: task-051
-status: open
+status: completed
 ---
-Implement conflict detection and resolution - conflict detection algorithm, field-level merging, optimistic locking, proposal superseding.
+Implement conflict detection and resolution - `detect_conflicts`, `is_proposal_stale`, and `merge_proposals` implemented on InMemoryStore (programmatic ContextStore API). Not yet exposed on HTTP routes. Manual resolution UI, proposal superseding, and optimistic locking enforcement remain open (see task-043, task-044).
 ```
 
 ```ctx
@@ -602,13 +602,9 @@ Ensure clean review-mode semantics: Markdown/ctx blocks are treated as a project
 ```ctx
 type: task
 id: task-061
-status: open
+status: completed
 ---
-Implement explicit “applied” state for proposals (distinct from “accepted”) so UIs can reliably show Accepted vs Applied and prevent re-apply.
-
-Notes:
-- Add `appliedAt`/`appliedBy` (and optional `appliedRevision`) metadata.
-- Expose via store/API so all clients behave consistently.
+Implement explicit "applied" state for proposals (distinct from "accepted") so UIs can reliably show Accepted vs Applied and prevent re-apply. Implemented: proposal status APPLIED, AppliedMetadata (appliedAt, appliedBy, appliedFromProposalId, appliedToRevisionId, previousRevisionId), idempotent apply (re-apply returns 200 no-op).
 ```
 
 ```ctx

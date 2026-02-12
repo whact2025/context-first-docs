@@ -22,8 +22,8 @@ Agents should be fed:
 
 - **No direct mutation**: external content and agent output never directly mutate accepted truth; all changes are proposals, reviewed and applied by humans.
 - **Proposals isolate untrusted changes**: proposal content is not treated as truth until applied.
-- **Policy engine**: can detect risky operations (e.g. privilege escalation, changes to POLICY/SECURITY nodes) and block or require additional approval.
-- **Prompt-leakage controls**: per-workspace policies for allowed/forbidden node types, redaction rules for sensitive fields, maximum traversal depth; optional logging of node IDs and field names included in prompts (for vendor LLM audit).
+- **Policy engine (enforced)**: 6 configurable rule types (min_approvals, required_reviewer_role, change_window, agent_restriction, agent_proposal_limit, egress_control) detect risky operations and block or require additional approval. Returns 422 with violation details.
+- **Prompt-leakage controls**: sensitivity labels (public/internal/confidential/restricted) enforced at the API layer — agents are redacted from nodes above their allowed sensitivity level (via `egress_control` policy rule). Per-workspace policies for allowed/forbidden node types, redaction rules for sensitive fields, maximum traversal depth; optional logging of node IDs and field names included in prompts (for vendor LLM audit).
 
 ## Context policies (per workspace)
 

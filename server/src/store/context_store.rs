@@ -4,8 +4,8 @@
 use async_trait::async_trait;
 
 use crate::types::{
-    Comment, ConflictDetectionResult, ContextNode, MergeResult, NodeId, NodeQuery, NodeQueryResult,
-    Proposal, ProposalQuery, Review,
+    AuditEvent, Comment, ConflictDetectionResult, ContextNode, MergeResult, NodeId, NodeQuery,
+    NodeQueryResult, Proposal, ProposalQuery, Review,
 };
 
 #[async_trait]
@@ -53,7 +53,10 @@ pub trait ContextStore: Send + Sync {
     /// Compare proposal's operations (by node and field) with other open proposals.
     /// Returns conflicts, mergeable (proposal IDs), needsResolution (proposal IDs).
     /// Per AGENT_API § Conflict detection and merge; RECONCILIATION_STRATEGIES.
-    async fn detect_conflicts(&self, proposal_id: &str) -> Result<ConflictDetectionResult, StoreError>;
+    async fn detect_conflicts(
+        &self,
+        proposal_id: &str,
+    ) -> Result<ConflictDetectionResult, StoreError>;
 
     /// True if the base revision or target nodes have changed since the proposal was created (optimistic locking).
     /// Per AGENT_API § Conflict detection and merge.
@@ -65,6 +68,23 @@ pub trait ContextStore: Send + Sync {
 
     /// Reset store state (for dev/demo only). In-memory clears all; other backends may return error.
     async fn reset(&self) -> Result<(), StoreError>;
+
+    // --- Audit log ---
+
+    /// Append an audit event to the immutable log.
+    async fn append_audit(&self, event: AuditEvent) -> Result<(), StoreError>;
+
+    /// Query audit events with optional filters.
+    async fn query_audit(
+        &self,
+        actor: Option<&str>,
+        action: Option<&str>,
+        resource_id: Option<&str>,
+        from: Option<&str>,
+        to: Option<&str>,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> Result<Vec<AuditEvent>, StoreError>;
 }
 
 #[derive(Debug)]

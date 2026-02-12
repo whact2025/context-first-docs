@@ -12,6 +12,7 @@ Deployments run a **server** (local or remote). All runtime configuration—stor
 - **Proposal/review/apply objects**: proposals (with ordered operations), reviews, comments, AppliedMetadata.
 - **Query and traversal**: index by workspaceId, nodeId, revisionId, proposal status; support graph traversal (edges by from/to/type) for traverseReasoningChain and related APIs.
 - **Audit logging**: every review decision and apply recorded; immutable log per workspace.
+- **Sensitivity and IP metadata**: nodes carry sensitivity labels (public/internal/confidential/restricted), content hash (SHA-256), source attribution, IP classification, and license. Content hash is computed on apply.
 - **Workspace isolation**: all keys and queries scoped by workspaceId; no cross-workspace reads without explicit permission.
 
 ## ContextStore methods (implementation surface)
@@ -20,12 +21,13 @@ Storage backends must support at least:
 
 - **Read**: getNode, queryNodes (with filters and pagination), getProposal, queryProposals, getProposalComments, getReviewHistory, getAcceptedNodes, getOpenProposals.
 - **Write**: createProposal, updateProposal, submitReview, applyProposal; addProposalComment.
+- **Audit**: appendAudit(event), queryAudit(filters) — immutable append-only log; query by actor, action, resource, date range.
 - **Conflict**: detectConflicts, isProposalStale, mergeProposals (optional for v1 file-backed).
 - **Traversal**: traverseReasoningChain, buildContextChain, followDecisionReasoning, discoverRelatedReasoning, queryWithReasoning (or delegate to in-memory graph built from stored nodes/edges).
 
 File-backed implementations may load a workspace into memory and delegate to the same query/traversal logic as the in-memory store; database backends implement queries and traversal against the DB (indexes and aggregation).
 
-**Current implementation:** The Rust server in server/ implements ContextStore in-memory and exposes an HTTP API; the TypeScript client in src/api-client.ts (RustServerClient) is used by the playground and scenarios.
+**Current implementation:** The Rust server in server/ implements ContextStore with two backends: **InMemoryStore** (default) and **FileStore** (`TRUTHTLAYER_STORAGE=file`). The file store persists all data (nodes, proposals, reviews, audit log) as JSON files under the config root data directory with atomic writes (temp file + rename). Both backends implement the full ContextStore contract including audit log (append-only, survives reset). The HTTP API includes JWT authentication, RBAC enforcement, policy engine, sensitivity-based redaction for agents, and audit logging. TypeScript client in src/api-client.ts (RustServerClient) injects auth tokens and OTEL trace headers.
 
 ## Backend options
 

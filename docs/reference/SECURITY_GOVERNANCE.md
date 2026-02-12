@@ -4,35 +4,85 @@ This is the authoritative enterprise security model for TruthLayer, a **governan
 
 **Related:** [Privacy and Data Protection](PRIVACY_AND_DATA_PROTECTION.md) — Controller/Processor, data subject rights, retention, subprocessor/LLM egress, security controls checklist for procurement and DPIA. **Agent posture:** Agents follow an **enforcement bias** (conservative, governance-first; personal data minimize/anonymize/escalate; no external egress without explicit policy; trade secret awareness; immutability-aware writing; when in doubt propose and ask). See [Agent API](core/AGENT_API.md) § Agent posture: enforcement bias.
 
+## Server enforcement (implemented)
+
+The Rust server enforces the following governance controls at runtime. Every request passes through layered enforcement before reaching the handler:
+
+```mermaid
+flowchart TD
+    REQ([Incoming Request]) --> AUTH{JWT Auth}
+    AUTH -- "invalid/missing" --> R401[401 Unauthorized]
+    AUTH -- "valid token" --> RBAC{RBAC Check}
+    RBAC -- "insufficient role" --> R403[403 Forbidden]
+    RBAC -- "agent on review/apply" --> R403
+    RBAC -- "authorized" --> SENS{Sensitivity Check}
+    SENS -- "agent above max level" --> REDACT[Redacted Response<br/>+ Audit: denied]
+    SENS -- "allowed" --> POLICY{Policy Engine}
+    POLICY -- "violation" --> R422[422 Policy Violation]
+    POLICY -- "pass" --> HANDLER[Route Handler]
+    HANDLER --> AUDIT[Audit Log<br/>append event]
+    AUDIT --> RESP([Response])
+
+    style R401 fill:#f66,color:#fff
+    style R403 fill:#f66,color:#fff
+    style R422 fill:#f96,color:#fff
+    style REDACT fill:#f96,color:#fff
+    style AUDIT fill:#6b6,color:#fff
+```
+
+- **Authentication**: JWT (HS256) middleware via `AuthLayer`. Env vars: `AUTH_SECRET` (shared secret), `AUTH_DISABLED` (default true for dev). JWT claims: `sub` (actor ID), `actor_type` (human/agent/system), `roles[]`, `exp`. Returns 401 on invalid or missing token.
+
+- **RBAC**: Server-enforced via `require_role()` and `reject_agent()` extractors. Role hierarchy: Reader &lt; Contributor &lt; Reviewer &lt; Applier &lt; Admin. Route enforcement: GET /nodes, /proposals → Reader; POST /proposals → Contributor; POST review → Reviewer (human only); POST apply → Applier (human only); POST /reset, GET /audit → Admin. Agents (`actor_type=AGENT`) are hard-blocked from review and apply with 403.
+
+- **Policy engine**: Configurable rules from `policies.json`. Rule types: `min_approvals`, `required_reviewer_role`, `change_window`, `agent_restriction`, `agent_proposal_limit`, `egress_control`. Evaluated at create, review, and apply time. Returns 422 with violation details.
+
+- **Audit logging**: Every state-changing action emits an `AuditEvent` (UUID, timestamp, actor, action, resource_id, outcome, details). Actions: proposal_created, proposal_updated, review_submitted, proposal_applied, proposal_withdrawn, node_created, node_updated, role_changed, policy_evaluated, store_reset, sensitive_read. Append-only, survives store reset. Queryable via GET /audit (Admin), exportable via GET /audit/export?format=json|csv.
+
+- **Sensitivity labels**: Nodes have `sensitivity` field (public/internal/confidential/restricted, default: internal). Agents restricted from reading nodes above their allowed level (via `egress_control`, default: internal). Redacted response for over-sensitivity reads. All agent reads of confidential+ content are audited.
+
+- **IP protection**: NodeMetadata includes `content_hash` (SHA-256, computed on apply), `source_attribution`, `ip_classification`, `license`. Provenance: GET /nodes/:id/provenance returns full audit trail.
+
+- **DSAR**: GET /admin/dsar/export?subject=actorId (queries audit log for subject). POST /admin/dsar/erase records an audit event for the erasure request; actual store mutation (anonymizing references in nodes/proposals) is not yet implemented.
+
+- **Retention**: Background task spawned from `retention.json` with configurable rules (resource_type, retention_days, action: archive|delete, check_interval_secs). Currently logs audit events on each check interval; actual deletion/archiving logic is pending (requires queryable created_at timestamps on proposals/nodes).
+
 ## Identity and authentication
 
-- Integrate with SSO/OIDC where possible.
+_Implementation status: Implemented._ JWT (HS256) authentication via `AuthLayer`. Environment variables: `AUTH_SECRET` (shared secret for signing), `AUTH_DISABLED` (default: true for development). JWT claims include `sub` (actor ID), `actor_type` (human/agent/system), `roles[]`, and `exp`. Returns 401 on invalid or missing token. SSO/OIDC integration remains deployment-specific where available.
+
 - Every action is attributed to an Actor.
 - Agents authenticate as `type=AGENT` with least privilege.
 
 ## Authorization (RBAC)
 
-Workspace roles (baseline):
+_Implementation status: Implemented._ Server-enforced via `require_role()` and `reject_agent()` extractors. Role hierarchy: Reader &lt; Contributor &lt; Reviewer &lt; Applier &lt; Admin. Agents (`actor_type=AGENT`) are hard-blocked from review and apply endpoints with 403.
 
-- `Reader`: read accepted truth + projections
-- `Contributor`: propose
-- `Reviewer`: review (approve/reject)
-- `Applier`: apply
-- `Admin`: manage roles/policies
+Workspace roles (enforced):
 
-**Role assignment** is deployment-specific. A clear **RBAC provider abstraction** supplies who has which role: Git/GitLab use their native roles; enterprise deployments can use Azure AD, DLs (distribution lists), or any external system configured as the RBAC provider. The system consumes a unified role model above; see `question-007` in QUESTIONS.md.
+- `Reader`: read accepted truth + projections (GET /nodes, GET /proposals)
+- `Contributor`: propose (POST /proposals)
+- `Reviewer`: review (approve/reject) — human only
+- `Applier`: apply — human only
+- `Admin`: manage roles/policies (POST /reset, GET /audit, DSAR endpoints)
 
-Principle: **agents never receive Reviewer or Applier.**
+**Role assignment** is deployment-specific. JWT claims supply roles; enterprise deployments can integrate with Azure AD, SSO, or any external system that issues JWTs with the unified role model above; see `question-007` in QUESTIONS.md.
+
+Principle: **agents never receive Reviewer or Applier.** The server enforces this; agents attempting review or apply receive 403.
 
 ## Policy engine
 
-Policies evaluate:
+_Implementation status: Implemented._ Configurable rules loaded from `policies.json` in the config root. Evaluated at create, review, and apply time. Returns 422 with violation details on policy failure.
 
-- proposal operations (validate)
-- review approvals (additional approvers)
-- apply (change windows, sign-off requirements)
+**Rule types:**
 
-Examples:
+- `min_approvals`: minimum number of approvals before apply
+- `required_reviewer_role`: role required to approve (e.g. InfoSec for SECURITY policy)
+- `change_window`: time windows when applies are allowed (CAB-style)
+- `agent_restriction`: restricts agent access to certain operations
+- `agent_proposal_limit`: limits on agent-originated proposals
+- `egress_control`: agent read limits by sensitivity (default: internal)
+
+Examples (configurable per deployment):
 
 - POLICY nodes require 2 reviewers.
 - SECURITY policy changes require an InfoSec reviewer.
@@ -40,13 +90,21 @@ Examples:
 
 ## Audit logging
 
-Log:
+_Implementation status: Implemented._ Every state-changing action emits an `AuditEvent` (UUID, timestamp, actor, action, resource_id, outcome, details). Append-only, survives store reset.
 
-- proposal creation and updates
-- validation results
-- review decisions and comments
-- apply operations and resulting revision IDs
-- permission changes
+**Actions logged:**
+
+- proposal_created, proposal_updated
+- review_submitted (decisions and comments)
+- proposal_applied, proposal_withdrawn
+- node_created, node_updated
+- role_changed, policy_evaluated
+- store_reset, sensitive_read
+
+**API endpoints:**
+
+- GET /audit — query audit log (Admin only)
+- GET /audit/export?format=json|csv — export audit log
 
 Audit logs are immutable and exportable per workspace.
 
@@ -64,7 +122,17 @@ Audit logs are immutable and exportable per workspace.
 
 ## Data handling
 
-- Workspace-level retention policies
+_Implementation status: Partially implemented._ The server enforces the following:
+
+- **Sensitivity labels**: Nodes have `sensitivity` field (public/internal/confidential/restricted, default: internal). Agents are restricted from reading nodes above their allowed level via `egress_control` (default: internal). Over-sensitivity reads return redacted response. All agent reads of confidential+ content are audited.
+
+- **IP protection**: NodeMetadata includes `content_hash` (SHA-256, computed on apply), `source_attribution`, `ip_classification`, `license`. Provenance endpoint: GET /nodes/:id/provenance returns full audit trail.
+
+- **DSAR**: GET /admin/dsar/export?subject=actorId (export subject data from audit log). POST /admin/dsar/erase records an audit event for the erasure request; actual store mutation (anonymizing references) is not yet implemented.
+
+- **Retention**: Background task spawned from `retention.json` with configurable rules (resource_type, retention_days, action). Currently logs audit events on each check; actual deletion/archiving is pending.
+
+- Workspace-level retention policies (see retention above)
 - Optional encryption at rest (backend dependent)
 - Export/import tools with redaction support
 

@@ -4,7 +4,7 @@
  * so we can assert add/record were called.
  */
 
-import { describe, expect, it, jest, beforeEach, afterEach } from "@jest/globals";
+import { describe, expect, it, jest, beforeAll, beforeEach, afterEach } from "@jest/globals";
 
 const mockAdd = jest.fn<() => void>();
 const mockRecord = jest.fn<() => void>();

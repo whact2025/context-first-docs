@@ -8,14 +8,20 @@ This document defines the **safe agent contract**.
 2. Agents may create and update **Proposals** they own (or are delegated).
 3. Agents may **not be the committing actor** for review or apply. A human may use an agent as a **tool** (e.g. to draft a review or prepare an apply), but the **commit** (submitReview, applyProposal) must be **on behalf of the human**—the audit log attributes review/apply to the human, not the agent.
 4. The server **rejects** submitReview and applyProposal when the actor is `type=AGENT`; only a human actor (or session acting on behalf of a human) may commit. So: agents assist; humans commit.
+5. Agent reads are **sensitivity-gated**: nodes above the agent's allowed sensitivity level are redacted. All agent reads of confidential or restricted content are audited.
+6. Agent proposals that create or modify nodes with sensitivity above the agent's allowed level are **rejected** by the policy engine (422).
 
 ## Authentication
 
-Agents authenticate as `type=AGENT` actors and are granted scoped permissions:
+The server enforces **JWT authentication**. Agents must include `Authorization: Bearer <token>` with a JWT containing:
 
-- `propose` only
-- optional `project` (generate projections)
-- optional `search` (read-only retrieval)
+- `sub`: agent ID (subject)
+- `actor_type`: `"agent"`
+- `roles`: e.g. `["contributor"]` (or other scoped roles)
+
+The server validates the token via HS256 shared secret (`AUTH_SECRET`). When `AUTH_DISABLED=true` (default dev mode), a default admin actor is used.
+
+Agents are granted scoped permissions: `propose` only; optional `project` (generate projections); optional `search` (read-only retrieval).
 
 ## HTTP verb usage
 
@@ -38,19 +44,24 @@ The reference implementation (server/) exposes the following. Base URL is typica
 | GET    | `/health`                | Liveness; returns `{ "status": "ok" }`.                                                                                                                   |
 | GET    | `/nodes`                 | Query nodes. Query params: `status` (comma-separated: accepted, proposed, rejected, superseded), `limit`, `offset`. Defaults to accepted-only for safety. |
 | GET    | `/nodes/:id`             | Get one node by id (namespace:id or id).                                                                                                                  |
+| GET    | `/nodes/:id/provenance`  | Get full attribution/audit chain for a node.                                                                                                              |
+| GET    | `/audit`                 | Query audit events (Admin only). Params: `actor`, `action`, `resource_id`, `from`, `to`, `limit`, `offset`.                                               |
+| GET    | `/audit/export`          | Export audit log as JSON or CSV. Param: `format` (default: json). Admin only.                                                                             |
+| GET    | `/admin/dsar/export`     | DSAR data export for a subject. Param: `subject` (actorId). Admin only.                                                                                   |
 | GET    | `/proposals`             | List proposals (open by default; filter client-side or extend server for status).                                                                         |
 | GET    | `/proposals/:id`         | Get one proposal.                                                                                                                                         |
 | GET    | `/proposals/:id/reviews` | Get review history for a proposal.                                                                                                                        |
 
 **Create and actions (POST)**
 
-| Method | Path                      | Description                                                                                                                                                                               |
-| ------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/proposals`              | Create proposal. Body: Proposal JSON. Returns 201.                                                                                                                                        |
-| POST   | `/proposals/:id/review`   | Submit a review (human only). Body: Review JSON.                                                                                                                                          |
+| Method | Path                      | Description                                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/proposals`              | Create proposal. Body: Proposal JSON. Returns 201.                                                                                                                                                                                                                                                                                                                                    |
+| POST   | `/proposals/:id/review`   | Submit a review (human only). Body: Review JSON.                                                                                                                                                                                                                                                                                                                                      |
 | POST   | `/proposals/:id/apply`    | Apply proposal (human only). Optional body: `{ "appliedBy": "actorId" }` for audit; if omitted, server may use session or default. Proposal status → APPLIED; store AppliedMetadata (appliedAt, appliedBy, appliedFromProposalId, appliedToRevisionId, previousRevisionId). Idempotent: if already APPLIED, return 200 without re-applying. See § Applied state and idempotent apply. |
-| POST   | `/proposals/:id/withdraw` | Withdraw proposal (author only). No body. Allowed only from DRAFT, SUBMITTED, or CHANGES_REQUESTED; proposal status → WITHDRAWN. See [Review Mode](REVIEW_MODE.md) § Withdraw and reopen. |
-| POST   | `/reset`                  | Reset store (dev only). No body.                                                                                                                                                          |
+| POST   | `/proposals/:id/withdraw` | Withdraw proposal (author only). No body. Allowed only from DRAFT, SUBMITTED, or CHANGES_REQUESTED; proposal status → WITHDRAWN. See [Review Mode](REVIEW_MODE.md) § Withdraw and reopen.                                                                                                                                                                                             |
+| POST   | `/admin/dsar/erase`       | DSAR erase: records erasure audit event. Body: `{ "subject": "actorId" }`. Admin only. Store mutation pending.                                                                                                                                                                                                                                                                        |
+| POST   | `/reset`                  | Reset store (dev only). No body.                                                                                                                                                                                                                                                                                                                                                      |
 
 **Partial update (PATCH)**
 
@@ -73,8 +84,20 @@ Agents may call: GET on all read paths; POST `/proposals`; PATCH `/proposals/:id
   - `accepted_only` (default)
   - `accepted_plus_proposal(proposalId)` (explicit)
 - **Depth & scope limits** on traversal
-- **Policy gates** on sensitive node types
+- **Policy gates** on sensitive node types: implemented rules include `min_approvals`, `required_reviewer_role`, `change_window`, `agent_restriction`, `agent_proposal_limit`, `egress_control`
+- **Sensitivity-based content redaction**: when an agent reads a node above its allowed sensitivity (via `egress_control`), the server returns `{ redacted: true, reason: "sensitivity" }` instead of content
 - **Provenance**: all agent-authored operations are attributed to the agent actor
+
+## Sensitivity and content redaction
+
+When an agent reads a node (`GET /nodes/:id` or `GET /nodes`), the server checks the node's `sensitivity` label against the agent's maximum allowed sensitivity (configured via the `egress_control` policy rule; default: `internal`). If the node's sensitivity exceeds the agent's level:
+
+- The response returns `{ "id": ..., "type": ..., "status": ..., "redacted": true, "reason": "sensitivity" }` instead of the full content.
+- The read is logged to the audit trail with outcome `denied`.
+
+Agent reads of `confidential` or `restricted` nodes (even when allowed) are always logged to the audit trail for compliance.
+
+Sensitivity levels (ordered low to high): `public`, `internal`, `confidential`, `restricted`. Default for nodes without an explicit label: `internal`.
 
 ## Agent identity, audit, and two scenarios
 

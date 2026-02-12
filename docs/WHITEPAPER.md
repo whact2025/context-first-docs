@@ -69,11 +69,17 @@ Markdown/DOCX are generated projections so they can be:
 
 ## Security & Compliance by design (guardrails that apply to AI)
 
-- **RBAC**: propose/review/apply permissions per workspace and scope
-- **Audit logs**: every review and apply is recorded—full accountability for compliance
-- **Policy hooks**: block or require additional approvals for sensitive types
-- **Data residency**: self-hostable, pluggable storage backends
-- **LLM safety**: accepted-only context by default; proposals isolated—agents cannot accept, reject, or apply
+The Rust server enforces governance at runtime — these are not aspirational but implemented:
+
+- **Authentication**: JWT (HS256) with role-bearing tokens; every request is attributed to an actor
+- **RBAC (enforced)**: hierarchical roles (Reader, Contributor, Reviewer, Applier, Admin) enforced on all routes; agents hard-blocked from review and apply
+- **Policy engine (enforced)**: 6 configurable rule types from `policies.json` — min_approvals, required_reviewer_role, change_window, agent_restriction, agent_proposal_limit, egress_control; evaluated at create, review, and apply time
+- **Audit log (enforced)**: immutable, append-only record of every state-changing action; queryable and exportable (JSON/CSV); survives store reset
+- **Sensitivity labels (enforced)**: nodes classified as public/internal/confidential/restricted; agent reads above allowed level are redacted and audited; SHA-256 content fingerprint computed on apply
+- **Data residency**: self-hostable with in-memory or file-based storage; pluggable backends (MongoDB planned)
+- **LLM safety**: accepted-only context by default; proposals isolated — agents cannot accept, reject, or apply
+
+See [Security & Governance](reference/SECURITY_GOVERNANCE.md), [Privacy and Data Protection](reference/PRIVACY_AND_DATA_PROTECTION.md).
 
 ## Competitive positioning (high level)
 
@@ -84,8 +90,8 @@ Markdown/DOCX are generated projections so they can be:
 ## What “enterprise foundation” means in practice
 
 1. **Immutable accepted truth** — no direct mutation; all changes via proposal, review, apply.
-2. **Permissioned governance** — RBAC per workspace; policy hooks for sensitive types. See [Security & Governance](reference/SECURITY_GOVERNANCE.md).
-3. **Auditability** — every review and apply recorded; audit log exportable per workspace.
+2. **Permissioned governance (enforced)** — JWT auth, hierarchical RBAC on all routes, 6-rule policy engine, and agent guardrails. See [Security & Governance](reference/SECURITY_GOVERNANCE.md).
+3. **Auditability (enforced)** — immutable audit log of every state-changing action; queryable via API, exportable as JSON/CSV; DSAR export and erasure endpoints.
 4. **Deterministic projections** — same revision and template yield same output (Git-friendly).
 5. **Reconciliation strategies** for concurrent work — field-level merge, conflict detection. See [Reconciliation Strategies](appendix/RECONCILIATION_STRATEGIES.md), [Conflict and Merge Scenario](scenarios/CONFLICT_AND_MERGE_SCENARIO.md).
 6. **Clear agent boundary** — agents propose; humans accept. Accepted-only context by default; see [Contextualized AI Model](appendix/CONTEXTUALIZED_AI_MODEL.md).

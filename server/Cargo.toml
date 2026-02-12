@@ -23,6 +23,10 @@ opentelemetry-stdout = { version = "0.31", default-features = false, features = 
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
 tracing-opentelemetry = "0.26"
 tower = { version = "0.4", features = ["util"] }
+base64 = "0.22"
+hmac = "0.12"
+uuid = { version = "1", features = ["v4"] }
+sha2 = "0.10"
 
 [dev-dependencies]
 http-body-util = "0.1"

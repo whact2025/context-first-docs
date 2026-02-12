@@ -1,6 +1,6 @@
 # TruthLayer Docs
 
-**Governed truth. Guarded AI.** Root README and CONTEXT are summaries that point here; this folder is the canonical source for product and architecture. TruthLayer is a **governance-first truth system** (**governed truth, guarded AI**): a truth ledger and collaboration layer for "truth" inside an organization—software decisions, business policy, operating procedures, risks, and rationale. Immutable accepted truth, proposal → review → **ratify** → apply workflow, and **guardrails that apply to AI** (RBAC, audit) by design. An **agent** reads accepted truth and authors proposals within that model; humans ratify. The solution **provides an MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use TruthLayer as a native tool.
+**Governed truth. Guarded AI.** Root README and CONTEXT are summaries that point here; this folder is the canonical source for product and architecture. TruthLayer is a **governance-first truth system** (**governed truth, guarded AI**): a truth ledger and collaboration layer for "truth" inside an organization -- software decisions, business policy, operating procedures, risks, and rationale. Immutable accepted truth, proposal -> review -> **ratify** -> apply workflow, and **guardrails that apply to AI** (RBAC, audit) by design. An **agent** reads accepted truth and authors proposals within that model; humans ratify. The solution **provides an MCP server** so AI assistants (Cursor, Claude Desktop, etc.) can use TruthLayer as a native tool.
 
 ## One invariant
 
@@ -12,6 +12,24 @@ TruthLayer enforces **ACAL** (the guardrails that apply to AI):
 4. Accepted proposals are **Applied**, producing a new **Accepted Revision** in the ledger.
 
 The **agent** can read accepted truth and author proposals; it **cannot** accept/reject/apply. Humans govern.
+
+## Implementation status
+
+The Rust server (server/) enforces governance at runtime:
+
+| Layer              | Status          | Details                                                                                                            |
+| ------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| JWT Authentication | **Implemented** | HS256 shared-secret tokens; `AUTH_SECRET` / `AUTH_DISABLED` env vars                                               |
+| RBAC               | **Implemented** | Role hierarchy on all routes; agents hard-blocked from review/apply                                                |
+| Policy Engine      | **Implemented** | 6 rule types from `policies.json` (min_approvals, change_window, egress_control, etc.)                             |
+| Audit Log          | **Implemented** | Immutable, append-only; queryable + exportable (JSON/CSV); survives reset                                          |
+| Sensitivity Labels | **Implemented** | public/internal/confidential/restricted; agent reads redacted above allowed level                                  |
+| IP Protection      | **Implemented** | SHA-256 content hash, source attribution, IP classification, provenance endpoint                                   |
+| File Storage       | **Implemented** | `TRUTHTLAYER_STORAGE=file`; JSON files under config root with atomic writes                                        |
+| Retention          | **Partial**     | Background task + config loading from `retention.json`; enforcement stub (logs, does not yet delete/archive)       |
+| DSAR               | **Partial**     | Export endpoint works (queries audit by subject); erase endpoint records audit event but does not yet mutate store |
+
+See [server/README.md](../server/README.md) for configuration and API endpoints.
 
 ---
 
@@ -28,16 +46,16 @@ The **agent** can read accepted truth and author proposals; it **cannot** accept
 
 ## Scenarios
 
-- [Hello World Scenario](scenarios/HELLO_WORLD_SCENARIO.md) — end-to-end proposal → review → apply
-- [Conflict and Merge Scenario](scenarios/CONFLICT_AND_MERGE_SCENARIO.md) — concurrency & merge
-- [Business Policy Scenario](scenarios/BUSINESS_POLICY_SCENARIO.md) — non-software "truth" example
+- [Hello World Scenario](scenarios/HELLO_WORLD_SCENARIO.md) -- end-to-end proposal -> review -> apply
+- [Conflict and Merge Scenario](scenarios/CONFLICT_AND_MERGE_SCENARIO.md) -- concurrency & merge
+- [Business Policy Scenario](scenarios/BUSINESS_POLICY_SCENARIO.md) -- non-software "truth" example
 
 ## Reference
 
-- [Data Model Reference](reference/DATA_MODEL_REFERENCE.md) — canonical schema
-- [Security & Governance](reference/SECURITY_GOVERNANCE.md) — security & governance
-- [Privacy and Data Protection](reference/PRIVACY_AND_DATA_PROTECTION.md) — GDPR-ready posture for procurement / DPIA
-- [Operations](reference/OPERATIONS.md) — operations
+- [Data Model Reference](reference/DATA_MODEL_REFERENCE.md) -- canonical schema (includes governance metadata)
+- [Security & Governance](reference/SECURITY_GOVERNANCE.md) -- security model, enforcement, agent posture
+- [Privacy and Data Protection](reference/PRIVACY_AND_DATA_PROTECTION.md) -- GDPR-ready posture for procurement / DPIA
+- [Operations](reference/OPERATIONS.md) -- operations, audit, retention, DSAR
 
 ---
 
@@ -58,7 +76,8 @@ Valuable for implementers and evaluators; not part of the core pitch.
 
 For builders; not required for "what is this and why should I care."
 
-- **Running**: From the repo root run **`npm run playground`**, then open http://localhost:4317. In Cursor/VS Code: **Run Task → "Playground (run both servers)"**. Alternatively, run with **Docker**: **`docker compose up --build`** (single container; see [Repo README](../README.md) § Docker).
+- **Running**: From the repo root run **`npm run playground`**, then open http://localhost:4317. In Cursor/VS Code: **Run Task > "Playground (run both servers)"**. Alternatively, run with **Docker**: **`docker compose up --build`** (single container; see [Repo README](../README.md) Docker).
+- **Telemetry**: [OpenTelemetry (OTEL) Logging](OTEL_LOGGING.md) -- distributed tracing, HTTP metrics, Azure Monitor / Grafana.
 
 | Doc                                                                               | Content                            |
 | --------------------------------------------------------------------------------- | ---------------------------------- |
@@ -75,6 +94,6 @@ All APIs and stored objects include **workspaceId**. A workspace is the unit of:
 
 ## Rule of thumb
 
-- **What is this and why should I care?** → Core narrative above.
-- **How would we implement this?** → Engineering.
-- **What else could we do later?** → Appendix.
+- **What is this and why should I care?** -> Core narrative above.
+- **How would we implement this?** -> Engineering.
+- **What else could we do later?** -> Appendix.

@@ -1,0 +1,15 @@
+{
+  "rules": [
+    {
+      "resource_type": "proposal",
+      "retention_days": 365,
+      "action": "archive"
+    },
+    {
+      "resource_type": "audit",
+      "retention_days": 730,
+      "action": "archive"
+    }
+  ],
+  "check_interval_secs": 86400
+}
