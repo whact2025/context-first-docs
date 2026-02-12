@@ -36,13 +36,15 @@ status: accepted
 1. ✅ Rust server provides InMemoryStore baseline (server/); TS retains apply-proposal + graph in `src/store/core/` for preview and tests; coverage tests in `tests/store-core.coverage.test.ts` (see `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
 2. ✅ Storage abstraction layer - `ContextStore` trait (`store/context_store.rs`), `config.rs` loads from server config root (backend choice, paths, RBAC provider config; see question-038), `main.rs` selects backend (memory/file) at startup
 3. ✅ File-based storage implementation - `FileStore` persists nodes, proposals, reviews, and audit log as JSON under server config root data directory; atomic writes (temp file + rename); activated via `TRUTHTLAYER_STORAGE=file` (see task-048)
-4. MongoDB storage implementation - self-hosted MongoDB document database (for production/scaling); connection/config from server config root (see Phase 4)
+4. MongoDB storage implementation - self-hosted MongoDB document database (for production/scaling); connection/config from server config root. See `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1 for schema, indexing, and transaction design.
 5. GraphQL API layer - schema definition, resolvers, type validation; authentication/authorization via **RBAC provider abstraction** (question-007)
 6. ✅ Conflict detection and resolution - `detectConflicts`, `isProposalStale`, `mergeProposals` implemented on InMemoryStore (programmatic store API; not yet exposed on HTTP routes). Manual resolution UI and proposal superseding remain open. Canonical walkthrough: [Conflict and Merge scenario](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md).
 7. ✅ Decision/rationale traversal (provenance chains) - typed relationship paths, context building, decision reasoning implemented (see task-052, task-059)
-8. Issue creation system - create issues from approved proposals (see Phase 8)
-9. Reference tracking - bidirectional references, automatic updates (see Phase 9)
-10. Git integration - automatic commits (file-based), snapshots (MongoDB), commit tracking (see Phase 10)
+8. Issue creation system - create issues from approved proposals. When a proposal is applied, optionally generate issues (e.g. GitHub/GitLab issues or internal task nodes) for each operation or for the proposal as a whole. Requires: issue templates per node type, configurable issue target (GitHub API, GitLab API, or internal task nodes), and mapping from proposal operations to issue fields. See task-035, task-053.
+9. Reference tracking - bidirectional references and automatic updates. When a node is updated or deleted, find all nodes that reference it (via edges or inline refs) and flag or update them. Requires: reference index (edges + inline `nodeId` mentions in content), stale-reference detection on apply, and optional cascading updates or warnings in the proposal validation step. See task-054.
+10. Git integration - automatic commits for file-based storage (commit on apply with structured message including proposal ID and actor), periodic snapshots for MongoDB (dump to Git for audit/DR), and commit tracking (link code repository commits to proposals via commit-message conventions, Jira-style). Requires: Git CLI or libgit2 integration, configurable remote, commit-message template, and optional webhook for CI triggers. See task-055.
+11. ✅ Governance infrastructure — JWT authentication (HS256), hierarchical RBAC (Reader/Contributor/Reviewer/Applier/Admin) on all routes, configurable policy engine (6 rule types from `policies.json`), immutable append-only audit log (queryable + exportable), sensitivity labels with agent egress control, IP protection (SHA-256 content hash, source attribution, provenance endpoint). DSAR endpoints (export implemented; erase stub) and retention engine (background task + config; enforcement stub). See task-031, task-034, `docs/reference/SECURITY_GOVERNANCE.md`.
+12. ✅ OpenTelemetry observability — Correlated distributed tracing (TypeScript client + Rust server), W3C trace context propagation, OTLP export to Azure Monitor / Grafana, HTTP metrics on client and server. See `docs/OTEL_LOGGING.md`.
 
 **See**: `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` for detailed gap analysis, implementation tasks, and timeline
 
@@ -50,7 +52,7 @@ status: accepted
 1. Implement proposal authoring APIs and helpers
 2. Add risk authoring tools and validation
 3. Create authoring helpers for all node types (decisions, tasks, questions, etc.)
-4. Implement role and permission system (contributors, approvers, admins); **roles supplied by RBAC provider abstraction** (Git/GitLab, Azure AD, DLs, or configured provider per question-007; provider config in server config root)
+4. ✅ (server RBAC) / open (enterprise provider) — Server-side RBAC enforcement implemented (JWT auth, role hierarchy on all routes, agent blocking; see task-031, task-034). Enterprise RBAC **provider abstraction** (Git/GitLab, Azure AD, DLs, SSO/OIDC; question-007) is designed but not yet pluggable; current deployment uses JWT claims for roles. See task-078.
 5. Add designated contributors and approvers support
 6. Implement role-based authoring modes (read-only vs suggesting)
 7. Implement bidirectional sync - proposals (optionally derived from Markdown ctx blocks) ↔ projections
@@ -68,9 +70,14 @@ status: accepted
 14. Support partial accept/reject
 15. Build review history tracking
 16. Support multi-approval workflows
-17. **Audit export**: Standard format for exporting proposals/reviews for compliance (store holds data; see `docs/WHITEPAPER.md`, `docs/reference/SECURITY_GOVERNANCE.md` for audit roadmap).
+17. ✅ **Audit export** (implemented): `GET /audit` with filters (actor, action, resource_id, date range, pagination); `GET /audit/export?format=json|csv` for full export. Admin role required. See `docs/reference/SECURITY_GOVERNANCE.md`.
 18. **Bidirectional flow (Word/Google)** (optional): See `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 19. **Context relationship visualization** (optional): See `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
+20. Projection engine — Implement Markdown/DOCX/HTML projection in the Rust server: projection templates, anchor maps (projection span → node/field anchor), deterministic output for same revision + template. Required for change detection (item 21) and bidirectional sync (item 7). See `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 3, task-071.
+21. Change detection from projections — Parse edited projection, map edits to anchors, emit proposal operations (create, update, delete, move, status-change, etc.). Validate operations against schema; optional policy findings. See `docs/appendix/CHANGE_DETECTION.md`, `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 4, task-072.
+22. Full NodeQuery on HTTP API — Implement remaining query filters on `GET /nodes`: full-text search, date range, relatedTo, relationshipTypes, depth, namespace, tags, to match comprehensive spec in `docs/core/AGENT_API.md`. Currently subset implemented. See task-073.
+23. Expose conflict detection/merge on HTTP routes — Currently programmatic only (InMemoryStore API). Add `GET /proposals/:id/conflicts`, `POST /proposals/merge`, stale-proposal warnings on submit/review. See task-074, `docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md`.
+24. Notification system — Notify contributors and approvers of new proposals, reviews, and apply events. Pluggable transport (email, webhook, in-app, GitHub/GitLab notifications). See question-017, task-083.
 
 **Phase 4: Agent APIs** (power **The Agent** we build; agent uses these to read truth and create proposals only)
 1. Implement comprehensive query API (type, status, keyword, relationships, pagination, sorting)
@@ -121,6 +128,19 @@ Implement the **Contextualize** module and **The Agent** as in `docs/appendix/CO
 11. CLI tools for installation and management
 12. CI/CD integration
 13. Security/privacy validation - ensure zero IP leakage, all data in self-hosted Git
+
+**Phase 7: Production Readiness & Operations**
+1. Complete retention engine enforcement — Implement actual deletion/archiving in the retention background task (currently stub that logs audit events only). Requires queryable `created_at` timestamps on all entities. See task-075, question-043, `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`.
+2. Complete DSAR erase — Implement store mutation (anonymize/redact actor references across nodes, proposals, reviews, audit log) in `POST /admin/dsar/erase` (currently records audit event only). See task-076, question-042.
+3. Multi-workspace support in server — Enforce workspace scoping on all read/write paths (nodes, proposals, reviews, comments, audit). Currently single-workspace. Prevent cross-workspace leakage. See task-077, task-062, risk-010, risk-020.
+4. SSO/SAML/OIDC integration — Extend JWT auth to accept tokens from enterprise identity providers (Azure AD, Okta, Auth0). Map external claims to TruthLayer roles via RBAC provider abstraction (question-007). See task-078.
+5. Production backup/restore — Implement backup and restore procedures for both storage backends. File-based: Git snapshots on apply. MongoDB: native backup + periodic Git export. Validate revision lineage preservation on restore. See task-079, `docs/reference/OPERATIONS.md`.
+6. Schema evolution and migration tooling — Versioned schemas with migration scripts for both storage backends. Backward-compatible reads; forward migration on startup or via CLI. See task-080, question-023, question-048.
+7. Load testing and performance benchmarks — Benchmark both storage backends under production workloads (concurrent proposals, large graphs, traversal queries). Establish baselines and scalability limits. Inform file-based → MongoDB migration guidance. See task-081, risk-003, risk-022.
+8. Deployment automation — Docker images, docker-compose for local dev, Helm charts or ARM/Bicep templates for cloud deployment. CI/CD pipeline for automated testing and deployment. See task-084.
+9. Encryption at rest — Backend-dependent encryption (file-based: OS-level or encrypted volumes; MongoDB: native encryption at rest). BYOK support for enterprise. See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`.
+10. SCIM provisioning — Automated user/role provisioning from enterprise identity providers to reduce manual role management. See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`.
+11. API versioning — Strategy for managing breaking HTTP API changes (URL-based versioning, deprecation headers, migration guides). See question-048.
 ```
 
 ```ctx
@@ -689,4 +709,116 @@ id: task-067
 status: open
 ---
 Provide context relationship visualization: context map (diagram or table of nodes/edges) in or alongside projections; with Office Add-in, graph/tree view in task pane. See docs/appendix/DOCX_REVIEW_INTEGRATION.md.
+```
+
+```ctx
+type: task
+id: task-071
+status: open
+---
+Implement projection engine in Rust server — Markdown/DOCX/HTML projection: projection templates (per workspace or default), anchor maps (projection span → node/field anchor for change detection and comments), deterministic output (same revision + template = same output). Required for change detection (task-072) and bidirectional sync (task-039). See docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md Phase 3, docs/core/ARCHITECTURE.md.
+```
+
+```ctx
+type: task
+id: task-072
+status: open
+---
+Implement change detection from projections — Parse edited projection (Markdown/DOCX), resolve edits to anchor map entries, emit structured proposal operations (create, update, delete, move, status-change, insert, edge create/delete). Validate operations against schema; surface optional policy findings. Depends on projection engine (task-071). See docs/appendix/CHANGE_DETECTION.md, docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md Phase 4.
+```
+
+```ctx
+type: task
+id: task-073
+status: open
+---
+Implement full NodeQuery on HTTP API — Extend GET /nodes with remaining query filters: full-text search across content/title, date range (createdAfter/Before, modifiedAfter/Before), relatedTo (node ID + relationship types + depth), namespace, tags, creator, sorting options. Currently subset implemented. Match comprehensive spec in docs/core/AGENT_API.md.
+```
+
+```ctx
+type: task
+id: task-074
+status: open
+---
+Expose conflict detection and merge on HTTP routes — Add: GET /proposals/:id/conflicts (list conflicting proposals), POST /proposals/merge (merge non-conflicting fields from multiple proposals), stale-proposal warning on POST /proposals/:id/review and POST /proposals/:id/apply. Currently detect_conflicts/is_proposal_stale/merge_proposals are programmatic InMemoryStore API only. See task-051, docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md.
+```
+
+```ctx
+type: task
+id: task-075
+status: open
+---
+Complete retention engine enforcement — Extend retention background task to perform actual deletion or archiving of expired entities (nodes, proposals, reviews, comments, audit entries per retention class). Currently stub that loads retention.json rules and logs audit events but does not mutate store. Requires: queryable created_at timestamps on all entities, configurable retention periods per class, dry-run mode. See question-043, docs/reference/PRIVACY_AND_DATA_PROTECTION.md.
+```
+
+```ctx
+type: task
+id: task-076
+status: open
+---
+Complete DSAR erase implementation — Extend POST /admin/dsar/erase to perform actual store mutation: anonymize or redact actor references across nodes (createdBy/modifiedBy), proposals, reviews, and audit log entries for a given data subject. Currently records an erasure audit event only. Consider: redaction vs crypto-shredding (per PRIVACY doc), audit log immutability constraints, cascade to related entities. See question-042, docs/reference/PRIVACY_AND_DATA_PROTECTION.md.
+```
+
+```ctx
+type: task
+id: task-077
+status: open
+---
+Implement multi-workspace support in Rust server — Enforce workspace scoping (workspaceId) on all read/write paths: nodes, proposals, reviews, comments, audit log, projections. Partition storage per workspace (file-based: subdirectories; MongoDB: per-document workspaceId). Prevent cross-workspace leakage in queries and proposals. API routes scoped by /workspaces/:ws or header. See task-062, risk-010, risk-020, question-041.
+```
+
+```ctx
+type: task
+id: task-078
+status: open
+---
+Implement SSO/SAML/OIDC integration — Extend JWT authentication to accept tokens from enterprise identity providers (Azure AD, Okta, Auth0, etc.). Map external token claims (groups, roles, UPN) to TruthLayer role hierarchy via configurable RBAC provider abstraction. Support token refresh and session management. See question-007, docs/reference/SECURITY_GOVERNANCE.md, docs/reference/PRIVACY_AND_DATA_PROTECTION.md.
+```
+
+```ctx
+type: task
+id: task-079
+status: open
+---
+Implement production backup and restore — File-based backend: automatic Git commit on apply with structured message (proposal ID, actor, revision); periodic full snapshot. MongoDB backend: native mongodump/mongorestore + periodic Git export of accepted state. Restore must preserve revision lineage and audit log integrity. Validate with round-trip tests. See docs/reference/OPERATIONS.md.
+```
+
+```ctx
+type: task
+id: task-080
+status: open
+---
+Implement schema evolution and migration tooling — Version field on stored entities; migration scripts for both backends (file-based JSON schema transforms, MongoDB migration aggregations). Backward-compatible reads for N-1 version; forward migration on server startup or via CLI tool. Document breaking vs non-breaking changes. See question-023, question-048.
+```
+
+```ctx
+type: task
+id: task-081
+status: open
+---
+Implement load testing and performance benchmarks — Benchmark both storage backends: concurrent proposal creation (10/100/1000 agents), large graph queries (1K/10K/100K nodes), traversal depth performance, audit log query at scale. Establish latency and throughput baselines. Inform file-based storage scalability limits and MongoDB migration guidance. See risk-003, risk-022.
+```
+
+```ctx
+type: task
+id: task-082
+status: open
+---
+Implement MCP server — Expose TruthLayer as an MCP (Model Context Protocol) server: tools for query truth, create proposals, traverse reasoning chains; resources for read-only context (accepted nodes, graph). Same agent-safe contract (no review/apply tools). Authentication via MCP session tokens mapped to JWT. See docs/core/AGENT_API.md, docs/appendix/OPTIONAL_INTEGRATIONS.md, question-047.
+```
+
+```ctx
+type: task
+id: task-083
+status: open
+---
+Design and implement notification system — Notify relevant actors when: proposal created/submitted, review requested, review submitted, proposal applied, conflict detected, retention action pending. Pluggable transport layer (webhook, email, in-app, GitHub/GitLab notifications). Configurable per workspace (notification preferences, digest vs immediate). See question-017.
+```
+
+```ctx
+type: task
+id: task-084
+status: open
+---
+Implement deployment automation — Dockerfile and docker-compose for local dev and CI. Helm chart or ARM/Bicep templates for cloud deployment (Azure Container Apps, Kubernetes). CI/CD pipeline (GitHub Actions) for automated build, test, and deploy. Environment-specific configuration (dev/staging/prod). Health check and readiness probes.
 ```

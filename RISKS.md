@@ -282,3 +282,99 @@ likelihood: possible
 - Apply agent hint in `docs/core/AGENT_API.md` § External model usage: treat external model use as policy-governed; assume no egress if workspace policy unknown; when allowed, avoid verbatim sensitive content. See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md` § Subprocessor and LLM egress (allowlist/denylist, no-egress mode, residency).
 - Combine with prompt-leakage controls (risk-012) and retrieval policy (CONTEXTUALIZED_AI_MODEL); align agent behavior with future LLM routing policies.
 ```
+
+```ctx
+type: risk
+id: risk-019
+status: accepted
+severity: high
+likelihood: likely
+---
+**Risk**: Retention engine and DSAR erase are deployed as stubs (log audit events only; no actual deletion, archiving, or data mutation), creating a **compliance gap** if customers assume these features are fully operational. Procurement reviewers or DPIAs may accept the system based on documented capabilities that are not yet enforced.
+
+**Mitigation**:
+- Clearly label retention and DSAR erase as "partial / stub" in all customer-facing documentation, API responses, and admin UI (do not imply enforcement).
+- Prioritize task-075 (retention enforcement) and task-076 (DSAR erase) in Phase 7 before production deployment to regulated customers.
+- Add a startup warning or health-check flag when retention/DSAR enforcement is disabled so operators know the state.
+- Track question-042 (DSAR tooling) and question-043 (retention timeline) as blockers for regulated deployment.
+```
+
+```ctx
+type: risk
+id: risk-020
+status: accepted
+severity: high
+likelihood: likely
+---
+**Risk**: The server currently operates as **single-workspace**. Enterprise customers requiring workspace isolation (data partitioning, per-workspace RBAC policies, cross-workspace leakage prevention) cannot adopt without multi-workspace support, blocking enterprise scaling.
+
+**Mitigation**:
+- Prioritize task-077 (multi-workspace server support) and task-062 (workspace/tenancy model) in Phase 7.
+- Design workspaceId partitioning before MongoDB implementation to avoid costly schema rework.
+- Add integration tests for cross-workspace leakage prevention on all read/write paths.
+- See risk-010 (cross-workspace leakage), question-050 (multi-tenant deployment model), question-041 (workspace isolation in retrieval).
+```
+
+```ctx
+type: risk
+id: risk-021
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: **MongoDB backend** is recommended for production/scaling (question-004, question-012, question-026) but has no implementation started (task-049 open). Enterprise customers needing >1000 nodes, concurrent access, or ACID transactions have no production-ready storage backend. File-based storage does not scale and has concurrency limitations.
+
+**Mitigation**:
+- Prioritize task-049 (MongoDB storage) as a critical-path item. Consider implementing before or in parallel with Phase 3 authoring features.
+- Define migration path from file-based to MongoDB (question-046) early to avoid data-loss risk during transition.
+- Establish performance benchmarks (task-081) for file-based storage to clearly communicate its scalability limits to adopters.
+- Consider interim guidance: "file-based for development and small teams (<1000 nodes); MongoDB required for production" in adoption documentation.
+```
+
+```ctx
+type: risk
+id: risk-022
+status: accepted
+severity: medium
+likelihood: likely
+---
+**Risk**: **No load testing or performance benchmarks** exist. Production behavior under concurrent agents, large graphs (10K+ nodes), deep traversal queries, and sustained audit log growth is unknown. Performance regressions may be introduced without detection.
+
+**Mitigation**:
+- Implement task-081 (load testing and performance benchmarks) before production deployment.
+- Establish baselines for: concurrent proposal creation, large graph query latency, traversal depth performance, audit log query at scale.
+- Add performance regression tests to CI (e.g. benchmark suite that fails if latency exceeds threshold).
+- Use benchmarks to inform file-based → MongoDB migration guidance (risk-021, question-012).
+```
+
+```ctx
+type: risk
+id: risk-023
+status: accepted
+severity: high
+likelihood: likely
+---
+**Risk**: The **projection engine** is a dependency for multiple downstream features (change detection, bidirectional sync, DOCX review, context relationship visualization) but has no implementation tasks started. Delays in projection engine (task-071) cascade to Phase 3 items 7, 20, 21 and Phase 6 items 5, 6, blocking the authoring workflow.
+
+**Mitigation**:
+- Prioritize task-071 (projection engine) early in Phase 3 as a critical dependency.
+- Resolve question-049 (Rust vs TypeScript for projection) before starting implementation to avoid rework.
+- Design projection templates and anchor map format as a separate design task before full implementation.
+- Accept that current TypeScript projection in `src/markdown/` may serve as interim for development; plan explicit migration or coexistence strategy.
+```
+
+```ctx
+type: risk
+id: risk-024
+status: accepted
+severity: medium
+likelihood: likely
+---
+**Risk**: **Phase 5 (The Agent / Contextualize)** has deep dependencies on many open Phase 3 and Phase 4 items (full NodeQuery, traversal APIs on HTTP, conflict detection on HTTP, MCP server, projection engine). If these prerequisites slip, the agent implementation—the product's primary differentiator—is delayed.
+
+**Mitigation**:
+- Map Phase 5 prerequisites explicitly and track as a critical path: task-073 (full NodeQuery), task-074 (conflict on HTTP), task-082 (MCP server), and Phase 4 traversal APIs.
+- Consider a "minimal agent" milestone that requires only existing HTTP API capabilities (current query + create proposal) to unblock early agent development while full APIs are built.
+- Decouple retrieval module (Phase 5 item 2) from full traversal APIs by implementing basic queryNodes-based retrieval first.
+- Track dependency chain in project management (PLAN or issue tracker) to surface delays early.
+```

@@ -33,6 +33,9 @@ Outstanding items that can block specific design or implementation. _(Resolved o
 | **Phase 5 – retrieval**    | [**question-029**](#question-029) (sensitivity labels: where they live, who sets them); [**question-031**](#question-031) (vector index: who triggers rebuild, staleness).                                                  | Prompt-leakage policy; Path A at scale.                                    |
 | **Phase 5 – export / LLM** | [**question-030**](#question-030) (fine-tuning export: accepted-only guarantee, export versioning for audit); [**question-036**](#question-036) (self-hosted vs vendor LLM, prompt-leakage policy).                         | Phase 5 Path B (fine-tuning); positioning and vendor-LLM path.             |
 | **Optional**               | [**question-021**](#question-021) (bulk approve/reject): blocks only if v1 UI/API requires bulk. [**question-011**](#question-011) (namespaces): deferred; becomes a blocker if namespace-scoped RBAC or query is added.    | Bulk operations in UI/API; namespace feature set.                          |
+| **Production readiness**   | [**question-046**](#question-046) (file-to-MongoDB migration path); [**question-050**](#question-050) (multi-tenant deployment model); [**question-048**](#question-048) (API versioning strategy).                         | Phase 7 production deployment; enterprise scaling.                         |
+| **MCP server**             | [**question-047**](#question-047) (MCP authentication for AI assistants).                                                                                                                                                   | Phase 4 item 7 (MCP server); agent integration security.                   |
+| **Projection engine**      | [**question-049**](#question-049) (projection engine: Rust vs TypeScript).                                                                                                                                                  | Phase 3 items 20–21 (projection + change detection); architecture.         |
 
 ## Security & compliance (guardrail implementation)
 
@@ -58,6 +61,19 @@ Open questions that affect how privacy/DPIA commitments are implemented:
 | **question-045** | Should proposals have an explicit “contains personal data” or “recommend additional reviewers” field for UI and policy engine, or is description/comments-only sufficient for agent hints?            |
 
 See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md` and `docs/core/AGENT_API.md` §§ agent hints.
+
+## Production readiness & operations
+
+Open questions that affect production deployment, scaling, and long-term maintenance:
+
+| Question         | Topic                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **question-046** | What is the migration path from file-based storage to MongoDB — is there a migration tool, and how are revision lineages and audit logs preserved during migration?                               |
+| **question-047** | How does the MCP server handle authentication when AI assistants (Cursor, Claude Desktop) connect — do they use JWT tokens, session tokens, or a dedicated MCP auth flow?                         |
+| **question-048** | What is the API versioning strategy for the HTTP API — URL-based (e.g. /v1/nodes), header-based, or a different approach? How are breaking changes communicated and deprecated?                   |
+| **question-049** | Should the projection engine be implemented in the Rust server or remain in TypeScript? What are the performance and deployment implications of each?                                             |
+| **question-050** | What is the multi-tenant deployment model — single server with workspace isolation (namespace partitioning) or dedicated server per tenant? Connection pooling strategy for MongoDB multi-tenant? |
+| **question-051** | What are the requirements for offline/air-gapped operation — does the system need to function without any internet connectivity (no OTEL export, no external LLM, no package updates at runtime)? |
 
 ---
 
@@ -977,4 +993,108 @@ status: open
 **Context**: AGENT_API agent hints: flag proposal and recommend heightened review when personal data is present; recommend additional reviewers for legal/policy/security, IP-sensitive, identity/access, personal data/retention. question-039 is about how heightened-review recommendations are surfaced; this question is whether the data model has dedicated fields for sensitivity/reviewer recommendation.
 
 **Impact:** Low–Medium — affects proposal schema, UI, and policy engine (SECURITY_GOVERNANCE § Heightened review triggers)
+```
+
+```ctx
+type: question
+id: question-046
+status: open
+---
+**Question**: What is the migration path from file-based storage to MongoDB, and how are revision lineages and audit logs preserved during migration?
+
+**Context**:
+- File-based storage (FileStore) persists JSON files under the server config root; MongoDB stores documents in collections.
+- Migration must preserve: accepted revisions (immutable ledger), proposal history (including APPLIED status and AppliedMetadata), review records, audit log (append-only; must not lose entries), and edge/relationship data.
+- Options: (a) offline migration tool that reads FileStore JSON and writes to MongoDB collections; (b) dual-write period where both backends receive writes; (c) import/export via API (slow but safe).
+- Must validate: revision lineage is intact after migration, audit log is complete, no data loss.
+- Related: question-004 (storage format), question-024 (export/backup).
+
+**Impact:** Medium — affects enterprise scaling path (file-based is fine for dev/small; MongoDB needed at scale per question-012)
+```
+
+```ctx
+type: question
+id: question-047
+status: open
+---
+**Question**: How does the MCP server handle authentication when AI assistants (Cursor, Claude Desktop, etc.) connect?
+
+**Context**:
+- The MCP server exposes TruthLayer as a native tool for AI assistants (query truth, create proposals, traverse reasoning chains).
+- Current server uses JWT (HS256) tokens with roles in claims. AI assistants connecting via MCP need authentication but may not have a standard JWT flow.
+- Options: (a) pre-configured API key/token per MCP session (mapped to a JWT internally); (b) OAuth2 device flow for assistant registration; (c) workspace-scoped MCP tokens generated by an admin and configured in the assistant; (d) no auth for local-only MCP (trust local process).
+- Must ensure: agent identity is attributed in audit log, agent role restrictions are enforced (no review/apply), sensitivity labels respected.
+- Related: question-034 (agent attribution), question-035 (agent review/apply prevention).
+
+**Impact:** High — affects MCP server design (Phase 4 item 7) and security posture for AI assistant integration
+```
+
+```ctx
+type: question
+id: question-048
+status: open
+---
+**Question**: What is the API versioning strategy for the HTTP API, and how are breaking changes communicated?
+
+**Context**:
+- The Rust server exposes an HTTP API consumed by the TypeScript client, MCP server, playground, and future UIs.
+- As features are added (full NodeQuery, conflict HTTP routes, workspace scoping), the API surface will evolve.
+- Options: (a) URL-based versioning (e.g. `/v1/nodes`, `/v2/nodes`); (b) header-based versioning (`Accept: application/vnd.truthlayer.v1+json`); (c) additive-only changes with deprecation warnings; (d) GraphQL (schema evolution built-in).
+- Must consider: backward compatibility for deployed clients, migration guides, deprecation timeline, automated version detection.
+- Related: question-023 (storage format versioning), task-080 (schema evolution).
+
+**Impact:** Medium — affects all API consumers and long-term maintenance
+```
+
+```ctx
+type: question
+id: question-049
+status: open
+---
+**Question**: Should the projection engine be implemented in the Rust server or remain in TypeScript? What are the performance and deployment implications?
+
+**Context**:
+- Current Markdown projection and ctx block parsing live in TypeScript (`src/markdown/`).
+- The Rust server is the canonical store and governance enforcement point; projection in Rust would keep the pipeline server-side (no round-trip).
+- TypeScript projection allows client-side preview and keeps the projection logic close to the playground/UI.
+- Options: (a) Rust server-side projection (deterministic, fast, single deployment); (b) TypeScript client-side projection (flexible, easier to iterate, requires client deployment); (c) both — Rust for canonical/API projection, TypeScript for client preview.
+- Projection engine is a dependency for change detection (task-072) and DOCX export.
+- Related: task-071 (projection engine), docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md Phase 3.
+
+**Impact:** Medium — affects architecture, deployment complexity, and performance
+```
+
+```ctx
+type: question
+id: question-050
+status: open
+---
+**Question**: What is the multi-tenant deployment model — single server with workspace isolation or dedicated server per tenant?
+
+**Context**:
+- Current server is single-workspace. Multi-workspace support (task-077) will introduce tenant isolation.
+- Options: (a) single server, workspaceId-partitioned data (simpler ops, shared resources, requires strict isolation); (b) dedicated server per tenant (stronger isolation, higher ops cost, easier compliance); (c) hybrid — shared infrastructure with logical partitioning and optional dedicated mode for high-security tenants.
+- MongoDB supports both: per-document workspaceId (shared) or separate databases/collections (dedicated).
+- File-based supports subdirectory isolation.
+- Must consider: noisy-neighbor risk, data residency per workspace, cross-workspace query prevention, resource quotas.
+- Related: task-062 (workspace tenancy model), task-077 (multi-workspace server), risk-010 (cross-workspace leakage), risk-020 (single-workspace limitation), question-041 (workspace isolation in retrieval).
+
+**Impact:** High — affects enterprise deployment, compliance, and operations
+```
+
+```ctx
+type: question
+id: question-051
+status: open
+---
+**Question**: What are the requirements for offline/air-gapped operation?
+
+**Context**:
+- TruthLayer is self-hosted and designed for enterprise environments. Some deployments (government, defense, regulated industries) require fully air-gapped operation with no internet connectivity.
+- Implications: no OTEL export to cloud endpoints, no external LLM egress, no package updates at runtime, no GitHub/GitLab API calls for issue creation, no webhook notifications to external services.
+- Options: (a) air-gapped mode flag that disables all external connectivity; (b) per-feature toggle (OTEL, LLM, webhooks, issue creation); (c) network policy enforcement (server never initiates outbound; all external integrations via proxy or disabled).
+- Must consider: self-hosted LLM (Phase 5), local-only OTEL collector, offline Docker images, issue creation to internal systems only.
+- Related: question-036 (self-hosted vs vendor LLM), question-044 (external egress enforcement), risk-018 (data sent to external models).
+
+**Impact:** Medium — affects deployment architecture and feature design for regulated environments
 ```
