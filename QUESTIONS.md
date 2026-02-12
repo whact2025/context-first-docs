@@ -26,16 +26,17 @@ Open questions that block specific design or implementation decisions. _(Resolve
 
 Outstanding items that can block specific design or implementation. _(Resolved or addressed items are recorded in the question ctx blocks below and in the referenced docs.)_
 
-| Area                       | Blocker                                                                                                                                                                                                                     | Blocks                                                                     |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **Issue creation**         | [**question-009**](#question-009) (issue templates: where stored, how versioned); [**question-025**](#question-025) (issues when proposal superseded/rolled back). question-006 resolved (explicit path, block on failure). | Finalizing issue-creation design and Phase 3 "issue creation on approval." |
-| **Agent abuse**            | [**question-018**](#question-018): Rate limiting / preventing agents from creating too many proposals.                                                                                                                      | Phase 4/5 agent API and production deployment.                             |
-| **Phase 5 – retrieval**    | [**question-029**](#question-029) (sensitivity labels: where they live, who sets them); [**question-031**](#question-031) (vector index: who triggers rebuild, staleness).                                                  | Prompt-leakage policy; Path A at scale.                                    |
-| **Phase 5 – export / LLM** | [**question-030**](#question-030) (fine-tuning export: accepted-only guarantee, export versioning for audit); [**question-036**](#question-036) (self-hosted vs vendor LLM, prompt-leakage policy).                         | Phase 5 Path B (fine-tuning); positioning and vendor-LLM path.             |
-| **Optional**               | [**question-021**](#question-021) (bulk approve/reject): blocks only if v1 UI/API requires bulk. [**question-011**](#question-011) (namespaces): deferred; becomes a blocker if namespace-scoped RBAC or query is added.    | Bulk operations in UI/API; namespace feature set.                          |
-| **Production readiness**   | [**question-046**](#question-046) (file-to-MongoDB migration path); [**question-050**](#question-050) (multi-tenant deployment model); [**question-048**](#question-048) (API versioning strategy).                         | Phase 7 production deployment; enterprise scaling.                         |
-| **MCP server**             | [**question-047**](#question-047) (MCP authentication for AI assistants).                                                                                                                                                   | Phase 4 item 7 (MCP server); agent integration security.                   |
-| **Projection engine**      | [**question-049**](#question-049) (projection engine: Rust vs TypeScript).                                                                                                                                                  | Phase 3 items 20–21 (projection + change detection); architecture.         |
+| Area                       | Blocker                                                                                                                                                                                                                                                                                                                                            | Blocks                                                                     |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Issue creation**         | [**question-009**](#question-009) (issue templates: where stored, how versioned); [**question-025**](#question-025) (issues when proposal superseded/rolled back). question-006 resolved (explicit path, block on failure).                                                                                                                        | Finalizing issue-creation design and Phase 3 "issue creation on approval." |
+| **Agent abuse**            | [**question-018**](#question-018): Rate limiting / preventing agents from creating too many proposals.                                                                                                                                                                                                                                             | Phase 4/5 agent API and production deployment.                             |
+| **Phase 5 – retrieval**    | [**question-029**](#question-029) (sensitivity labels: where they live, who sets them); [**question-031**](#question-031) (vector index: who triggers rebuild, staleness).                                                                                                                                                                         | Prompt-leakage policy; Path A at scale.                                    |
+| **Phase 5 – export / LLM** | [**question-030**](#question-030) (fine-tuning export: accepted-only guarantee, export versioning for audit); [**question-036**](#question-036) (self-hosted vs vendor LLM, prompt-leakage policy).                                                                                                                                                | Phase 5 Path B (fine-tuning); positioning and vendor-LLM path.             |
+| **Optional**               | [**question-021**](#question-021) (bulk approve/reject): blocks only if v1 UI/API requires bulk. [**question-011**](#question-011) (namespaces): deferred; becomes a blocker if namespace-scoped RBAC or query is added.                                                                                                                           | Bulk operations in UI/API; namespace feature set.                          |
+| **Production readiness**   | [**question-046**](#question-046) (file-to-MongoDB migration path); [**question-050**](#question-050) (multi-tenant deployment model); [**question-048**](#question-048) (API versioning strategy).                                                                                                                                                | Phase 7 production deployment; enterprise scaling.                         |
+| **MCP server**             | [**question-047**](#question-047) (MCP authentication for AI assistants).                                                                                                                                                                                                                                                                          | Phase 4 item 7 (MCP server); agent integration security.                   |
+| **Projection engine**      | [**question-049**](#question-049) (projection engine: Rust vs TypeScript).                                                                                                                                                                                                                                                                         | Phase 3 items 20–21 (projection + change detection); architecture.         |
+| **AI Compliance Gateway**  | [**question-052**](#question-052) (gateway architecture: integrated vs separate); [**question-053**](#question-053) (multi-sensitivity prompt handling); [**question-054**](#question-054) (cost tracking model); [**question-055**](#question-055) (streaming response filtering); [**question-056**](#question-056) (MCP + gateway interaction). | Phase 8 gateway design; external model compliance.                         |
 
 ## Security & compliance (guardrail implementation)
 
@@ -1097,4 +1098,91 @@ status: open
 - Related: question-036 (self-hosted vs vendor LLM), question-044 (external egress enforcement), risk-018 (data sent to external models).
 
 **Impact:** Medium — affects deployment architecture and feature design for regulated environments
+```
+
+```ctx
+type: question
+id: question-052
+status: open
+---
+**Question**: Should the AI Compliance Gateway be a separate service or an integrated Axum middleware layer within the existing Rust server?
+
+**Context**:
+- Phase 8 introduces a gateway that intercepts outbound LLM calls, applies policy, inspects prompts, filters responses, and audits everything.
+- Options: (a) integrated middleware in the existing Axum server (shared auth, RBAC, policy, audit infrastructure; simpler deployment; single binary); (b) separate sidecar/proxy service (independent scaling, language-agnostic, can sit in front of any LLM client; more complex deployment); (c) hybrid — core gateway logic in the Rust server, with an optional standalone proxy mode for non-TruthLayer clients.
+- Integrated approach reuses existing EgressControl, sensitivity labels, audit log, and RBAC — no duplication.
+- Separate service could serve as a general-purpose AI compliance proxy for the enterprise, beyond TruthLayer users.
+- Must consider: latency impact of inspection, horizontal scaling needs, deployment topology (sidecar vs centralized), and whether non-TruthLayer clients need gateway access.
+- Related: task-085 (gateway middleware), task-090 (MCP gateway mode), question-051 (air-gapped operation).
+
+**Impact:** High — determines deployment architecture, scaling model, and market positioning of the gateway
+```
+
+```ctx
+type: question
+id: question-053
+status: open
+---
+**Question**: How should prompt inspection handle content that spans multiple sensitivity levels within a single prompt?
+
+**Context**:
+- A single prompt to an external model may reference multiple nodes at different sensitivity levels (e.g., a Public goal and a Confidential risk).
+- Options: (a) highest-sensitivity-wins — if any referenced content exceeds the egress threshold, block the entire prompt; (b) selective redaction — redact only the portions above threshold, pass the rest; (c) tiered mode — allow the prompt but with redacted placeholders for sensitive sections, letting the model work with reduced context.
+- Selective redaction requires tracking which portions of the prompt correspond to which nodes — tight coupling with the prompt builder (Phase 5).
+- Must consider: false positives (blocking too aggressively reduces utility), false negatives (partial redaction may leak context through inference), and audit trail granularity (log which nodes were redacted).
+- Related: task-087 (prompt inspection), task-085 (gateway middleware), question-044 (external egress enforcement).
+
+**Impact:** High — determines the usability vs security trade-off of the gateway
+```
+
+```ctx
+type: question
+id: question-054
+status: open
+---
+**Question**: What is the token pricing and cost tracking model for the gateway?
+
+**Context**:
+- Phase 8 item 9 introduces per-workspace and per-actor cost governance for external model calls.
+- Options: (a) static pricing table per model (admin-configured, updated manually); (b) dynamic pricing from provider APIs (real-time but adds latency and external dependency); (c) token counting only (no dollar conversion — leave cost calculation to external billing systems).
+- Must consider: pricing changes across providers (frequent), input vs output token pricing differences, prompt caching discounts, batch API pricing, and currency/exchange rate for international deployments.
+- Cost caps must be enforceable before the call is made (pre-flight estimate based on prompt token count) — exact cost is known only after the response.
+- Related: task-093 (cost and rate governance), task-091 (model routing config), task-094 (gateway admin API).
+
+**Impact:** Medium — affects enterprise budgeting, chargeback, and cost visibility
+```
+
+```ctx
+type: question
+id: question-055
+status: open
+---
+**Question**: Should the gateway support streaming responses from external models, and how does that affect response filtering?
+
+**Context**:
+- Most frontier LLM APIs support streaming (SSE/chunked responses). Many applications require streaming for acceptable latency.
+- Options: (a) buffer-and-filter — collect the full response, filter, then return (adds latency, simplifies filtering); (b) stream-through with post-hoc audit — stream tokens to the client in real-time, filter/audit after completion (low latency, but filtered content may have already been seen); (c) stream with inline filtering — inspect each chunk as it arrives, redact or terminate the stream if violations are detected (lowest latency with enforcement, most complex).
+- Buffer-and-filter is safest but may be unacceptable for interactive use cases.
+- Stream-through with post-hoc audit is the most pragmatic for initial release.
+- Must consider: partial response handling (what if the stream is terminated mid-response), audit log for streamed responses (log the full response after completion), and client expectations (MCP, HTTP SSE, WebSocket).
+- Related: task-088 (response filtering), task-085 (gateway middleware), task-090 (MCP gateway mode).
+
+**Impact:** Medium — affects user experience, security posture, and implementation complexity
+```
+
+```ctx
+type: question
+id: question-056
+status: open
+---
+**Question**: How does the gateway interact with the MCP server — are they the same endpoint or layered?
+
+**Context**:
+- Task-082 implements the MCP server (agent tools for query/propose). Task-090 extends MCP with gateway mode (tools that route to external models through compliance).
+- Options: (a) single MCP server with both tool sets (TruthLayer tools + gateway tools); (b) separate MCP servers (one for TruthLayer, one for gateway — client configures both); (c) gateway wraps TruthLayer MCP — all calls go through gateway, which can also query truth as context for model calls.
+- Option (c) is most powerful: an AI assistant calls TruthLayer gateway → gateway retrieves relevant truth as context → gateway adds context to prompt → gateway calls external model → gateway filters response → gateway returns to assistant. This makes TruthLayer the single integration point.
+- Must consider: MCP tool naming conventions (avoid collisions), authentication flow (single JWT for both), and whether gateway tools should be discoverable by all MCP clients or only when gateway mode is enabled.
+- Related: task-082 (MCP server), task-090 (MCP gateway mode), question-047 (MCP authentication).
+
+**Impact:** High — determines the integration surface for AI assistants and the gateway's role in the MCP ecosystem
 ```

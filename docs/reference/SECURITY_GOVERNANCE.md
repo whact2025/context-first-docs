@@ -42,7 +42,7 @@ flowchart TD
 
 - **IP protection**: NodeMetadata includes `content_hash` (SHA-256, computed on apply), `source_attribution`, `ip_classification`, `license`. Provenance: GET /nodes/:id/provenance returns full audit trail.
 
-- **DSAR**: GET /admin/dsar/export?subject=actorId (queries audit log for subject). POST /admin/dsar/erase records an audit event for the erasure request; actual store mutation (anonymizing references in nodes/proposals) is not yet implemented.
+- **DSAR**: GET /admin/dsar/export?subject=actorId (queries audit log for subject). POST /admin/dsar/erase records an audit event and anonymizes actor references across nodes and proposals.
 
 - **Retention**: Background task spawned from `retention.json` with configurable rules (resource_type, retention_days, action: archive|delete, check_interval_secs). Currently logs audit events on each check interval; actual deletion/archiving logic is pending (requires queryable created_at timestamps on proposals/nodes).
 
@@ -128,7 +128,7 @@ _Implementation status: Partially implemented._ The server enforces the followin
 
 - **IP protection**: NodeMetadata includes `content_hash` (SHA-256, computed on apply), `source_attribution`, `ip_classification`, `license`. Provenance endpoint: GET /nodes/:id/provenance returns full audit trail.
 
-- **DSAR**: GET /admin/dsar/export?subject=actorId (export subject data from audit log). POST /admin/dsar/erase records an audit event for the erasure request; actual store mutation (anonymizing references) is not yet implemented.
+- **DSAR**: GET /admin/dsar/export?subject=actorId (export subject data from audit log). POST /admin/dsar/erase records an audit event and anonymizes actor references across stored entities.
 
 - **Retention**: Background task spawned from `retention.json` with configurable rules (resource_type, retention_days, action). Currently logs audit events on each check; actual deletion/archiving is pending.
 
@@ -187,7 +187,28 @@ Assume that any content sent **outside the workspace boundary** may have differe
 - **Prefer high-level descriptions** over verbatim content.
 - **Flag when a proposal assumes external processing.**
 
-This aligns agent behavior with future LLM routing policies.
+### AI Compliance Gateway
+
+The external model boundary evolves from agent guidance to **infrastructure enforcement** with the AI Compliance Gateway. TruthLayer sits between callers and external AI models, applying the same governance pipeline to every outbound request:
+
+| Layer                    | What it enforces                                                                                                                                | Status |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **EgressControl policy** | Sensitivity gate (max allowed level for egress) + destination allowlist (which models/providers are permitted per workspace)                    |
+| **Prompt inspection**    | Scan outbound prompt content against node sensitivity labels; redact or block content above workspace egress threshold                          |
+| **Model routing**        | Enforce per-workspace model allowlist, regional constraints (EU-only, US-only), rate limits, and cost caps                                      |
+| **Response filtering**   | Inspect model responses for policy violations, hallucinated permissions, or injection indicators before returning to caller                     |
+| **External call audit**  | Immutable audit log entry for every external model call: provider, model, prompt hash, response hash, sensitivity classification, cost, latency |
+| **Cost/rate governance** | Per-workspace and per-actor rate limiting and cost tracking; configurable limits enforced before the call                                       |
+
+**Gateway modes**:
+
+- **Block mode** (default): all external model calls are blocked until the workspace admin configures an allowlist via `EgressControl.destinations`
+- **Governed mode**: calls are allowed to listed destinations, subject to prompt inspection, response filtering, and audit
+- **Passthrough mode**: for trusted internal models — audit logging only, no inspection/filtering
+
+**MCP gateway**: AI assistants (Cursor, Claude Desktop) connect to TruthLayer's MCP server and call gateway tools (`gateway_query`, `gateway_embed`) instead of model APIs directly. TruthLayer evaluates policy, inspects the prompt, routes to the allowed model, filters the response, and returns — the assistant never needs direct model access.
+
+See [Architecture](../core/ARCHITECTURE.md), [Agent API](../core/AGENT_API.md), [Privacy and Data Protection](PRIVACY_AND_DATA_PROTECTION.md).
 
 ## Heightened review triggers
 

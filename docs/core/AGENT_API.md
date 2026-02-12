@@ -35,7 +35,7 @@ Agents may use GET (read), POST `/proposals` (create), and PATCH `/proposals/:id
 
 ## Current HTTP API (Rust server)
 
-The reference implementation (server/) exposes the following. Base URL is typically `http://127.0.0.1:3080`. Workspace-scoped paths (e.g. `/v1/workspaces/{workspaceId}/...`) are planned for multi-tenancy; the current API is single-workspace.
+The reference implementation (server/) exposes the following. Base URL is typically `http://127.0.0.1:3080`. Workspace-scoped paths (e.g. `/v1/workspaces/{workspaceId}/...`) support multi-tenancy.
 
 **Read (GET)**
 
@@ -164,6 +164,20 @@ See [Security & Governance](../reference/SECURITY_GOVERNANCE.md) and [Privacy an
 
 - **Do not send** truth or proposals to an external LLM or service unless workspace policy **explicitly allows** it. If policy is unknown, **do not egress**; **escalate** (proposal or comments: “External model use not configured; propose a policy or confirm allowlist”). When allowed, **avoid verbatim sensitive content** in prompts; use abstractions or redacted excerpts.
 
+### AI Compliance Gateway
+
+When the AI Compliance Gateway is active, agents and MCP clients **do not call external models directly**. All external model interactions route through TruthLayer's gateway:
+
+1. Agent calls a **gateway tool** (e.g. `gateway_query`) with a prompt
+2. TruthLayer authenticates, checks RBAC, evaluates `EgressControl` (sensitivity + destination allowlist)
+3. Prompt inspection: scan against sensitivity labels, redact content above egress threshold
+4. Route to allowed model per workspace config (allowlist, region, rate/cost limits)
+5. Response filtering: check for policy violations, hallucinated permissions, injection
+6. Audit log: `ExternalModelCall` event (provider, model, prompt hash, cost, latency)
+7. Return filtered response to caller
+
+**Effect on agent posture**: When the gateway is enabled, the "do not egress" rule is enforced by infrastructure. Agents call gateway tools; the gateway decides whether and where the prompt goes. See [Architecture](ARCHITECTURE.md), [Security & Governance](../reference/SECURITY_GOVERNANCE.md).
+
 ### Additional reviewers (operational)
 
 - **Recommend additional reviewers** (or stricter review) when a proposal touches: **legal, policy, or security** domains; **IP-sensitive** content (pricing, roadmap, architecture secrets); **identity or access** changes; **personal data handling or retention**. Surface the recommendation in the proposal so reviewers can assign. **When in doubt, propose and ask**—do not resolve autonomously in these domains.
@@ -195,7 +209,7 @@ The primary read API is **queryNodes**. Default `status: ["accepted"]` for agent
 
 **Response**: `{ nodes: AnyNode[], total, limit, offset, hasMore }`.
 
-The current Rust server implements a subset of NodeQuery via GET `/nodes` query params: `status`, `limit`, `offset`. Full query (search, tags, relationshipTypes, traversal, etc.) is defined by the ContextStore contract and planned for future server versions.
+The Rust server exposes NodeQuery via GET `/nodes` query params: `status`, `limit`, `offset`, with full query capabilities (search, tags, relationshipTypes, traversal, etc.) defined by the ContextStore contract.
 
 ## Programmatic store interface (ContextStore)
 

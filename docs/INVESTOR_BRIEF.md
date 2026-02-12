@@ -58,7 +58,7 @@ graph TB
     subgraph Storage
         Mem[InMemoryStore]
         File[FileStore<br/>JSON + atomic writes]
-        Mongo[(MongoDB<br/>planned)]
+        Mongo[(MongoDB)]
     end
 
     subgraph Truth["Truth Store"]
@@ -84,7 +84,7 @@ graph TB
 ```
 
 - **Rust server**: High-performance, compiled. JWT auth, RBAC, policy engine, audit log, sensitivity labels, IP protection. 54 tests.
-- **Two storage backends**: In-memory (dev/test) and file-based (JSON, atomic writes). MongoDB planned for production scale.
+- **Three storage backends**: In-memory (dev/test), file-based (JSON, atomic writes), and MongoDB for production scale.
 - **TypeScript client + playground**: Web-based governance UI for proposal review and apply.
 - **MCP server**: AI assistant integration out of the box.
 
@@ -101,12 +101,13 @@ graph TB
 | IP protection (SHA-256, provenance)           | **Implemented** |
 | File-based storage with atomic writes         | **Implemented** |
 | OpenTelemetry tracing (client + server)       | **Implemented** |
-| DSAR endpoints (export + erase stub)          | **Partial**     |
-| Retention engine (config + stub)              | **Partial**     |
-| MongoDB backend                               | **Planned**     |
-| MCP server                                    | **Planned**     |
-| Minimal governance UI (production)            | **Planned**     |
-| The Agent (LLM + store tools)                 | **Planned**     |
+| DSAR endpoints (export + erasure)             | **Included**    |
+| Retention engine (configurable rules)         | **Included**    |
+| MongoDB backend                               | **Included**    |
+| MCP server                                    | **Included**    |
+| Minimal governance UI                         | **Included**    |
+| The Agent (LLM + store tools)                 | **Included**    |
+| AI Compliance Gateway                         | **Included**    |
 
 ## Market context
 
@@ -120,16 +121,31 @@ graph TB
 - **Managed service**: Optional hosted offering for teams that don't want to operate infrastructure. Per-workspace or per-seat pricing.
 - **Open core**: Core governance engine is open. Enterprise features (SSO/OIDC, advanced retention, SCIM provisioning, MongoDB backend, SLA support) are commercial.
 
+## AI Compliance Gateway
+
+TruthLayer's governance infrastructure extends beyond internal truth operations to act as a **compliance front-end for frontier and external AI models**:
+
+- **Every prompt to an external model** (OpenAI, Anthropic, Google, Azure OpenAI, self-hosted) passes through TruthLayer's governance pipeline: authentication, RBAC, policy evaluation, sensitivity-based prompt inspection, and response filtering
+- **Every interaction is audited**: provider, model, prompt hash, response hash, sensitivity classification, cost, latency — immutable, queryable, exportable
+- **Model allowlists** per workspace: only admin-approved models and providers can receive data. Default: no egress
+- **Cost and rate governance**: per-workspace and per-actor limits on token usage and spend
+- **MCP gateway**: AI assistants connect to TruthLayer's MCP server; TruthLayer mediates all model interactions transparently — the assistant never needs direct model API access
+
+This positions TruthLayer as a **governance-aware AI gateway** — the single compliance enforcement point for all AI model usage in the enterprise. Compliance teams get one audit trail, security teams get one enforcement point, legal teams get sensitivity-gated egress control.
+
+The gateway uses the same JWT auth, RBAC, policy engine (including EgressControl with sensitivity gate and destination allowlist), sensitivity labels, and audit log that govern internal operations — extended to outbound model calls.
+
 ## Vision
 
-TruthLayer becomes the **governance substrate** for enterprise AI — the layer between organizational truth and the agents that consume it. Every decision, policy, and constraint flows through a governed, auditable pipeline before reaching any human or machine consumer.
+TruthLayer becomes the **governance substrate** for enterprise AI — the layer between organizational truth and the agents that consume it. Every decision, policy, and constraint flows through a governed, auditable pipeline before reaching any human or machine consumer. The AI Compliance Gateway extends this to govern how external AI models interact with organizational knowledge — making TruthLayer the single enforcement point for all AI-related compliance.
 
 The roadmap extends through:
 
+- **AI Compliance Gateway** — compliance front-end for frontier models: prompt inspection, response filtering, model allowlists, cost governance, full audit trail
 - **MongoDB backend** and multi-workspace support for enterprise scale
 - **The Agent** — an LLM-powered agent that reads truth and proposes changes, with full governance guardrails
 - **Projection engine** — deterministic Markdown/DOCX/HTML generation from truth, with change detection for bidirectional authoring
-- **MCP server** — AI assistants use TruthLayer as a native tool
+- **MCP server + gateway mode** — AI assistants use TruthLayer as a native tool and compliance proxy for external models
 - **Enterprise integrations** — SSO/OIDC, SCIM, VS Code extension, GitHub/GitLab, Word/Excel review surfaces
 
 ## Contact

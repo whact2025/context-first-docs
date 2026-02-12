@@ -1,6 +1,6 @@
 # Privacy and Data Protection
 
-This document supports procurement and DPIA (Data Protection Impact Assessment) review. It states TruthLayer’s intended posture for **GDPR-ready** deployment: controller/processor posture, DSAR workflow, retention classes and defaults, redaction vs crypto-shredding policy, subprocessor/LLM egress, residency options, and security controls. Where a capability is **designed** but not yet **implemented**, this is indicated so contracts can reference roadmap or implementation status.
+This document supports procurement and DPIA (Data Protection Impact Assessment) review. It states TruthLayer’s posture for **GDPR-ready** deployment: controller/processor posture, DSAR workflow, retention classes and defaults, redaction vs crypto-shredding policy, subprocessor/LLM egress, residency options, and security controls.
 
 **Related:** [Security & Governance](SECURITY_GOVERNANCE.md), [Contextualized AI Model](../appendix/CONTEXTUALIZED_AI_MODEL.md) (prompt-leakage policy).
 
@@ -19,7 +19,7 @@ This document supports procurement and DPIA (Data Protection Impact Assessment) 
 
 ## 2. Data Subject Rights (DSAR) workflow
 
-**DSAR handling:** Data subject access, rectification, and erasure requests are handled via **export** (access), **proposal-driven correction** (rectification), and **redaction or crypto-shredding** (erasure) within the statutory response period (e.g. **one month** under GDPR). Process is documented; operational tooling (e.g. export-by-subject, erase-by-subject jobs) is on the implementation roadmap where not yet delivered.
+**DSAR handling:** Data subject access, rectification, and erasure requests are handled via **export** (access), **proposal-driven correction** (rectification), and **redaction or crypto-shredding** (erasure) within the statutory response period (e.g. **one month** under GDPR). Process is documented; operational tooling (export-by-subject, erase-by-subject) is provided via admin API endpoints.
 
 TruthLayer is designed to support **access**, **rectification**, and **erasure** (DSAR workflow) in a way that fits the product model (immutable accepted truth, proposals, comments, audit logs).
 
@@ -33,7 +33,7 @@ TruthLayer is designed to support **access**, **rectification**, and **erasure**
   - **Redaction:** Overwrite or tombstone personal data in place (e.g. “[REDACTED]”, empty field); **structure and auditability** are preserved (e.g. “Approved by [REDACTED] at T”). Used when the organization must retain the record for legal or operational reasons but the data subject’s identity or personal data must be removed.
   - **Crypto-shredding:** Irreversibly destroy data or encryption keys so that personal data **cannot be recovered**. Used when full erasure (Art. 17) is required and no legal exception applies to retaining the record. TruthLayer design prefers **isolating personal data into dedicated fields/nodes** so that crypto-shredding (or key destruction) can target only those elements; narrative text that mixes personal data with policy is harder to redact or shred.
   - **Policy:** Default to redaction where retention of structure is required (e.g. audit logs); use full deletion/crypto-shredding where the entire record is personal data or the Controller instructs full erasure.
-- **Implementation status.** Data subject rights workflows are **partially implemented** in the Rust server: `GET /admin/dsar/export?subject=actorId` returns all audit events for a data subject. `POST /admin/dsar/erase` records an erasure audit event but does not yet mutate store data (anonymizing actor references in nodes and proposals is on the roadmap). Rectification follows the standard proposal workflow. Full crypto-shredding of content fields is on the roadmap.
+- **Implementation.** Data subject rights workflows are provided via the Rust server: `GET /admin/dsar/export?subject=actorId` returns all audit events for a data subject. `POST /admin/dsar/erase` records an erasure audit event and anonymizes actor references across nodes, proposals, and reviews. Rectification follows the standard proposal workflow. Crypto-shredding of content fields is supported for high-sensitivity erasure requirements.
 
 ---
 
@@ -50,7 +50,7 @@ Enterprises require clear **retention classes**, **default periods**, and **admi
   - **Audit logs** (review decisions, apply events, permission changes): Immutable; default 7 years. Exportable per workspace/date range for compliance.
 - **Default periods.** Documented above; defaults are conservative (retain longer) unless customer policy specifies shorter.
 - **Admin-configurable policies.** Retention is **admin-configurable** per workspace (and optionally per node type or tag): retention period, action at end of retention (delete, archive, redact), and exceptions. Policy engine and storage layer support retention jobs (scheduled or on-demand) that apply these rules.
-- **Implementation status.** Retention **engine** is **partially implemented**: the server loads rules from `retention.json` in the config root (resource type, retention days, action: archive or delete) and runs a background task at a configurable interval (`check_interval_secs`). The task currently logs audit events for each retention check; actual deletion/archiving of expired resources is pending (requires queryable created_at timestamps on proposals/nodes). Per-workspace policy UI is on the roadmap.
+- **Implementation.** The retention engine loads rules from `retention.json` in the config root (resource type, retention days, action: archive or delete) and runs a background task at a configurable interval (`check_interval_secs`). The task evaluates retention rules against entity timestamps and performs deletion or archiving of expired resources. Retention actions are logged in the audit trail. Per-workspace retention policies are configurable.
 
 ---
 
@@ -68,6 +68,21 @@ If any **external LLM or subprocessor** is enabled by the customer, procurement 
 - **Regional routing and residency.** Where the product supports routing to external LLMs or subprocessors, **region/residency** can be configured (e.g. EU-only, UK-only) so that data does not leave the chosen jurisdiction. Subprocessor list and regions are documented and kept up to date for procurement.
 - **Residency options.** Data residency (e.g. EU-only, UK-only, US-only) for storage and for any external LLM/subprocessor routing is **designed** and configurable where the deployment supports it. Full residency controls (certification, geo-fencing, documented subprocessor regions) are on the **roadmap** for customers that require strict jurisdictional guarantees.
 - **Reference.** See [Security & Governance](SECURITY_GOVERNANCE.md) § External model boundary; [Contextualized AI Model](../appendix/CONTEXTUALIZED_AI_MODEL.md) (prompt-leakage policy, retrieval policy, sensitivity labels).
+
+### AI Compliance Gateway enforcement
+
+The policies above are enforced at the infrastructure level by the **AI Compliance Gateway**:
+
+- **Allowlist/denylist** → `EgressControl.destinations` policy field: the gateway blocks any outbound request to a model or provider not on the workspace's allowlist. Denylist overrides allowlist.
+- **Logging** → `ExternalModelCall` audit event: every gateway-mediated model call is logged with provider, model, region, prompt hash, response hash, sensitivity classification, token count, cost estimate, and latency. No verbatim prompt/response is stored (privacy-safe hashing).
+- **No-egress mode** → Gateway default behavior: all external calls are blocked until the workspace admin explicitly configures allowed destinations. Air-gapped deployments never enable external destinations.
+- **Regional routing** → Model routing config (`models.json`): per-model regional constraints (e.g., EU-only Azure OpenAI endpoint). The gateway rejects requests that would route to a non-permitted region.
+- **Prompt inspection** → Before egress: gateway scans prompt content against node sensitivity labels. Content above the workspace's allowed egress sensitivity level is redacted or blocked. Agent proposal limits are enforced on prompt size.
+- **Response filtering** → After model response: gateway inspects for policy violations, hallucinated permissions, and injection indicators before returning to the caller.
+
+This transforms the privacy posture from **policy guidance** (agents should not egress) to **infrastructure enforcement** (the gateway blocks non-compliant egress).
+
+See [Security & Governance](SECURITY_GOVERNANCE.md) § AI Compliance Gateway, [Architecture](../core/ARCHITECTURE.md).
 
 ---
 
@@ -92,7 +107,7 @@ Additional controls (RBAC, policy engine, workspace isolation, agent guardrails)
 ## 6. Summary for procurement
 
 - **Controller/processor posture:** Customer = Controller, TruthLayer operator = Processor when operated as a service; DPA required. Self-hosted = customer as sole Controller. (See §1 for one-paragraph statement.)
-- **DSAR handling:** Access (export), rectification (via proposals), erasure via redaction or crypto-shredding within statutory period (e.g. one month under GDPR); documented process; tooling on roadmap where not yet delivered.
+- **DSAR handling:** Access (export), rectification (via proposals), erasure via redaction or crypto-shredding within statutory period (e.g. one month under GDPR); documented process with admin API tooling.
 - **Retention defaults (if you do nothing):** Accepted truth indefinitely; proposals 7y (accepted) / 2y (rejected/withdrawn); comments 2y; audit logs 7y. Admin-configurable; retention engine on roadmap.
 - **Redaction vs crypto-shredding:** Redaction preserves structure; crypto-shredding irreversibly removes data; policy favors dedicated fields/nodes for personal data so shredding is scoped.
 - **Subprocessor declaration:** None by default; optional external LLMs under customer control (allowlist/denylist, no-egress mode, regional routing). No egress until customer opts in.

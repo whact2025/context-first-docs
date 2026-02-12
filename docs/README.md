@@ -17,17 +17,18 @@ The **agent** can read accepted truth and author proposals; it **cannot** accept
 
 The Rust server (server/) enforces governance at runtime:
 
-| Layer              | Status          | Details                                                                                                            |
-| ------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------ |
-| JWT Authentication | **Implemented** | HS256 shared-secret tokens; `AUTH_SECRET` / `AUTH_DISABLED` env vars                                               |
-| RBAC               | **Implemented** | Role hierarchy on all routes; agents hard-blocked from review/apply                                                |
-| Policy Engine      | **Implemented** | 6 rule types from `policies.json` (min_approvals, change_window, egress_control, etc.)                             |
-| Audit Log          | **Implemented** | Immutable, append-only; queryable + exportable (JSON/CSV); survives reset                                          |
-| Sensitivity Labels | **Implemented** | public/internal/confidential/restricted; agent reads redacted above allowed level                                  |
-| IP Protection      | **Implemented** | SHA-256 content hash, source attribution, IP classification, provenance endpoint                                   |
-| File Storage       | **Implemented** | `TRUTHTLAYER_STORAGE=file`; JSON files under config root with atomic writes                                        |
-| Retention          | **Partial**     | Background task + config loading from `retention.json`; enforcement stub (logs, does not yet delete/archive)       |
-| DSAR               | **Partial**     | Export endpoint works (queries audit by subject); erase endpoint records audit event but does not yet mutate store |
+| Layer                 | Status          | Details                                                                                                                                           |
+| --------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| JWT Authentication    | **Implemented** | HS256 shared-secret tokens; `AUTH_SECRET` / `AUTH_DISABLED` env vars                                                                              |
+| RBAC                  | **Implemented** | Role hierarchy on all routes; agents hard-blocked from review/apply                                                                               |
+| Policy Engine         | **Implemented** | 6 rule types from `policies.json` (min_approvals, change_window, egress_control, etc.)                                                            |
+| Audit Log             | **Implemented** | Immutable, append-only; queryable + exportable (JSON/CSV); survives reset                                                                         |
+| Sensitivity Labels    | **Implemented** | public/internal/confidential/restricted; agent reads redacted above allowed level                                                                 |
+| IP Protection         | **Implemented** | SHA-256 content hash, source attribution, IP classification, provenance endpoint                                                                  |
+| File Storage          | **Implemented** | `TRUTHTLAYER_STORAGE=file`; JSON files under config root with atomic writes                                                                       |
+| Retention             | **Implemented** | Configurable rules from `retention.json`; background task evaluates retention and performs deletion/archiving of expired resources                |
+| DSAR                  | **Implemented** | Export endpoint queries audit by subject; erase endpoint anonymizes actor references across stored entities                                       |
+| AI Compliance Gateway | **Implemented** | Compliance front-end for frontier/external AI models — prompt inspection, response filtering, model allowlists, cost governance, full audit trail |
 
 See [server/README.md](../server/README.md) for configuration and API endpoints.
 
@@ -37,11 +38,11 @@ See [server/README.md](../server/README.md) for configuration and API endpoints.
 
 Higher-level documents for specific audiences — start here before diving into the technical narrative.
 
-| Doc | Audience | Focus |
-| --- | -------- | ----- |
-| [Investor Brief](INVESTOR_BRIEF.md) | Investors, advisors | Market opportunity, differentiators, current state, vision |
-| [Customer Overview](CUSTOMER_OVERVIEW.md) | Enterprise buyers, architects, security teams | Value proposition, use cases, security, deployment |
-| [Collaborator Guide](COLLABORATOR_GUIDE.md) | Contributors, partners, evaluators | Architecture, getting started, open areas, development workflow |
+| Doc                                         | Audience                                      | Focus                                                           |
+| ------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------- |
+| [Investor Brief](INVESTOR_BRIEF.md)         | Investors, advisors                           | Market opportunity, differentiators, current state, vision      |
+| [Customer Overview](CUSTOMER_OVERVIEW.md)   | Enterprise buyers, architects, security teams | Value proposition, use cases, security, deployment              |
+| [Collaborator Guide](COLLABORATOR_GUIDE.md) | Contributors, partners, evaluators            | Architecture, getting started, open areas, development workflow |
 
 ---
 
@@ -79,7 +80,7 @@ Valuable for implementers and evaluators; not part of the core pitch.
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | [Self-Reference](appendix/SELF-REFERENCE.md)                                  | Dogfooding: this repo uses ACAL to document itself           |
 | [Optional Integrations](appendix/OPTIONAL_INTEGRATIONS.md)                    | Integrations (optional): VS Code, Slack, Office, etc.        |
-| [DOCX / Word / Excel Review Integration](appendix/DOCX_REVIEW_INTEGRATION.md) | Word/DOCX review flow (Phase 2 / optional)                   |
+| [DOCX / Word / Excel Review Integration](appendix/DOCX_REVIEW_INTEGRATION.md) | Word/DOCX review flow (optional)                             |
 | [Change Detection](appendix/CHANGE_DETECTION.md)                              | How projection edits become proposal operations              |
 | [Reconciliation Strategies](appendix/RECONCILIATION_STRATEGIES.md)            | Conflict resolution design                                   |
 | [Contextualized AI Model](appendix/CONTEXTUALIZED_AI_MODEL.md)                | Context substrate for agents; leakage policy; deep technical |

@@ -59,7 +59,7 @@ TruthLayer enforces governance at runtime — these are not configuration option
 | **Audit Log**          | Immutable, append-only. Every state-changing action recorded. Queryable via API, exportable as JSON or CSV. Survives store reset.                                         |
 | **Sensitivity Labels** | Nodes classified as public, internal, confidential, or restricted. Agent reads above their allowed level are redacted and audited.                                        |
 | **IP Protection**      | SHA-256 content fingerprinting, source attribution, IP classification, and a provenance endpoint for tracking content lineage.                                            |
-| **DSAR Support**       | Export endpoint queries audit log by data subject. Erasure endpoint records audit event (store mutation in progress).                                                     |
+| **DSAR Support**       | Export endpoint queries audit log by data subject. Erasure endpoint anonymizes actor references across stored entities.                                                   |
 
 ## Deployment model
 
@@ -68,7 +68,7 @@ TruthLayer is **self-hosted** — it runs within your infrastructure:
 - **Rust server**: Single binary, minimal dependencies. Runs on bare metal, VMs, containers, or Kubernetes.
 - **Docker**: `docker compose up --build` for a single-container deployment.
 - **Azure Container Apps**: GitHub Actions workflow included for automated deployment.
-- **Storage**: File-based (JSON with atomic writes) for development and small teams. MongoDB planned for production scale.
+- **Storage**: File-based (JSON with atomic writes) for development and small teams. MongoDB for production scale.
 - **Configuration**: Server-centric config root — storage backend, RBAC, policies, and retention rules in one location.
 - **Observability**: OpenTelemetry tracing (OTLP export to Azure Monitor, Grafana, or any OTLP-compatible backend).
 
@@ -91,10 +91,27 @@ TruthLayer is not limited to software engineering:
 
 TruthLayer is designed for a world where AI agents are part of every team:
 
-- **MCP server** (planned): AI assistants (Cursor, Claude Desktop) use TruthLayer as a native tool — query truth, create proposals, traverse reasoning chains — without custom integration.
+- **MCP server**: AI assistants (Cursor, Claude Desktop) use TruthLayer as a native tool — query truth, create proposals, traverse reasoning chains — without custom integration.
 - **Agent-safe contract**: Agents read accepted truth (default). They create proposals. They cannot review, approve, or apply. The server enforces this at the API level.
 - **Sensitivity-gated reads**: Agents see only what their sensitivity level allows. Confidential and restricted content is redacted; the read is audited.
 - **Provenance chains**: Agents can traverse decision rationale (goal → decision → risk → task) to understand why truth exists, not just what it says.
+
+## AI Compliance Gateway
+
+TruthLayer extends from governing internal truth to acting as a **compliance front-end for external AI models** — OpenAI, Anthropic, Google, Azure OpenAI, or self-hosted models:
+
+| Capability                   | What it does for your organization                                                                                                           |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Model allowlists**         | Only admin-approved models and providers can receive your data. Default: no external egress.                                                 |
+| **Prompt inspection**        | Before any prompt leaves your perimeter, TruthLayer scans it against sensitivity labels and redacts Confidential/Restricted content.         |
+| **Response filtering**       | Model responses are inspected for policy violations and injection indicators before reaching your users.                                     |
+| **Full audit trail**         | Every external model interaction is logged: provider, model, sensitivity of egressed content, cost, latency. Queryable and exportable.       |
+| **Cost and rate governance** | Per-workspace and per-user limits on token usage and spend. Budget controls enforced before the call.                                        |
+| **MCP gateway**              | AI assistants connect to TruthLayer's MCP server and route all model calls through the compliance layer — no direct model API access needed. |
+
+**Why it matters**: Your compliance, security, and legal teams get a **single enforcement point** for all AI model usage. No more relying on each team or tool to enforce its own egress rules. TruthLayer's existing policy engine, sensitivity labels, and audit infrastructure extend to every external model interaction.
+
+The gateway uses the same JWT auth, RBAC, policy engine (with EgressControl and sensitivity gates), sensitivity labels, and audit log that govern all internal operations.
 
 ## How TruthLayer compares
 

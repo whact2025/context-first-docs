@@ -47,25 +47,25 @@ context-first-docs/
 │   └── types/                # TypeScript type definitions
 ├── tests/                    # Unit and integration tests
 ├── scripts/                  # Build, install, DOCX generation, CI
-├── PLAN.md                   # Development roadmap (7 phases, 84 tasks)
-├── QUESTIONS.md              # Open and resolved design questions (51 tracked)
-├── RISKS.md                  # Project risks and mitigations (24 tracked)
+├── PLAN.md                   # Development roadmap (8 phases, 94 tasks)
+├── QUESTIONS.md              # Open and resolved design questions (56 tracked)
+├── RISKS.md                  # Project risks and mitigations (29 tracked)
 ├── DECISIONS.md              # Key design decisions
 └── CONTEXT.md                # Self-referential context nodes
 ```
 
 ## Technology stack
 
-| Layer             | Technology                  | Notes                                                                 |
-| ----------------- | --------------------------- | --------------------------------------------------------------------- |
-| **Server**        | Rust + Axum                 | High-performance HTTP API; ContextStore trait with pluggable backends |
-| **Storage**       | InMemoryStore, FileStore    | MongoDB planned. File-based uses JSON with atomic writes              |
-| **Auth**          | JWT (HS256)                 | Configurable via `AUTH_SECRET` / `AUTH_DISABLED` env vars             |
-| **Client**        | TypeScript                  | RustServerClient with auth token injection and OTEL trace headers     |
-| **Playground**    | HTML + JS                   | Web UI for scenarios and governance; runs via `npm run playground`    |
-| **Observability** | OpenTelemetry               | W3C trace context, OTLP export, correlated client-server traces       |
-| **DOCX build**    | Pandoc + Mermaid CLI        | Markdown → DOCX with rendered diagrams and cross-document links       |
-| **Tests**         | Rust `#[tokio::test]`, Jest | 54 Rust tests; Jest unit + integration tests for TypeScript           |
+| Layer             | Technology                        | Notes                                                                 |
+| ----------------- | --------------------------------- | --------------------------------------------------------------------- |
+| **Server**        | Rust + Axum                       | High-performance HTTP API; ContextStore trait with pluggable backends |
+| **Storage**       | InMemoryStore, FileStore, MongoDB | File-based uses JSON with atomic writes; MongoDB for production       |
+| **Auth**          | JWT (HS256)                       | Configurable via `AUTH_SECRET` / `AUTH_DISABLED` env vars             |
+| **Client**        | TypeScript                        | RustServerClient with auth token injection and OTEL trace headers     |
+| **Playground**    | HTML + JS                         | Web UI for scenarios and governance; runs via `npm run playground`    |
+| **Observability** | OpenTelemetry                     | W3C trace context, OTLP export, correlated client-server traces       |
+| **DOCX build**    | Pandoc + Mermaid CLI              | Markdown → DOCX with rendered diagrams and cross-document links       |
+| **Tests**         | Rust `#[tokio::test]`, Jest       | 54 Rust tests; Jest unit + integration tests for TypeScript           |
 
 ## Getting started
 
@@ -135,7 +135,7 @@ flowchart TD
     subgraph Store["ContextStore trait"]
         Mem[InMemoryStore<br/>default]
         File[FileStore<br/>TRUTHTLAYER_STORAGE=file]
-        Mongo[(MongoDBStore<br/>planned)]
+        Mongo[(MongoDBStore)]
     end
 
     UI -- "HTTP + JWT" --> REQ
@@ -208,7 +208,7 @@ Six rule types loaded from `policies.json`:
 
 ## Areas open for contribution
 
-The [Development Plan](../PLAN.md) tracks 7 phases and 84+ tasks. Key areas where contributions are welcome:
+The [Development Plan](../PLAN.md) tracks 8 phases and 94+ tasks. Key areas where contributions are welcome:
 
 ### High priority
 
@@ -220,10 +220,23 @@ The [Development Plan](../PLAN.md) tracks 7 phases and 84+ tasks. Key areas wher
 ### Medium priority
 
 - **Conflict detection on HTTP routes** (task-074): Expose `detect_conflicts`, `is_proposal_stale`, `merge_proposals` via REST API.
-- **Retention engine enforcement** (task-075): Implement actual deletion/archiving (currently stub that logs events).
+- **Retention engine enforcement** (task-075): Extend deletion/archiving capabilities and per-workspace retention policy UI.
 - **DSAR erase** (task-076): Implement actor anonymization across stored entities.
 - **Multi-workspace support** (task-077): Enforce workspace scoping on all read/write paths.
 - **SSO/OIDC integration** (task-078): Accept tokens from enterprise identity providers.
+
+### AI Compliance Gateway
+
+- **Gateway proxy middleware** (task-085): Axum layer intercepting outbound LLM API calls, applying policy before forwarding.
+- **EgressControl.destinations enforcement** (task-086): Wire up the existing `destinations` policy field — model allowlist/denylist per workspace.
+- **Prompt inspection & redaction** (task-087): Scan prompts against sensitivity labels; redact content above egress threshold.
+- **Response filtering** (task-088): Inspect model responses for policy violations, hallucinated permissions, injection.
+- **External call audit logging** (task-089): New `ExternalModelCall` audit event type.
+- **MCP gateway mode** (task-090): Extend MCP server to route model calls through the compliance layer.
+- **Model routing config** (task-091): Configuration for allowed models, regional constraints, rate/cost limits.
+- **Gateway observability** (task-092): OTEL spans and metrics for gateway pipeline.
+- **Cost/rate governance** (task-093): Per-workspace and per-actor rate limiting and cost tracking.
+- **Gateway admin API** (task-094): Admin endpoints for config, usage stats, and gateway audit.
 
 ### Exploratory
 
@@ -236,8 +249,8 @@ The [Development Plan](../PLAN.md) tracks 7 phases and 84+ tasks. Key areas wher
 
 The project tracks design questions and risks systematically:
 
-- **[QUESTIONS.md](../QUESTIONS.md)**: 51 tracked questions (27 resolved, 24 open). Key open areas: MCP authentication (question-047), multi-tenant model (question-050), projection engine language (question-049).
-- **[RISKS.md](../RISKS.md)**: 24 tracked risks with mitigations. Key concerns: MongoDB critical path (risk-021), projection engine dependency chain (risk-023), retention/DSAR compliance gap (risk-019).
+- **[QUESTIONS.md](../QUESTIONS.md)**: 56 tracked questions (27 resolved, 29 open). Key open areas: gateway architecture (question-052), multi-sensitivity prompt handling (question-053), MCP + gateway interaction (question-056), MCP authentication (question-047), multi-tenant model (question-050).
+- **[RISKS.md](../RISKS.md)**: 29 tracked risks with mitigations. Key concerns: gateway latency (risk-025), LLM API diversity (risk-026), prompt inspection false positives (risk-027), gateway single point of failure (risk-028), MongoDB critical path (risk-021), projection engine dependency chain (risk-023).
 - **[DECISIONS.md](../DECISIONS.md)**: Key design decisions and rationale.
 
 ## Development workflow

@@ -9,6 +9,7 @@ This document tracks the development roadmap and milestones for TruthLayer.
 - **Canonical walkthroughs**: [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) (proposal → review → apply) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md) — run via playground Scenario Runner (`npm run playground`).
 - **The Agent / Contextualize**: Phase 5; design in `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`, `docs/core/AGENT_API.md` (retrieval, prompt building, optional agent loop; prompt-leakage policy). Agent reads truth and creates proposals only; never review/apply.
 - **Security & Compliance**: Guardrails by design per `docs/WHITEPAPER.md` (RBAC, audit logs, policy hooks, data residency, LLM safety). See `docs/reference/SECURITY_GOVERNANCE.md` for the security model and agent-behavior guardrails (personal data sensitivity, truth scope discipline, immutability with redaction, trade secret awareness, external model boundary, heightened review triggers, retention awareness, provenance and justification, workspace isolation, when in doubt propose don’t apply). See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md` for GDPR-ready procurement/DPIA (controller/processor, DSAR, retention, redaction vs crypto-shredding, subprocessor/LLM egress, residency).
+- **AI Compliance Gateway** (Phase 8): TruthLayer as a **compliance front-end for frontier and external AI models**. The same policy engine, sensitivity labels, RBAC, and audit log that govern internal operations extend to intercept, inspect, and control all external AI model interactions — prompt inspection, response filtering, destination enforcement, cost/rate governance, and full audit trail. See `docs/core/ARCHITECTURE.md`, `docs/reference/SECURITY_GOVERNANCE.md`.
 - **Decisions**: Key decisions in `DECISIONS.md` (e.g. agent boundary, DOCX projection, Word/Google flow).
 - **Doc suite**: TruthLayer does not replace doc suites; many orgs use both. See `docs/WHITEPAPER.md` (competitive positioning, “enterprise foundation”).
 - **Word/Google review**: Optional bidirectional flow and context visualization: `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
@@ -141,6 +142,21 @@ Implement the **Contextualize** module and **The Agent** as in `docs/appendix/CO
 9. Encryption at rest — Backend-dependent encryption (file-based: OS-level or encrypted volumes; MongoDB: native encryption at rest). BYOK support for enterprise. See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`.
 10. SCIM provisioning — Automated user/role provisioning from enterprise identity providers to reduce manual role management. See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`.
 11. API versioning — Strategy for managing breaking HTTP API changes (URL-based versioning, deprecation headers, migration guides). See question-048.
+
+**Phase 8: AI Compliance Gateway**
+
+TruthLayer evolves from governing internal truth operations to acting as a **compliance front-end for frontier and external AI models**. The same policy engine, sensitivity labels, RBAC, and audit log that govern internal operations are extended to intercept, inspect, and control all AI model interactions — ensuring organizational truth never reaches an unauthorized model and model responses are filtered before entering the governance pipeline.
+
+1. Implement gateway proxy middleware — HTTP middleware (Axum layer) that intercepts outbound requests to external LLM APIs (OpenAI, Anthropic, Google, Azure OpenAI, self-hosted). Inspect request payloads, apply policy before forwarding, capture responses. Configurable model routing table (model → endpoint, API key vault reference, region). See task-085, task-086.
+2. Enforce `EgressControl.destinations` — Wire up the existing `destinations` field in the EgressControl policy type: allowlist/denylist of permitted external model providers and endpoints per workspace. Default: no egress (all external calls blocked until explicitly allowed). See task-086, `server/src/policy.rs`.
+3. Prompt inspection and redaction — Before any request leaves the gateway: scan prompt content against node sensitivity labels, redact or block content above the workspace's allowed egress sensitivity, enforce `AgentProposalLimit` on prompt size, and log the inspection result. See task-087.
+4. Response filtering and validation — Inspect responses from external models before returning to callers: detect policy violations, hallucinated permissions, or injection attempts. Optional: validate that response content does not introduce data above the caller's sensitivity clearance. See task-088.
+5. External call audit logging — Extend the audit log with a new event type (`ExternalModelCall`): log provider, model, region, prompt hash (not verbatim for privacy), response hash, sensitivity classification of egressed content, policy evaluation result, timestamp, actor, and latency. Queryable and exportable like existing audit events. See task-089.
+6. MCP gateway mode — Extend the MCP server (task-082) to operate as a gateway: MCP clients call TruthLayer tools that transparently route to external models through the compliance layer. AI assistants (Cursor, Claude Desktop) call TruthLayer MCP tools → TruthLayer evaluates policy → TruthLayer forwards to the allowed model → TruthLayer filters the response → TruthLayer returns to the client. No direct model access needed. See task-090.
+7. Model routing configuration — Config file (`models.json` or workspace-level policy) defining: allowed models per workspace, per-model rate limits, cost caps, regional routing constraints (EU-only, US-only), fallback model chains, and API key references (vault or env var). See task-091.
+8. Gateway observability — Extend OTEL instrumentation with gateway-specific spans: `gateway.model_call` (provider, model, latency, token count), `gateway.policy_check` (rules evaluated, outcome), `gateway.redaction` (fields redacted, sensitivity level). Dashboard-ready for compliance reporting. See task-092.
+9. Cost and rate governance — Per-workspace and per-actor rate limiting and cost tracking for external model calls. Policy rules: max tokens/day per actor, max cost/month per workspace, burst limits. Violations logged in audit and optionally block the request. See task-093.
+10. Gateway admin API — Admin endpoints: `GET /admin/gateway/config` (current routing/policy), `PUT /admin/gateway/config` (update model allowlist), `GET /admin/gateway/usage` (usage stats per workspace/actor/model), `GET /admin/gateway/audit` (gateway-specific audit trail). Admin role required. See task-094.
 ```
 
 ```ctx
@@ -821,4 +837,84 @@ id: task-084
 status: open
 ---
 Implement deployment automation — Dockerfile and docker-compose for local dev and CI. Helm chart or ARM/Bicep templates for cloud deployment (Azure Container Apps, Kubernetes). CI/CD pipeline (GitHub Actions) for automated build, test, and deploy. Environment-specific configuration (dev/staging/prod). Health check and readiness probes.
+```
+
+```ctx
+type: task
+id: task-085
+status: open
+---
+Implement AI Compliance Gateway proxy middleware — Add an Axum middleware layer that intercepts outbound HTTP requests to configured external LLM API endpoints (OpenAI, Anthropic, Google, Azure OpenAI, self-hosted). The middleware must: extract the target model from the request, evaluate EgressControl and destination policies before forwarding, capture the response, and pass both through the prompt inspection (task-087) and response filtering (task-088) pipelines. Configurable model routing table maps model identifiers to endpoints, API key vault references, and regional constraints. See Phase 8 item 1, task-086, `docs/core/ARCHITECTURE.md`, `docs/reference/SECURITY_GOVERNANCE.md`.
+```
+
+```ctx
+type: task
+id: task-086
+status: open
+---
+Enforce EgressControl.destinations policy — Wire up the existing `destinations` field in the EgressControl policy type (`server/src/policy.rs`): allowlist/denylist of permitted external model providers, endpoints, and regions per workspace. Default behavior: all external LLM calls blocked until a workspace admin explicitly adds allowed destinations. Evaluate destinations policy in the gateway proxy middleware (task-085) before any outbound request. Return 403 with policy violation details when a destination is not allowed. Audit log the evaluation result. See Phase 8 item 2, `server/policies.json`.
+```
+
+```ctx
+type: task
+id: task-087
+status: open
+---
+Implement prompt inspection and redaction in the AI Compliance Gateway — Before any request leaves the gateway to an external model: (1) scan prompt content against node sensitivity labels (Public/Internal/Confidential/Restricted), (2) redact or block content above the workspace's allowed egress sensitivity (from EgressControl policy), (3) enforce AgentProposalLimit on prompt size (max tokens/content length), (4) log the inspection result as an audit event (fields scanned, redactions applied, sensitivity level of egressed content). Configurable: block vs redact mode, per-workspace redaction rules, verbosity of audit entry. See Phase 8 item 3, task-085, `docs/reference/SECURITY_GOVERNANCE.md`, `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`.
+```
+
+```ctx
+type: task
+id: task-088
+status: open
+---
+Implement response filtering and validation in the AI Compliance Gateway — Inspect responses from external models before returning to callers: (1) detect responses that claim permissions the caller doesn't have (hallucinated approvals, review actions), (2) optionally validate that response content does not introduce data above the caller's sensitivity clearance, (3) detect prompt injection or jailbreak indicators in model output, (4) log filtering results in audit. Configurable: strict mode (block suspect responses) vs advisory mode (annotate and pass through). See Phase 8 item 4, task-085.
+```
+
+```ctx
+type: task
+id: task-089
+status: open
+---
+Extend audit log for external model calls — Add a new AuditEvent action type `ExternalModelCall` to the audit log (`server/src/types/audit.rs`). Fields: provider, model_id, region, prompt_hash (SHA-256, not verbatim), response_hash, sensitivity_classification of egressed content, policy_evaluation_result (allowed/blocked/redacted), token_count (prompt + completion), latency_ms, cost_estimate, actor_id, workspace_id, timestamp. Queryable via existing `GET /audit` filters (action=ExternalModelCall, actor, date range). Exportable via `GET /audit/export`. See Phase 8 item 5, task-085.
+```
+
+```ctx
+type: task
+id: task-090
+status: open
+---
+Implement MCP gateway mode — Extend the MCP server (task-082) to operate as a compliance gateway: MCP clients (Cursor, Claude Desktop, etc.) invoke TruthLayer MCP tools that transparently route to external frontier models through the full compliance layer (auth → RBAC → policy → prompt inspection → model call → response filtering → audit). New MCP tools: `gateway_query` (send a governed prompt to an allowed model), `gateway_embed` (generate embeddings via allowed provider). The MCP client never needs direct access to model APIs — TruthLayer mediates all interactions. See Phase 8 item 6, task-082, `docs/core/AGENT_API.md`.
+```
+
+```ctx
+type: task
+id: task-091
+status: open
+---
+Implement model routing configuration — Design and implement a configuration file (`models.json` or workspace-level policy extension in `policies.json`) defining: allowed models per workspace (e.g. `gpt-4o`, `claude-sonnet`, `gemini-pro`), per-model endpoint URLs, API key references (environment variable or vault path), per-model rate limits and cost caps, regional routing constraints (EU-only, US-only, specific Azure region), fallback model chains (primary → fallback if rate-limited or unavailable), and timeout/retry configuration. Loaded at server startup and reloadable via admin API. See Phase 8 item 7, task-085, task-094.
+```
+
+```ctx
+type: task
+id: task-092
+status: open
+---
+Implement gateway observability — Extend OTEL instrumentation (`docs/OTEL_LOGGING.md`) with gateway-specific spans and metrics: `gateway.model_call` span (provider, model, latency, token count, cost), `gateway.policy_check` span (rules evaluated, outcome), `gateway.redaction` span (fields redacted, sensitivity level). New metrics: `gateway.requests.total` (by provider, model, outcome), `gateway.tokens.total` (by direction, model), `gateway.cost.total` (by workspace, model), `gateway.latency` histogram. Dashboard-ready for compliance reporting and cost monitoring. See Phase 8 item 8, `docs/OTEL_LOGGING.md`.
+```
+
+```ctx
+type: task
+id: task-093
+status: open
+---
+Implement cost and rate governance for external model calls — Per-workspace and per-actor rate limiting and cost tracking: max tokens per day per actor, max cost per month per workspace, burst limits (requests per minute). Enforcement: soft limit (warn in audit log) and hard limit (block request with 429 + policy violation detail). Cost tracking: per-model token pricing table, accumulate per actor/workspace, expose via gateway admin API (task-094). Policy rules in `policies.json` or `models.json`. See Phase 8 item 9.
+```
+
+```ctx
+type: task
+id: task-094
+status: open
+---
+Implement gateway admin API — Admin-only endpoints for managing the AI Compliance Gateway: `GET /admin/gateway/config` (current model routing and policy configuration), `PUT /admin/gateway/config` (update model allowlist, rate limits, cost caps — requires Admin role), `GET /admin/gateway/usage` (usage statistics per workspace, actor, model — token counts, costs, request counts, time range filters), `GET /admin/gateway/audit` (gateway-specific audit trail — shorthand for `GET /audit?action=ExternalModelCall` with additional gateway fields). See Phase 8 item 10, task-089.
 ```

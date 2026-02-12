@@ -24,7 +24,7 @@ graph TB
     subgraph Storage
         Mem[InMemoryStore]
         File[FileStore<br/>JSON + atomic writes]
-        Mongo[(MongoDB<br/>planned)]
+        Mongo[(MongoDB)]
     end
 
     subgraph "Truth Model"
@@ -92,6 +92,64 @@ graph TB
 
 7. **MCP server** (we provide it)
    - TruthLayer **exposes an MCP (Model Context Protocol) server** so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool. MCP tools map to the agent-safe API: query accepted truth, create proposals, traverse reasoning chains; no review/apply. Optional MCP resources expose read-only context (e.g. nodes, proposals list). This makes TruthLayer the guardrail layer that AI calls from the IDE and other MCP clients. See [Agent API](AGENT_API.md#mcp-exposure), [Optional Integrations](../appendix/OPTIONAL_INTEGRATIONS.md).
+
+8. **AI Compliance Gateway**
+   - TruthLayer extends from governing internal truth operations to acting as a **compliance front-end for frontier and external AI models**. The same policy engine, sensitivity labels, RBAC, and audit log that govern internal operations are extended to intercept, inspect, and control all external model interactions.
+
+```mermaid
+flowchart LR
+    subgraph Callers
+        App[Application]
+        MCP[MCP Client<br/>Cursor / Claude]
+        Agent[Agent]
+    end
+
+    subgraph "TruthLayer Gateway"
+        Auth2[Auth + RBAC]
+        Policy2[Policy Engine<br/>EgressControl<br/>destinations]
+        Inspect[Prompt Inspection<br/>sensitivity scan<br/>redaction]
+        Route[Model Router<br/>allowlist, region,<br/>rate/cost limits]
+        Filter[Response Filter<br/>validation,<br/>injection detect]
+        Audit2[Audit Log<br/>ExternalModelCall]
+    end
+
+    subgraph Models["External Models"]
+        GPT[OpenAI / Azure]
+        Claude[Anthropic]
+        Gemini[Google]
+        Self[Self-hosted]
+    end
+
+    App --> Auth2
+    MCP --> Auth2
+    Agent --> Auth2
+
+    Auth2 --> Policy2
+    Policy2 -- "blocked" --> Block([403 Policy<br/>Violation])
+    Policy2 -- "allowed" --> Inspect
+    Inspect --> Route
+    Route --> GPT
+    Route --> Claude
+    Route --> Gemini
+    Route --> Self
+    GPT --> Filter
+    Claude --> Filter
+    Gemini --> Filter
+    Self --> Filter
+    Filter --> Audit2
+    Audit2 --> Callers
+
+    style Block fill:#e55,color:#fff
+    style Audit2 fill:#4a9,color:#fff
+```
+
+**Gateway pipeline**: (1) authenticate and check RBAC, (2) evaluate EgressControl policy (sensitivity gate + destination allowlist), (3) inspect prompt — scan against sensitivity labels, redact content above egress threshold, (4) route to allowed model per workspace config, (5) filter response — detect policy violations, hallucinated permissions, injection, (6) log the full interaction in the audit log (`ExternalModelCall` event).
+
+**MCP gateway mode**: MCP clients call TruthLayer MCP tools that transparently route to external models through the compliance layer. The client never needs direct model access — TruthLayer mediates all interactions.
+
+The gateway builds on the existing auth, RBAC, policy engine (with `EgressControl` including the `destinations` field), sensitivity labels, and audit log — extending them to outbound model calls.
+
+See [Security & Governance](../reference/SECURITY_GOVERNANCE.md), [Privacy and Data Protection](../reference/PRIVACY_AND_DATA_PROTECTION.md), [WHITEPAPER](../WHITEPAPER.md).
 
 ## Core data flows
 

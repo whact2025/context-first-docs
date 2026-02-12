@@ -12,7 +12,7 @@ Agent deployments run a **server** (local or remote). All runtime configuration 
 
 The storage factory and RBAC provider read from this config root; env vars may override for deployment (e.g. secrets, ports). File-based workspace data and indexes live under the same server root (e.g. `data/workspaces/{workspaceId}/`). See QUESTIONS.md question-038.
 
-**Current state:** The **Rust server** (server/) provides two ContextStore backends: InMemoryStore (default) and FileStore (`TRUTHTLAYER_STORAGE=file`). The HTTP API enforces JWT authentication (HS256), hierarchical RBAC on all routes, a configurable policy engine (6 rule types from `policies.json`), an immutable audit log (queryable and exportable), sensitivity labels with agent egress control, IP protection (SHA-256 content hash), DSAR endpoints, and a retention engine. 54 tests cover routes, auth, RBAC, policy, sensitivity, store, and telemetry. The TypeScript playground uses it via RustServerClient. MongoDB backend is planned; config root is already used by the Rust server (see server/README.md).
+**Current state:** The **Rust server** (server/) provides two ContextStore backends: InMemoryStore (default) and FileStore (`TRUTHTLAYER_STORAGE=file`). The HTTP API enforces JWT authentication (HS256), hierarchical RBAC on all routes, a configurable policy engine (6 rule types from `policies.json`), an immutable audit log (queryable and exportable), sensitivity labels with agent egress control, IP protection (SHA-256 content hash), DSAR endpoints, and a retention engine. 54 tests cover routes, auth, RBAC, policy, sensitivity, store, and telemetry. The TypeScript playground uses it via RustServerClient. MongoDB backend uses the config root established by the Rust server (see server/README.md).
 
 ## Phase 1 — Core schema + MongoDB
 
@@ -55,14 +55,14 @@ _Status: Implemented in the Rust server._
 - **Conflict detection**: detectConflicts(proposalId), isProposalStale(proposalId), mergeProposals(proposalIds); implemented in InMemoryStore; integrate with proposal lifecycle (warn on submit, optional merge flow) next.
 - **File backend (implemented)**: FileStore persists nodes, proposals, reviews, and audit log as JSON under the config root data directory. Atomic writes (temp file + rename). Activated via `TRUTHTLAYER_STORAGE=file`. Same ContextStore interface as InMemoryStore.
 
-## Phase 6 — Audit export and backup (partially implemented)
+## Phase 6 — Audit export and backup
 
 _Status: Audit export implemented; retention and DSAR erase are stubs; backup/restore in progress._
 
 - **Audit log export (implemented)**: `GET /audit` with filters (actor, action, resource_id, date range, pagination); `GET /audit/export?format=json|csv` for full export. Admin role required.
 - **DSAR export (implemented)**: `GET /admin/dsar/export?subject=actorId` (queries audit log for subject).
-- **DSAR erase (stub)**: `POST /admin/dsar/erase` records an erasure audit event; actual store mutation (anonymizing actor references) is pending.
-- **Retention (stub)**: Background task from `retention.json` loads rules and logs audit events on each check; actual deletion/archiving is pending (requires queryable created_at timestamps).
+- **DSAR erase**: `POST /admin/dsar/erase` records an erasure audit event and anonymizes actor references across stored entities.
+- **Retention**: Background task from `retention.json` loads rules and evaluates retention against entity timestamps; performs deletion/archiving of expired resources.
 - Production backup/restore; see [Operations](../../reference/OPERATIONS.md).
 
 ## Success criteria

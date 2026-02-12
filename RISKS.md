@@ -378,3 +378,87 @@ likelihood: likely
 - Decouple retrieval module (Phase 5 item 2) from full traversal APIs by implementing basic queryNodes-based retrieval first.
 - Track dependency chain in project management (PLAN or issue tracker) to surface delays early.
 ```
+
+```ctx
+type: risk
+id: risk-025
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: The **AI Compliance Gateway** (Phase 8) introduces a latency-sensitive proxy layer between callers and external LLMs. Prompt inspection, policy evaluation, and response filtering add overhead on every request. If latency is too high, users will bypass the gateway or reject the product.
+
+**Mitigation**:
+- Design the gateway as an Axum middleware layer (not a separate network hop) to minimize latency.
+- Implement prompt inspection as a streaming pipeline — inspect as content is buffered, not after full assembly.
+- Benchmark gateway overhead early: target <50ms added latency for policy evaluation + prompt inspection (excluding model call time).
+- Provide a "passthrough" mode for trusted internal models where only audit logging is performed (no inspection/filtering).
+- Related: task-085 (gateway middleware), task-087 (prompt inspection), question-052 (architecture), question-055 (streaming).
+```
+
+```ctx
+type: risk
+id: risk-026
+status: accepted
+severity: high
+likelihood: likely
+---
+**Risk**: **External LLM API diversity** (OpenAI, Anthropic, Google, Azure OpenAI, self-hosted) means the gateway must support multiple API formats, authentication schemes, streaming protocols, and error handling patterns. Maintaining compatibility as providers change APIs is an ongoing burden.
+
+**Mitigation**:
+- Abstract the provider interface behind a trait (`ModelProvider`) with per-provider implementations. Start with OpenAI-compatible API (covers OpenAI, Azure OpenAI, and many self-hosted models) as the primary target.
+- Use OpenAI-compatible format as the gateway's internal request/response format; add Anthropic and Google adapters as needed.
+- Pin provider SDK versions and add integration tests with mock endpoints for each supported provider.
+- Monitor provider API changelogs and version gateway adapters independently.
+- Related: task-085 (gateway middleware), task-091 (model routing config).
+```
+
+```ctx
+type: risk
+id: risk-027
+status: accepted
+severity: medium
+likelihood: possible
+---
+**Risk**: **Prompt inspection may produce false positives** — blocking or redacting content that is not actually sensitive, degrading the quality of model responses and user trust in the gateway.
+
+**Mitigation**:
+- Implement configurable inspection modes: strict (block on any match), moderate (redact matched content), and advisory (log but pass through).
+- Use node-level sensitivity labels (already implemented) as the authoritative source — don't rely on content scanning heuristics alone.
+- Provide an audit trail of redaction decisions so admins can review false positives and tune policies.
+- Allow per-workspace sensitivity thresholds (e.g., some workspaces allow Internal content to egress, others only Public).
+- Related: task-087 (prompt inspection), question-053 (multi-sensitivity handling).
+```
+
+```ctx
+type: risk
+id: risk-028
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: The gateway creates a **single point of failure** for all external AI model interactions. If the gateway is unavailable, all LLM-dependent workflows stop — potentially more disruptive than direct model access.
+
+**Mitigation**:
+- Design for high availability: stateless gateway middleware (no session state) enables horizontal scaling and load balancing.
+- Implement circuit breakers for external model endpoints with configurable fallback behavior (queue, retry, fail-open with audit).
+- Provide a degraded mode where the gateway passes requests through with audit-only (no inspection/filtering) during gateway component failures.
+- Health check endpoints for the gateway layer, independent of external model availability.
+- Related: task-085 (gateway middleware), task-092 (gateway observability), question-052 (architecture).
+```
+
+```ctx
+type: risk
+id: risk-029
+status: accepted
+severity: medium
+likelihood: likely
+---
+**Risk**: **Phase 8 depends on the MCP server** (task-082, Phase 4 item 7) for the MCP gateway mode (task-090). If the MCP server is not implemented or is delayed, the gateway's primary integration surface for AI assistants is unavailable — limiting the gateway to direct HTTP API usage only.
+
+**Mitigation**:
+- Implement the gateway HTTP API (task-085) independently of MCP — it can serve non-MCP clients immediately.
+- Prioritize MCP server (task-082) as a prerequisite; track in critical path alongside Phase 5 dependencies (risk-024).
+- Design the gateway middleware layer so MCP gateway mode (task-090) is an extension, not a replacement, of the HTTP gateway API.
+- Related: task-082 (MCP server), task-090 (MCP gateway mode), question-056 (MCP + gateway interaction), risk-024 (Phase 5 dependencies).
+```
