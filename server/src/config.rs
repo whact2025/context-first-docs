@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-/// Runtime configuration root. Storage, RBAC, and other runtime settings
+/// Runtime configuration root. Storage, RBAC, TLS, and other runtime settings
 /// live under this path (e.g. config/storage.json, config/rbac.json).
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -19,10 +19,15 @@ pub struct ServerConfig {
     pub mongo_uri: Option<String>,
     /// RBAC provider: "git" | "gitlab" | "azure_ad" | "dls" | etc.
     pub rbac_provider: Option<String>,
-    /// HTTP listen address.
+    /// HTTP/3 listen address (UDP). Default: 127.0.0.1:3080.
     pub listen_addr: String,
-    /// Optional OTLP trace exporter endpoint (e.g. https://ingestion.in.applicationinsights.azure.com/v1/traces or Grafana OTLP). When set, server exports traces and continues client trace context.
+    /// Optional OTLP trace exporter endpoint (e.g. https://ingestion.in.applicationinsights.azure.com/v1/traces or Grafana OTLP).
     pub otel_exporter_otlp_endpoint: Option<String>,
+    /// Path to TLS certificate PEM file. When set (with tls_key_path), production certs are used.
+    /// When both are None, a self-signed dev certificate is generated automatically.
+    pub tls_cert_path: Option<String>,
+    /// Path to TLS private key PEM file.
+    pub tls_key_path: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -35,6 +40,8 @@ impl Default for ServerConfig {
             rbac_provider: None,
             listen_addr: "127.0.0.1:3080".to_string(),
             otel_exporter_otlp_endpoint: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         }
     }
 }
@@ -45,6 +52,7 @@ pub struct ConfigFile {
     pub storage: Option<StorageConfig>,
     pub rbac: Option<RbacConfig>,
     pub server: Option<ServerConfigFile>,
+    pub tls: Option<TlsConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,8 +72,16 @@ pub struct ServerConfigFile {
     pub listen_addr: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct TlsConfig {
+    pub cert_path: Option<String>,
+    pub key_path: Option<String>,
+}
+
 /// Load server config from a config root directory.
-/// Reads config/config.json (or config.json in root). Env overrides: TRUTHTLAYER_CONFIG_ROOT, TRUTHTLAYER_STORAGE, TRUTHTLAYER_LISTEN.
+/// Reads config/config.json (or config.json in root). Env overrides:
+/// TRUTHTLAYER_CONFIG_ROOT, TRUTHTLAYER_STORAGE, TRUTHTLAYER_LISTEN,
+/// TRUTHTLAYER_TLS_CERT, TRUTHTLAYER_TLS_KEY.
 pub fn load_config(config_root_override: Option<PathBuf>) -> ServerConfig {
     let config_root = config_root_override
         .or_else(|| std::env::var("TRUTHTLAYER_CONFIG_ROOT").ok().map(PathBuf::from))
@@ -100,6 +116,10 @@ pub fn load_config(config_root_override: Option<PathBuf>) -> ServerConfig {
                             cfg.listen_addr = a;
                         }
                     }
+                    if let Some(t) = file.tls {
+                        cfg.tls_cert_path = t.cert_path;
+                        cfg.tls_key_path = t.key_path;
+                    }
                 }
             }
             break;
@@ -120,6 +140,12 @@ pub fn load_config(config_root_override: Option<PathBuf>) -> ServerConfig {
         if !s.is_empty() {
             cfg.otel_exporter_otlp_endpoint = Some(s);
         }
+    }
+    if let Ok(v) = std::env::var("TRUTHTLAYER_TLS_CERT") {
+        cfg.tls_cert_path = Some(v);
+    }
+    if let Ok(v) = std::env::var("TRUTHTLAYER_TLS_KEY") {
+        cfg.tls_key_path = Some(v);
     }
 
     cfg

@@ -1,18 +1,27 @@
-//! Axum HTTP routes: health, nodes, proposals, review, apply, audit, provenance.
+//! Axum HTTP routes: health, nodes, proposals, review, apply, audit, provenance, SSE events.
 //!
 //! Verb usage: GET (read), POST (create / actions), PATCH (partial update).
 //! All state-changing routes enforce RBAC and emit audit events.
+//! State-changing routes also publish SSE events via the EventBus.
 
 use axum::{
     extract::{Extension, Path, Query, State},
     http::StatusCode,
-    response::IntoResponse,
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse,
+    },
     routing::{get, post},
     Json, Router,
 };
+use futures_util::StreamExt;
+use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::Duration;
+use tokio_stream::wrappers::BroadcastStream;
 
 use crate::auth::{ActorContext, ActorType, Role};
+use crate::events::{EventBus, ServerEvent};
 use crate::policy::{self, PolicyConfig};
 use crate::rbac::{self, Forbidden};
 use crate::store::ContextStore;
@@ -23,12 +32,22 @@ use crate::types::{AuditAction, AuditEvent, AuditOutcome, NodeId, NodeQuery, Pro
 pub struct AppState {
     pub store: Arc<dyn ContextStore>,
     pub policies: Arc<PolicyConfig>,
+    pub event_bus: EventBus,
 }
 
-pub fn router(store: Arc<dyn ContextStore>, policies: Arc<PolicyConfig>) -> Router<()> {
-    let state = AppState { store, policies };
+pub fn router(
+    store: Arc<dyn ContextStore>,
+    policies: Arc<PolicyConfig>,
+    event_bus: EventBus,
+) -> Router<()> {
+    let state = AppState {
+        store,
+        policies,
+        event_bus,
+    };
     Router::new()
         .route("/health", get(health))
+        .route("/events", get(events_stream))
         .route("/nodes", get(query_nodes))
         .route("/nodes/:id", get(get_node))
         .route("/nodes/:id/provenance", get(get_provenance))
@@ -48,6 +67,69 @@ pub fn router(store: Arc<dyn ContextStore>, policies: Arc<PolicyConfig>) -> Rout
 
 async fn health() -> impl IntoResponse {
     (StatusCode::OK, Json(serde_json::json!({ "status": "ok" })))
+}
+
+// --- SSE events endpoint ---
+
+#[derive(Debug, serde::Deserialize)]
+pub struct EventsParams {
+    pub workspace: Option<String>,
+}
+
+/// `GET /events?workspace={id}` — Server-Sent Events stream for real-time notifications.
+/// Subscribes to the EventBus and filters by workspace ID.
+/// Each event is sent as an SSE `data:` line with JSON payload.
+/// Keep-alive pings every 15s prevent connection timeouts.
+async fn events_stream(
+    State(state): State<AppState>,
+    Extension(actor): Extension<ActorContext>,
+    Query(params): Query<EventsParams>,
+) -> Result<Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>>, ApiError> {
+    rbac::require_role(&actor, Role::Reader)?;
+
+    let rx = state.event_bus.subscribe();
+    let workspace_filter = params.workspace;
+
+    let stream = BroadcastStream::new(rx).filter_map(move |msg: Result<ServerEvent, _>| {
+        let ws = workspace_filter.clone();
+        async move {
+            let event = msg.ok()?;
+            // Filter by workspace if specified; pass through all if no filter
+            if let Some(ref ws_id) = ws {
+                if event.workspace_id.as_deref() != Some(ws_id.as_str()) {
+                    return None;
+                }
+            }
+            let sse = Event::default()
+                .event(&event.event_type)
+                .json_data(&event)
+                .ok()?;
+            Some(Ok::<_, Infallible>(sse))
+        }
+    });
+
+    Ok(Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("keepalive"),
+    ))
+}
+
+/// Helper: publish a server event to SSE subscribers.
+fn publish_event(
+    event_bus: &EventBus,
+    event_type: &str,
+    resource_id: &str,
+    actor: &ActorContext,
+) {
+    event_bus.publish(ServerEvent {
+        event_type: event_type.to_string(),
+        workspace_id: None, // TODO: extract workspace from request context when workspace isolation is implemented
+        resource_id: resource_id.to_string(),
+        actor_id: actor.actor_id.clone(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        data: None,
+    });
 }
 
 fn actor_type_str(actor: &ActorContext) -> &'static str {
@@ -306,6 +388,7 @@ async fn create_proposal(
         AuditOutcome::Success,
     );
     let _ = state.store.append_audit(event).await;
+    publish_event(&state.event_bus, "proposal_updated", &proposal_id, &actor);
 
     Ok((StatusCode::CREATED, Json(serde_json::json!({ "ok": true }))))
 }
@@ -343,6 +426,7 @@ async fn update_proposal(
         AuditOutcome::Success,
     );
     let _ = state.store.append_audit(event).await;
+    publish_event(&state.event_bus, "proposal_updated", &id, &actor);
 
     Ok((StatusCode::OK, Json(serde_json::json!({ "ok": true }))))
 }
@@ -381,6 +465,7 @@ async fn submit_review(
         AuditOutcome::Success,
     );
     let _ = state.store.append_audit(event).await;
+    publish_event(&state.event_bus, "review_submitted", &id, &actor);
 
     // Policy: evaluate on review for multi-approval
     let proposal = state.store.get_proposal(&id).await?;
@@ -461,6 +546,7 @@ async fn apply_proposal(
         AuditOutcome::Success,
     );
     let _ = state.store.append_audit(event).await;
+    publish_event(&state.event_bus, "proposal_updated", &id, &actor);
 
     Ok((StatusCode::OK, Json(serde_json::json!({ "ok": true }))))
 }
@@ -482,6 +568,7 @@ async fn withdraw_proposal(
         AuditOutcome::Success,
     );
     let _ = state.store.append_audit(event).await;
+    publish_event(&state.event_bus, "proposal_updated", &id, &actor);
 
     Ok((StatusCode::OK, Json(serde_json::json!({ "ok": true }))))
 }
@@ -502,6 +589,7 @@ async fn reset_store(
         AuditOutcome::Success,
     );
     let _ = state.store.append_audit(event).await;
+    publish_event(&state.event_bus, "config_changed", "store", &actor);
 
     Ok((StatusCode::OK, Json(serde_json::json!({ "ok": true }))))
 }
@@ -751,7 +839,8 @@ mod tests {
     fn app() -> Router<()> {
         let store = Arc::new(crate::store::InMemoryStore::new());
         let policies = Arc::new(PolicyConfig::default());
-        let r = router(store, policies);
+        let event_bus = crate::events::EventBus::new();
+        let r = router(store, policies, event_bus);
         // In tests, inject a default ActorContext (simulates AUTH_DISABLED=true)
         r.layer(axum::middleware::from_fn(
             |mut req: Request<Body>, next: axum::middleware::Next| async move {

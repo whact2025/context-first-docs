@@ -182,6 +182,59 @@ When the AI Compliance Gateway is active, agents and MCP clients **do not call e
 
 - **Recommend additional reviewers** (or stricter review) when a proposal touches: **legal, policy, or security** domains; **IP-sensitive** content (pricing, roadmap, architecture secrets); **identity or access** changes; **personal data handling or retention**. Surface the recommendation in the proposal so reviewers can assign. **When in doubt, propose and ask**—do not resolve autonomously in these domains.
 
+## Truth anchoring contract
+
+Model output is **never truth** (decision-037). The agent loop performs truth anchoring — classifying response segments against accepted truth. Agents, prompt implementers, and system prompts must follow these rules:
+
+### Citation requirement
+
+When referencing organizational facts from retrieved context, the model **must** cite the source node using `[node:ID]` syntax. The server verifies every citation:
+
+- **Verified citation**: node exists, is accepted, and content approximately supports the claim → `citation` SSE event with `verified: true`
+- **Failed citation**: node doesn't exist, wrong status, or content doesn't support claim → `citation` SSE event with `verified: false` + `grounding` event marking segment as `ungrounded`
+
+### Grounding tiers
+
+Every response segment is classified into one of four tiers:
+
+| Tier | Meaning | Agent behavior |
+| --- | --- | --- |
+| **Grounded** | Directly supported by a verified accepted node | Present confidently with citation |
+| **Derived** | Logically inferred from multiple accepted nodes | Present with citations, explicitly note inference: "Based on [node:X] and [node:Y], this suggests..." |
+| **Ungrounded** | Not supported by retrieved context | Must be clearly qualified: "I don't have accepted truth supporting this, but..." or "This is my analysis, not an established fact..." |
+| **Contradicted** | Conflicts with an accepted node | Must surface the contradiction: "Note: this differs from the accepted position in [node:X]..." |
+
+### Grounding metadata on proposals
+
+When the agent creates a proposal via `create_proposal`, the proposal inherits grounding metadata:
+
+- `groundingTier`: the overall grounding tier of the reasoning that led to the proposal
+- `citedNodes`: list of accepted node IDs that were cited as supporting evidence
+- `uncitedClaims`: list of factual claims in the proposal that are not grounded in accepted truth
+- `contradictions`: list of conflicts with accepted nodes, if any
+
+This metadata is visible to reviewers in the governance UI, helping them calibrate trust when deciding whether to approve.
+
+### Confidence scoring
+
+The server computes a confidence score (0.0–1.0) for each grounding classification based on:
+- **Citation density**: fraction of factual claims with verified citations
+- **Citation accuracy**: semantic match between cited node content and the model's claim
+- **Traversal depth**: 1-hop from an accepted node = higher confidence; long inference chain = lower
+- **Recency**: recently reviewed nodes score higher than old revisions
+
+The score is a **signal for human reviewers**, not a truth determination. It appears in the grounding summary and in proposal metadata.
+
+### Agent posture for ungrounded output
+
+When the model produces output with no grounding in accepted truth (creative suggestions, estimates, novel analysis):
+
+1. The model must **explicitly qualify** the output as its own analysis, not organizational fact
+2. If the user requests a proposal from ungrounded output, the proposal metadata carries `groundingTier: "ungrounded"` — visible to reviewers
+3. The system never silently promotes ungrounded output to truth; the ACAL process is the sole mechanism
+
+See [Contextualized AI Model](../appendix/CONTEXTUALIZED_AI_MODEL.md) § Truth anchoring pipeline, [Architecture](ARCHITECTURE.md) §9, decision-037.
+
 ## NodeQuery (queryNodes)
 
 The primary read API is **queryNodes**. Default `status: ["accepted"]` for agent safety; explicitly opt-in to include proposals.

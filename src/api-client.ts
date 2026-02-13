@@ -4,6 +4,14 @@
  * Verbs: GET (read), POST (create, actions), PATCH (partial update).
  * Requires the server to be running (e.g. cd server && cargo run).
  *
+ * Transport:
+ * - Production: the server runs HTTP/3 (QUIC, decision-038). Chromium-based
+ *   clients (VS Code fork webview) connect natively via HTTP/3.
+ * - Development: set TRUTHTLAYER_DEV_TCP=true on the server to enable a
+ *   plain TCP/HTTP/1.1 listener on the same port. Node.js `fetch()` does
+ *   not yet support HTTP/3, so the dev TCP bridge is required for
+ *   integration tests, smoke scripts, and extension host code.
+ *
  * When OTEL is enabled, each request is wrapped in a span (HTTP {method}) and
  * W3C trace context is injected so the server continues the same trace.
  */
@@ -322,11 +330,100 @@ export class RustServerClient {
   async queryComments(_query: CommentQuery): Promise<Comment[]> {
     return [];
   }
+
+  // --- Real-time events (SSE) ---------------------------------------------------
+
+  /**
+   * Subscribe to server-sent events (SSE) for real-time notifications.
+   *
+   * Transport note: SSE works over both HTTP/3 (production, via Chromium) and
+   * HTTP/1.1 (dev TCP bridge, via Node.js). The same `/events` endpoint is used.
+   *
+   * @param workspaceId - optional workspace filter; only events for this workspace are delivered
+   * @param onEvent     - callback invoked for each ServerEvent
+   * @param onError     - optional error callback; called when the stream drops
+   * @returns AbortController that can be used to close the SSE stream
+   */
+  subscribeToEvents(
+    workspaceId: string | undefined,
+    onEvent: (event: ServerEvent) => void,
+    onError?: (error: Error) => void,
+  ): AbortController {
+    const controller = new AbortController();
+    const params = workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : "";
+    const url = `${this.base}/events${params}`;
+
+    const connect = async () => {
+      try {
+        const authToken = getAuthToken();
+        const traceHeaders = await injectTraceHeaders();
+        const res = await fetch(url, {
+          headers: {
+            Accept: "text/event-stream",
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+            ...traceHeaders,
+          },
+          signal: controller.signal,
+        });
+
+        if (!res.ok || !res.body) {
+          throw new Error(`SSE connection failed: ${res.status} ${res.statusText}`);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          let currentData = "";
+          for (const line of lines) {
+            if (line.startsWith("data:")) {
+              currentData += line.slice(5).trim();
+            } else if (line === "" && currentData) {
+              try {
+                const event = JSON.parse(currentData) as ServerEvent;
+                onEvent(event);
+              } catch {
+                // skip malformed events
+              }
+              currentData = "";
+            }
+          }
+        }
+      } catch (e) {
+        if (controller.signal.aborted) return; // intentional close
+        if (onError && e instanceof Error) onError(e);
+      }
+    };
+
+    connect();
+    return controller;
+  }
+}
+
+/** Server-sent event payload from GET /events. */
+export interface ServerEvent {
+  eventType: string;
+  workspaceId?: string;
+  resourceId: string;
+  actorId: string;
+  timestamp: string;
+  data?: unknown;
 }
 
 /**
  * Create a ContextStore that talks to the Rust server.
  * Use TRUTHTLAYER_SERVER_URL to override the default (http://127.0.0.1:3080).
+ *
+ * Transport: the server defaults to HTTP/3 (QUIC). For Node.js development,
+ * set TRUTHTLAYER_DEV_TCP=true on the server to enable a TCP bridge (same port).
  */
 export function createRustServerClient(baseUrl?: string): RustServerClient {
   return new RustServerClient(baseUrl);

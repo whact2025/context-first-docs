@@ -93,4 +93,84 @@ See [Agent API](AGENT_API.md), [Review Mode (ACAL)](REVIEW_MODE.md).
 - “truth graph” explorer
 - agent-assisted proposal drafting
 
-See: [Review Mode (ACAL)](REVIEW_MODE.md)
+## Extended governance views (Phase 8/9)
+
+The following views extend the minimal governance surface for AI compliance, privacy, and advanced governance capabilities. They are **required** for deployments using the AI Compliance Gateway or operating under data protection regulations.
+
+### 6) AI Compliance Gateway dashboard
+
+Show:
+
+- **Active model configurations**: allowed models per workspace, rate limits, cost caps, regional constraints
+- **Gateway traffic**: real-time or recent model calls, latency, cost, pass/fail
+- **Policy violations**: blocked requests with reason (sensitivity gate, destination not in allowlist, injection detected)
+- **Prompt inspection log**: sensitivity scan results, redacted fields, egress decisions
+- **Model routing status**: health checks per model provider, failover state
+
+Actions:
+
+- Configure model allowlist and rate limits per workspace
+- Enable/disable prompt inspection rules
+- Export gateway audit log (JSON/CSV)
+
+### 7) DSAR (Data Subject Access Request) view
+
+Show:
+
+- **Subject search**: find all truth operations and audit entries for a given actor/subject
+- **Data inventory**: nodes created/modified by subject, proposals authored, reviews submitted
+- **Retention status**: per-node retention class, scheduled deletion dates, crypto-shredding status
+- **Export**: package all data for subject as structured archive (JSON + Markdown projections)
+
+Actions:
+
+- Execute DSAR export for a subject
+- Initiate crypto-shredding for a subject's PII fields
+- Mark DSAR as complete with audit trail
+
+### 8) Retention management view
+
+Show:
+
+- **Retention policies**: configured retention classes (operational, compliance, legal-hold, permanent) and their default durations
+- **Retention schedule**: nodes approaching expiry, grouped by workspace and retention class
+- **Deletion queue**: pending deletions, blocked by legal holds, completed deletions
+- **Compliance status**: percentage of nodes with explicit retention classification
+
+Actions:
+
+- Assign retention class to nodes (individual or bulk)
+- Place/lift legal hold on nodes or workspaces
+- Execute scheduled deletion (with confirmation and audit)
+- Configure retention defaults per workspace
+
+### 9) Truth graph explorer
+
+Show:
+
+- **Interactive graph**: visual representation of node relationships — goals → decisions → tasks → risks → constraints
+- **Traversal controls**: select a node, follow typed relationships (depends-on, mitigates, implements, references), bounded depth
+- **Reasoning chains**: visual `traverseReasoningChain` from any node to its governance ancestors
+- **Provenance overlay**: accepted revisions per node, who changed what and when
+
+Actions:
+
+- Navigate to node detail or proposal
+- Start an agent-assisted analysis from any node ("assess risk", "analyze impact")
+- Filter graph by node type, tags, sensitivity, status
+
+### 10) Conflict resolution view
+
+Show:
+
+- **Concurrent proposals**: proposals that touch overlapping nodes/fields
+- **Conflict summary**: per-field conflicts (both proposals change same field), structural conflicts (create/delete same node)
+- **Merge preview**: proposed merged result when auto-mergeable; highlighted manual-resolution areas when not
+
+Actions:
+
+- Auto-merge compatible proposals (field-level, non-overlapping)
+- Manual resolution for conflicting fields
+- Create merged proposal from conflicting proposals
+
+See: [Review Mode (ACAL)](REVIEW_MODE.md), [Reconciliation Strategies](../appendix/RECONCILIATION_STRATEGIES.md)

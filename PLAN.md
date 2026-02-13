@@ -14,9 +14,9 @@ This document tracks the development roadmap and milestones for TruthLayer.
 - **Doc suite**: TruthLayer does not replace doc suites; many orgs use both. See `docs/WHITEPAPER.md` (competitive positioning, “enterprise foundation”).
 - **Word/Google review**: Optional bidirectional flow and context visualization: `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 
-**Current implementation (from code):** **Rust server** in `server/`: ContextStore trait with two backends (InMemoryStore and FileStore), config from server config root, Axum HTTP API with JWT auth (HS256), RBAC enforcement on all routes, configurable policy engine (6 rule types from `policies.json`), immutable audit log (queryable + exportable), sensitivity labels with agent egress control, IP protection (SHA-256 content hash, source attribution), DSAR endpoints (export queries audit log; erase records audit event but does not yet mutate store data), and retention engine (background task with config loading; enforcement stub -- logs audit events but does not yet delete/archive). 54 tests covering routes, auth, RBAC, policy, sensitivity, store, and telemetry. **TypeScript**: `src/api-client.ts` (RustServerClient with auth token injection), `src/store/core/` (apply-proposal, graph, node-key), `src/store/preview-store.ts` (Map-backed preview for projection), Markdown projection and ctx blocks in `src/markdown/`, playground and Scenario Runner in `src/playground/`. Playground uses the Rust server for ACAL store; scenarios call `store.reset()` before each run. MongoDB backend, full query/traversal/conflict in the server, GraphQL layer, and minimal governance UI are next per phases below and `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`.
+**Current implementation (from code):** **Rust server** in `server/`: ContextStore trait with two backends (InMemoryStore — full, FileStore — partial: missing conflict detection/merge/stale), config from server config root, **HTTP/3 (QUIC) transport** via `quinn`/`h3`/`h3-quinn` with mandatory TLS 1.3 (self-signed dev cert auto-generated, production PEM from config), **SSE real-time events** via `GET /events?workspace={id}` (EventBus with `tokio::sync::broadcast`), 18 HTTP routes bridged through h3→axum (all middleware applies: auth, RBAC, policy, OTEL, CORS), JWT auth (HS256), RBAC enforcement on all routes, configurable policy engine (6 rule types from `policies.json`), immutable audit log (queryable + exportable), sensitivity labels with agent egress control, IP protection (SHA-256 content hash, source attribution), DSAR endpoints (export queries audit log; erase records audit event but does not yet mutate store data), retention engine (background task with config loading; enforcement stub — logs audit events but does not yet delete/archive), and optional dev TCP bridge (`TRUTHTLAYER_DEV_TCP=true`) for Node.js tooling (Node.js does not yet support HTTP/3 clients). **58 Rust tests** covering routes, auth, RBAC, policy, sensitivity, store, telemetry, TLS, and events. **TypeScript** (pure client): `src/api-client.ts` (RustServerClient with auth token injection + SSE `subscribeToEvents()` + `ServerEvent` type), types in `src/types/`, Markdown projection and ctx blocks in `src/markdown/`, telemetry in `src/telemetry.ts`. **60 TypeScript tests** (unit, integration, metrics, telemetry, type guards, ctx blocks). All store logic lives exclusively in the Rust server; TS store core and playground were removed to enforce the client-only boundary. **118 tests total** (58 Rust + 60 TypeScript). MongoDB backend, full query/traversal/conflict in the server, GraphQL layer, and minimal governance UI are next per phases below and `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`.
 
-**Server and configuration:** Agent deployments use a **server component** (local or remote). All runtime configuration—storage backend and paths, RBAC provider, and other runtime settings—lives in a **predefined location relative to the server** (config root). No repo-scattered runtime config. See QUESTIONS.md question-038 (storage/workspace config), question-007 (RBAC provider abstraction). The Rust server in `server/` (see `server/README.md`) is the reference implementation with JWT auth, RBAC, policy engine, audit log, sensitivity labels, and file-based storage implemented; extend with MongoDB backend, full query/traversal/conflict.
+**Server and configuration:** Agent deployments use a **server component** (local or remote). All runtime configuration—storage backend and paths, RBAC provider, TLS certificates, and other runtime settings—lives in a **predefined location relative to the server** (config root). No repo-scattered runtime config. See QUESTIONS.md question-038 (storage/workspace config), question-007 (RBAC provider abstraction). The Rust server in `server/` (see `server/README.md`) is the reference implementation with HTTP/3 (QUIC) transport, mandatory TLS 1.3, JWT auth, RBAC, policy engine, audit log, sensitivity labels, SSE real-time events, file-based storage, and dev TCP bridge for Node.js tooling; extend with MongoDB backend, full query/traversal/conflict.
 
 ```ctx
 type: plan
@@ -34,7 +34,7 @@ status: accepted
 8. ✅ Design comprehensive Agent API with decision/rationale traversal (provenance chains)
 
 **Phase 2: Persistence & Storage Implementations**
-1. ✅ Rust server provides InMemoryStore baseline (server/); TS retains apply-proposal + graph in `src/store/core/` for preview and tests; coverage tests in `tests/store-core.coverage.test.ts` (see `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1)
+1. ✅ Rust server provides InMemoryStore baseline (server/). TS store core (`src/store/core/`) and coverage tests (`tests/store-core.coverage.test.ts`) have been removed; store logic lives exclusively in the Rust server. (See `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1.)
 2. ✅ Storage abstraction layer - `ContextStore` trait (`store/context_store.rs`), `config.rs` loads from server config root (backend choice, paths, RBAC provider config; see question-038), `main.rs` selects backend (memory/file) at startup
 3. ✅ File-based storage implementation - `FileStore` persists nodes, proposals, reviews, and audit log as JSON under server config root data directory; atomic writes (temp file + rename); activated via `TRUTHTLAYER_STORAGE=file` (see task-048)
 4. MongoDB storage implementation - self-hosted MongoDB document database (for production/scaling); connection/config from server config root. See `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 1 for schema, indexing, and transaction design.
@@ -46,6 +46,7 @@ status: accepted
 10. Git integration - automatic commits for file-based storage (commit on apply with structured message including proposal ID and actor), periodic snapshots for MongoDB (dump to Git for audit/DR), and commit tracking (link code repository commits to proposals via commit-message conventions, Jira-style). Requires: Git CLI or libgit2 integration, configurable remote, commit-message template, and optional webhook for CI triggers. See task-055.
 11. ✅ Governance infrastructure — JWT authentication (HS256), hierarchical RBAC (Reader/Contributor/Reviewer/Applier/Admin) on all routes, configurable policy engine (6 rule types from `policies.json`), immutable append-only audit log (queryable + exportable), sensitivity labels with agent egress control, IP protection (SHA-256 content hash, source attribution, provenance endpoint). DSAR endpoints (export implemented; erase stub) and retention engine (background task + config; enforcement stub). See task-031, task-034, `docs/reference/SECURITY_GOVERNANCE.md`.
 12. ✅ OpenTelemetry observability — Correlated distributed tracing (TypeScript client + Rust server), W3C trace context propagation, OTLP export to Azure Monitor / Grafana, HTTP metrics on client and server. See `docs/OTEL_LOGGING.md`.
+13. ✅ HTTP/3 (QUIC) transport — Primary transport via `quinn`/`h3`/`h3-quinn`, mandatory TLS 1.3, SSE real-time events via `EventBus`, dev TCP bridge for Node.js tooling, 0-RTT reconnection, stream multiplexing. See task-128, decision-038.
 
 **See**: `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` for detailed gap analysis, implementation tasks, and timeline
 
@@ -78,25 +79,37 @@ status: accepted
 21. Change detection from projections — Parse edited projection, map edits to anchors, emit proposal operations (create, update, delete, move, status-change, etc.). Validate operations against schema; optional policy findings. See `docs/appendix/CHANGE_DETECTION.md`, `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md` Phase 4, task-072.
 22. Full NodeQuery on HTTP API — Implement remaining query filters on `GET /nodes`: full-text search, date range, relatedTo, relationshipTypes, depth, namespace, tags, to match comprehensive spec in `docs/core/AGENT_API.md`. Currently subset implemented. See task-073.
 23. Expose conflict detection/merge on HTTP routes — Currently programmatic only (InMemoryStore API). Add `GET /proposals/:id/conflicts`, `POST /proposals/merge`, stale-proposal warnings on submit/review. See task-074, `docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md`.
-24. Notification system — Notify contributors and approvers of new proposals, reviews, and apply events. Pluggable transport (email, webhook, in-app, GitHub/GitLab notifications). See question-017, task-083.
+24. Notification system — Notify contributors and approvers of new proposals, reviews, and apply events. Pluggable transport (email, webhook, in-app, GitHub/GitLab notifications). **SSE infrastructure ready** (task-098, task-128): EventBus publishes proposal_updated, review_submitted, config_changed events; `GET /events` endpoint streams to subscribers. Remaining: email/webhook/external transports, notification preferences, digest mode. See question-017, task-083.
 
 **Phase 4: Agent APIs** (power **The Agent** we build; agent uses these to read truth and create proposals only)
-1. Implement comprehensive query API (type, status, keyword, relationships, pagination, sorting)
+1. Implement comprehensive query API (type, status, keyword, relationships, pagination, sorting) — Full NodeQuery on HTTP API (task-073: full-text search, date range, relatedTo, relationshipTypes, depth, namespace, tags, sorting)
 2. Implement decision/rationale traversal APIs (provenance chains; typed relationship traversal: goal → decision → risk → task):
    - traverseReasoningChain() - follow typed relationship paths
    - buildContextChain() - progressive context building
    - followDecisionReasoning() - understand decision rationale
    - discoverRelatedReasoning() - find related context
    - queryWithReasoning() - query with provenance chains attached to results
+   - **Note**: traversal methods are implemented in InMemoryStore only; FileStore needs parity (task-113)
 3. Implement graph traversal APIs (relationship queries, path finding, dependencies)
 4. Implement proposal generation API
 5. Add validation and safety checks (default to accepted only, explicit opt-in for proposals)
 6. Create agent documentation (see `docs/core/AGENT_API.md`)
-7. **MCP server** — Expose TruthLayer as an MCP (Model Context Protocol) server so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool: query truth, create proposals, traverse reasoning chains; same agent-safe contract (no review/apply). Optional MCP resources for read-only context. See `docs/core/AGENT_API.md` (MCP exposure), `docs/core/ARCHITECTURE.md`, `docs/appendix/OPTIONAL_INTEGRATIONS.md`.
+7. **MCP server** — Expose TruthLayer as an MCP (Model Context Protocol) server so AI assistants (Cursor, Claude Desktop, etc.) can use it as a native tool: query truth, create proposals, traverse reasoning chains; same agent-safe contract (no review/apply). Optional MCP resources for read-only context. See `docs/core/AGENT_API.md` (MCP exposure), `docs/core/ARCHITECTURE.md`, `docs/appendix/OPTIONAL_INTEGRATIONS.md`. See task-082.
 
 **Phase 5: Contextualize module + The Agent (we build it)**
 
 Implement the **Contextualize** module and **The Agent** as in `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` and `docs/core/AGENT_API.md`: retrieval, prompt building, optional in-process agent loop (LLM + store tools; agent cannot submitReview or applyProposal), export for fine-tuning, optional vector index; **prompt-leakage policy layer**. Store remains substrate; enterprise IP stays in-house. **The Agent** reads accepted truth and creates proposals only; deployment is optional (in-process or API). **Minimal governance UI** (list proposals, Accept/Reject/Apply) is required for humans to ratify; implement in Phase 3 or 5 so reviewers have a surface for truth-changing actions.
+
+**Implementation tasks** (in dependency order):
+1. Retrieval module — scoped context retrieval, token budgeting, policy enforcement (task-114)
+2. Prompt builder — system prompt templates, context budget, conversation history (task-115)
+3. Truth-marked prompt construction — three-layer prompt assembly with provenance metadata and truth boundary markers (task-127)
+4. LLM integration / model abstraction — pluggable providers, streaming, tool call parsing (task-116)
+5. Server-side agent loop — `POST /agent/chat` SSE endpoint, convergence of retrieval + gateway (task-112)
+6. Grounding classification engine — semantic verification, contradiction detection, confidence scoring (task-126)
+7. Truth anchoring pipeline — citation verification, segment classification, grounding events, proposal metadata (task-125)
+8. Export pipeline — JSONL/JSON for fine-tuning, sensitivity enforcement (task-123)
+9. Optional vector index — semantic search, hybrid results with traversal expansion (task-124)
 
 **Implementation language:** TypeScript for store-facing pieces (retrieval, prompt builder, export pipeline, policy layer in `src/contextualize/*`). **Python** where best suited: embeddings, vector index, fine-tuning pipelines. Integration contract in `docs/appendix/CONTEXTUALIZED_AI_MODEL.md`.
 
@@ -117,13 +130,8 @@ Implement the **Contextualize** module and **The Agent** as in `docs/appendix/CO
 3. Reverse engineering tools - extract historical context from existing merge requests/PRs
 4. **Positioning and doc suite**: Document "when to use TruthLayer vs doc suite" (Office/Docs + Copilot/Gemini) for adopters; optional future: integration points. See `docs/WHITEPAPER.md`, decision-027.
 5. **(Optional)** Word/Excel/Google integration (see `docs/appendix/DOCX_REVIEW_INTEGRATION.md`): Excel-based review; optional Word/Excel Add-in; optional DOCX round-trip later.
-6. **(Optional)** VS Code/Cursor extension - in-editor review, context awareness, and proposal authoring/preview
-7. **(Optional)** Extension features:
-   - Client-side change capture (on save or real-time) that produces proposals (review mode enforced by store)
-   - Proposal creation and management UI
-   - Context awareness while coding
-   - Role-based authoring modes (read-only vs suggesting)
-8. **(Optional)** Pre-baked Cursor rules - AI-assisted proposal and risk authoring (for when VS Code extension is used)
+6. **TruthLayer IDE and Extension Pack** -- See **Phase 9** for the full plan: a VS Code fork (TruthLayer IDE) with a layered extension strategy. Six extensions (`truthlayer.governance`, `truthlayer.ctx-language`, `truthlayer.ctx-preview`, `truthlayer.audit`, `truthlayer.config`, `truthlayer.agent`) work in vanilla VS Code, Cursor, and TruthLayer IDE. Fork-only features (semantic inline diffs, anchored comments, proposal mode, agent inline editing) require the fork. See `.cursor/plans/truthlayer_ide_analysis_4f3e7459.plan.md` for detailed architecture.
+7. **(Optional)** Pre-baked Cursor rules - AI-assisted proposal and risk authoring (for when extensions are used in Cursor)
 9. GitHub/GitLab integration (for code repository, not context store)
 10. Reverse engineering MRs/PRs - extract historical context from existing repositories
 11. CLI tools for installation and management
@@ -157,6 +165,31 @@ TruthLayer evolves from governing internal truth operations to acting as a **com
 8. Gateway observability — Extend OTEL instrumentation with gateway-specific spans: `gateway.model_call` (provider, model, latency, token count), `gateway.policy_check` (rules evaluated, outcome), `gateway.redaction` (fields redacted, sensitivity level). Dashboard-ready for compliance reporting. See task-092.
 9. Cost and rate governance — Per-workspace and per-actor rate limiting and cost tracking for external model calls. Policy rules: max tokens/day per actor, max cost/month per workspace, burst limits. Violations logged in audit and optionally block the request. See task-093.
 10. Gateway admin API — Admin endpoints: `GET /admin/gateway/config` (current routing/policy), `PUT /admin/gateway/config` (update model allowlist), `GET /admin/gateway/usage` (usage stats per workspace/actor/model), `GET /admin/gateway/audit` (gateway-specific audit trail). Admin role required. See task-094.
+
+**Phase 9: TruthLayer IDE — VS Code Fork with Extension Layering**
+
+A standalone TruthLayer IDE built as a VS Code fork with a layered extension strategy. Most governance features are built as **standard VS Code extensions** (portable to VS Code, Cursor, and TruthLayer IDE). Fork-only features provide deep editor integration available only in TruthLayer IDE. Detailed architecture in `.cursor/plans/truthlayer_ide_analysis_4f3e7459.plan.md`.
+
+**Prerequisites (before extension development):**
+1. ContextStore interface cleanup — Trim unimplemented stubs in `src/types/context-store.ts` to match actual server capabilities, so extensions don't depend on methods that throw or return empty data. See task-096.
+2. Shared library packaging — Package `src/` as `@truthlayer/client` npm module (API client, types, markdown, telemetry). Decide package boundary (question-064). See task-095.
+3. Server config management API — Add admin endpoints: `GET/PUT /admin/config/policies`, `GET/PUT /admin/config/retention`, `GET /admin/config/server`, `POST /admin/config/reload`. Required by `truthlayer.config` extension. See task-097.
+4. ✅ Real-time update strategy — Decided: SSE over HTTP/3 (question-057, decision-038). Implemented: `GET /events?workspace={id}` SSE endpoint with `EventBus`, workspace filtering, 15s keep-alive; TypeScript `subscribeToEvents()` client. See task-098 (completed), task-128 (completed).
+5. WebView framework decision — Choose UI framework (React, Svelte, Lit, raw HTML) for all WebView panels across all 6 extensions (question-058).
+6. Repository structure decision — Monorepo, multi-repo, or hybrid for extensions, shared lib, and IDE fork (question-059).
+7. Server-side agent loop — Implement `POST /agent/chat` SSE streaming endpoint (Cursor-pattern architecture): server runs agent loop (prompt building, compliance gateway interception, LLM call, tool execution, audit), extension is thin client. Required by `truthlayer.agent` extension. Convergence point of Phase 5 (Contextualize) and Phase 8 (AI Compliance Gateway). Can ship with minimal gateway shim (model routing + audit) before full Phase 8 (question-069). See task-112.
+
+**Extension Layer (works in VS Code, Cursor, AND TruthLayer IDE):**
+7. Extension: `truthlayer.ctx-language` + `truthlayer.ctx-preview` — TextMate grammar, validation diagnostics, auto-complete, CodeLens, decorations; evolve existing `vscode-ctx-markdown/` preview. See task-099.
+8. Extension: `truthlayer.governance` — Proposal list TreeView, proposal detail WebView (semantic diff cards), review flow, apply confirmation, status bar, server connection. See task-100.
+9. Extension: `truthlayer.audit` + `truthlayer.config` — Audit log WebView, provenance viewer, DSAR tools; Policy Builder wizard, Workflow Visualizer, Retention config, Sensitivity defaults, Role matrix. See task-101.
+10. Extension: `truthlayer.agent` — **Thin chat client** (Cursor-pattern architecture): Agent Chat WebView renders SSE stream from server-side agent loop. Server runs the full agent loop: receives user messages, builds prompts, calls frontier models through compliance gateway (Phase 8), executes tool calls in-process, streams conversation back. Extension never calls LLMs directly. Guided workflow templates (draft proposal, risk assessment, impact analysis, compliance check, explain decision) execute server-side. Requires server-side agent loop endpoint (task-112). See task-102.
+11. Extension pack — Bundle all 6 extensions as `truthlayer` extension pack, publishable to VS Code Marketplace and Open VSX. See task-103.
+
+**Fork Layer (TruthLayer IDE only):**
+12. Fork setup — Fork `microsoft/vscode` (Code OSS), apply branding (product.json, icons, splash), pre-install extensions, custom welcome tab, upstream tracking branch, build pipeline. See task-104.
+13. Fork-only features — Semantic inline diffs (modify `viewLineRenderer`), anchored review comments (margin rail), proposal mode overlay (`ProposalOverlayModel`), agent inline editing (ghost text with per-operation accept/reject). See task-105.
+14. Polish and distribution — Cross-platform builds (Windows/Mac/Linux), code signing, auto-update (Electron autoUpdater), graph visualization (Truth Graph explorer), E2E testing. See task-106.
 ```
 
 ```ctx
@@ -240,7 +273,7 @@ type: task
 id: task-010
 status: in-progress
 ---
-Write comprehensive tests for all core functionality.
+Write comprehensive tests for all core functionality. **Current**: 118 tests total — 58 Rust tests (routes, auth, RBAC, policy, sensitivity, store, telemetry, TLS, events) + 60 TypeScript tests (unit, integration, metrics, telemetry, type guards, ctx blocks). Target: >80% coverage, performance tests, both backend parity tests (see task-057, task-113).
 ```
 
 ```ctx
@@ -536,7 +569,7 @@ type: task
 id: task-058
 status: completed
 ---
-Extract reusable store core logic from InMemoryStore into `src/store/core/*` (query, conflicts/stale/merge, apply-proposal, graph traversal, node keying) and add targeted coverage tests to lock behavior. **Current state**: Store implementation lives in **Rust server** (server/); TS keeps apply-proposal, graph, node-key in src/store/core/ for preview and tests; conflicts/query removed from TS; coverage tests in tests/store-core.coverage.test.ts for apply + graph only.
+Extract reusable store core logic from InMemoryStore into `src/store/core/*` (query, conflicts/stale/merge, apply-proposal, graph traversal, node keying) and add targeted coverage tests to lock behavior. **Current state**: Store implementation lives in **Rust server** (server/). TS store core (`src/store/core/`) and coverage tests (`tests/store-core.coverage.test.ts`) have been removed; all store logic is server-only. TypeScript is a pure client.
 ```
 
 ```ctx
@@ -917,4 +950,329 @@ id: task-094
 status: open
 ---
 Implement gateway admin API — Admin-only endpoints for managing the AI Compliance Gateway: `GET /admin/gateway/config` (current model routing and policy configuration), `PUT /admin/gateway/config` (update model allowlist, rate limits, cost caps — requires Admin role), `GET /admin/gateway/usage` (usage statistics per workspace, actor, model — token counts, costs, request counts, time range filters), `GET /admin/gateway/audit` (gateway-specific audit trail — shorthand for `GET /audit?action=ExternalModelCall` with additional gateway fields). See Phase 8 item 10, task-089.
+```
+
+```ctx
+type: task
+id: task-095
+status: open
+---
+Package shared TypeScript library as `@truthlayer/client` npm module — Extract `src/` (API client, types, markdown utilities, telemetry) into a publishable package consumed by all extensions and fork modifications. Decide package boundary (question-064): whether telemetry and markdown should be separate packages or bundled. Add package.json with proper exports, TypeScript declarations, and peer dependencies. See Phase 9 item 2.
+```
+
+```ctx
+type: task
+id: task-096
+status: open
+---
+Clean up ContextStore interface — Trim unimplemented stubs in `src/types/context-store.ts` to match actual `RustServerClient` capabilities. Remove or mark as optional any methods that currently throw "not implemented" or return empty arrays. Extensions should not depend on an interface that promises capabilities the server does not provide. See Phase 9 item 1, question-060.
+```
+
+```ctx
+type: task
+id: task-097
+status: open
+---
+Implement server config management API — Add admin endpoints to the Rust server for reading and writing configuration: `GET /admin/config/policies` (current policy rules), `PUT /admin/config/policies` (update policies, admin only, audited), `GET /admin/config/retention` (retention rules), `PUT /admin/config/retention` (update retention, admin only, audited), `GET /admin/config/server` (server config with sensitive fields redacted), `POST /admin/config/reload` (hot-reload config without restart). Required by `truthlayer.config` extension. See Phase 9 item 3.
+```
+
+```ctx
+type: task
+id: task-098
+status: completed
+---
+Implement real-time update channel — Decided: SSE over HTTP/3 (decision-038, question-057). Implemented: `EventBus` (tokio::sync::broadcast) publishes `ServerEvent` on state-changing routes (create_proposal, update_proposal, submit_review, apply_proposal, withdraw_proposal, reset_store). `GET /events?workspace={id}` SSE endpoint streams events with 15s keep-alive; events filtered by workspace_id. TypeScript `subscribeToEvents(workspaceId, onEvent, onError)` reads SSE stream with auto-parsing. Extensions subscribe to relevant event streams for live proposal/review/config updates. Implemented in task-128. See Phase 9 item 4, risk-032 (resolved).
+```
+
+```ctx
+type: task
+id: task-099
+status: open
+---
+Build `truthlayer.ctx-language` and `truthlayer.ctx-preview` extensions — Language support: TextMate grammar for ctx blocks in Markdown, DiagnosticCollection for validation (required fields, valid types/statuses, duplicate IDs), CompletionItemProvider for auto-complete, CodeLens (proposal count, sensitivity, last review), decorations (gutter icons, background tints). Preview: evolve existing `vscode-ctx-markdown/` with sensitivity badges, proposal status indicators, and relationship links. See Phase 9 item 7.
+```
+
+```ctx
+type: task
+id: task-100
+status: open
+---
+Build `truthlayer.governance` extension — Core governance UI: Proposal List TreeView (grouped by status, filterable, badge counts), Proposal Detail WebView (semantic diff cards, policy warnings, review timeline, action buttons), Review Flow WebView (approve/reject/request changes, comments, multi-reviewer status), Apply Confirmation WebView (policy check results, affected nodes). Status bar: connection status, current role, open proposals count. Commands: Create Proposal, Submit Review, Apply, Withdraw, Connect to Server, Show Audit Log, Show Truth Graph. See Phase 9 item 8.
+```
+
+```ctx
+type: task
+id: task-101
+status: open
+---
+Build `truthlayer.audit` and `truthlayer.config` extensions — Audit: timeline WebView with filters (actor, action, resource, date range), export to CSV/JSON, provenance viewer (full history per node), compliance TreeView (DSAR tools, policy viewer, retention status). Config: Policy Builder wizard (visual rule editor for all 6 rule types with validation and dry-run), Workflow Pipeline Visualizer (interactive ACAL flow showing where rules fire), Retention Configuration (visual editor with timeline preview), Sensitivity/IP Configuration, Server Connection/Auth panel, Role Matrix display, Config Status TreeView with health indicators. Requires server config API (task-097). See Phase 9 item 9.
+```
+
+```ctx
+type: task
+id: task-102
+status: open
+---
+Build `truthlayer.agent` extension — **Thin chat client** following Cursor-pattern architecture (extension renders conversation; server runs agent loop). Agent Chat WebView (renders SSE stream from server: tokens, tool calls, tool results, node citations with clickable links, conversation history). Agent Status TreeView (active sessions, guardrails visibility, agent-authored proposals, token/cost tracking). Extension sends user messages + conversation context to `POST /agent/chat`; server runs full agent loop (prompt building, compliance gateway interception, LLM call, tool execution, audit logging) and streams response back. No direct LLM calls from extension; model config is server-side. Guided workflow templates (Draft Proposal, Risk Assessment, Impact Analysis, Compliance Check, Explain Decision, Generate Implementation Plan, Review Assistant) execute server-side, selected by template name in request body. User confirmation required before truth-changing actions (proposal creation). Commands: Ask Agent, Draft Proposal with Agent, Explain This Node, Assess Risk, Agent Impact Analysis. Requires task-112 (server-side agent loop). See Phase 9 item 10.
+```
+
+```ctx
+type: task
+id: task-103
+status: open
+---
+Create TruthLayer extension pack — Bundle all 6 extensions (`truthlayer.governance`, `truthlayer.ctx-language`, `truthlayer.ctx-preview`, `truthlayer.audit`, `truthlayer.config`, `truthlayer.agent`) as a single installable extension pack. Publish to VS Code Marketplace and Open VSX Registry. Test in vanilla VS Code and Cursor. See Phase 9 item 11.
+```
+
+```ctx
+type: task
+id: task-104
+status: open
+---
+Fork and brand TruthLayer IDE — Fork `microsoft/vscode` (Code OSS). Apply branding: product.json (name, publisher, icon), custom splash screen, about dialog, welcome tab with TruthLayer onboarding. Pre-install all 6 extensions. Set up upstream tracking branch for monthly rebases. Build pipeline (CI/CD) for at least one platform initially. See Phase 9 item 12.
+```
+
+```ctx
+type: task
+id: task-105
+status: open
+---
+Implement fork-only editor features — Deep editor modifications in `src/vs/editor/contrib/truthlayer/`: (1) Semantic inline diffs: modify `viewLineRenderer` for proposal overlay rendering (field-level colored annotations). (2) Anchored review comments: margin rail component synced to scroll position. (3) Proposal mode overlay: `ProposalOverlayModel` wrapping `TextModel` with virtual "applied" state. (4) Agent inline editing: ghost text with per-operation accept/reject buttons, `PendingProposalBuffer`, "Accept All"/"Reject All" toolbar. See Phase 9 item 13.
+```
+
+```ctx
+type: task
+id: task-106
+status: open
+---
+TruthLayer IDE polish and distribution — Cross-platform build verification (Windows .exe/.msi, macOS .dmg, Linux .deb/.rpm/.AppImage). Code signing for all platforms. Auto-update infrastructure (Electron autoUpdater). Truth Graph visualization explorer. End-to-end testing of full workflows (extension + fork features + server). Agent analytics dashboard. See Phase 9 item 14.
+```
+
+```ctx
+type: task
+id: task-107
+status: open
+---
+Fix type serialization mismatch (snake_case vs camelCase) — Add `#[serde(rename_all = "camelCase")]` to `Comment`, `CommentAnchor`, and `RelationshipMetadata` structs in the Rust server. Currently these types serialize field names as snake_case (`created_at`, `node_id`, etc.) but the TypeScript client expects camelCase (`createdAt`, `nodeId`). This causes `undefined` values when the TS client reads server JSON. Prerequisite for all UI extension development. See `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 2, risk-036.
+```
+
+```ctx
+type: task
+id: task-108
+status: open
+---
+Add proposal query filters to GET /proposals — Extend the `GET /proposals` endpoint to accept query parameters: `status` (comma-separated, filter by proposal status — currently only returns open), `createdBy` (filter by author actor ID), `tags` (comma-separated), `nodeTypes` (filter by node types affected by operations). Update `ContextStore` trait and both store implementations (InMemoryStore, FileStore). Required by `truthlayer.governance` extension for proposal list filtering. See `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 4.1, risk-037.
+```
+
+```ctx
+type: task
+id: task-109
+status: open
+---
+Add audit, provenance, and DSAR methods to RustServerClient — The server already implements `GET /audit`, `GET /audit/export`, `GET /nodes/:id/provenance`, `GET /admin/dsar/export`, and `POST /admin/dsar/erase`, but the TypeScript `RustServerClient` has no methods to call them. Add: `queryAudit(params)`, `exportAudit(format)`, `getProvenance(nodeId)`, `dsarExport(subject)`, `dsarErase(subject)`. Required by `truthlayer.audit` extension. **Note**: SSE `subscribeToEvents()` and `ServerEvent` type were added to `api-client.ts` in task-128. See `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 4.4.
+```
+
+```ctx
+type: task
+id: task-110
+status: open
+---
+Add redacted node type support to TypeScript types — The server returns redacted nodes for agents above sensitivity level: `{ redacted: true, reason: "sensitivity", ... }` with `content`, `description`, and other body fields omitted. The TypeScript `AnyNode` type has no `redacted` or `reason` fields. Add optional `redacted?: boolean` and `reason?: string` to the TS node type. Extensions must check `node.redacted` before rendering content fields. See `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 4.5.
+```
+
+```ctx
+type: task
+id: task-111
+status: open
+---
+Add dedicated comments API endpoints — Add `GET /proposals/:id/comments` (Reader role) and `POST /proposals/:id/comments` (Contributor role, body: `{ author, content, anchor?, operationId? }`) to the Rust server. Currently comments are embedded in the Proposal object and modified via `PATCH /proposals/:id`, which requires sending the full proposal to add a single comment and doesn't support concurrent additions. Required by `truthlayer.governance` extension for the comment thread UI. See `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 4.2.
+```
+
+```ctx
+type: task
+id: task-112
+status: open
+---
+Implement server-side agent loop endpoint (Cursor-pattern architecture) — The `truthlayer.agent` extension is a thin chat client; the server runs the full agent loop. Add `POST /agent/chat` (SSE streaming endpoint): receives user message + conversation history + optional workflow template, retrieves relevant context from ContextStore, builds prompt with system context and tool definitions, calls configured frontier model **through the compliance gateway** (Phase 8: prompt inspection, sensitivity enforcement, EgressControl, response filtering), executes tool calls in-process (query_nodes, create_proposal, get_provenance, query_audit), feeds tool results back to model, streams conversation as SSE events (token, tool_call, tool_result, citation, error, done). Add `GET /agent/templates` (list available workflow templates) and `GET /agent/sessions` (active/recent sessions). All interactions audit-logged with user identity and agent session ID. Agent acts on behalf of authenticated user with agent-type restrictions (cannot review/apply per question-035). Model configuration (allowed models, API keys, rate limits, cost caps) is server-side admin config (task-091). This is the convergence point of Contextualize module (Phase 5) and AI Compliance Gateway (Phase 8). Required by task-102 (`truthlayer.agent` extension). See `docs/engineering/ui/SERVER_API_REQUIREMENTS.md`, `docs/engineering/ui/EXTENSION_ARCHITECTURE.md` section 2.6.
+```
+
+```ctx
+type: task
+id: task-113
+status: open
+---
+FileStore feature parity with InMemoryStore — Implement missing ContextStore trait methods in FileStore: `detect_conflicts`, `is_proposal_stale`, `merge_proposals`, `traverse_reasoning_chain`, `build_context_chain`, `follow_decision_reasoning`, `query_with_reasoning`. Currently only InMemoryStore implements these; FileStore returns empty/error for all. Both backends must pass the same test suite. Add shared integration tests that run against both backends to verify parity. Blocks production use of file-based storage. See risk-040, `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`.
+```
+
+```ctx
+type: task
+id: task-114
+status: open
+---
+Phase 5 — Retrieval module implementation — Build the retrieval pipeline for the Contextualize module: (1) scoped context retrieval with configurable depth limits and max node count, (2) context window management (token counting per model, prioritization by relevance), (3) workspace-scoped policy enforcement for allowed/forbidden node types before context assembly, (4) content redaction of sensitive fields before prompt building (per egress_control policy). Used by the server-side agent loop (task-112) and export pipeline (task-123). See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` §§ Retrieval pipeline, Context policies.
+```
+
+```ctx
+type: task
+id: task-115
+status: open
+---
+Phase 5 — Prompt builder implementation — Implement prompt construction from retrieved context: (1) system prompt templates with tool definitions and agent identity, (2) conversation history management with sliding window, (3) context budget allocation (max tokens per section: system, context, history, user), (4) workspace-specific prompt policies (allowed node types, redaction rules, max context size). Output: complete prompt ready for LLM call. Used by the server-side agent loop (task-112). Depends on retrieval module (task-114). See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` §§ Context policies.
+```
+
+```ctx
+type: task
+id: task-116
+status: open
+---
+Phase 5 — LLM integration / model abstraction layer — Implement model-agnostic LLM client in Rust server: (1) pluggable provider trait (OpenAI, Anthropic, Google, Azure OpenAI, self-hosted endpoints), (2) streaming response parsing (SSE from provider → internal token stream), (3) tool call extraction and structured response parsing, (4) retry with exponential backoff and circuit breakers, (5) cost tracking (input/output tokens × provider pricing), (6) rate limiting per workspace. Shared by the server-side agent loop (task-112) and AI Compliance Gateway (task-085). Configuration from server config root (model routing table, API keys, rate limits, cost caps).
+```
+
+```ctx
+type: task
+id: task-117
+status: open
+---
+Extension shared infrastructure library — Build shared WebView component library for all 6 TruthLayer extensions: (1) `ServerConnectionManager` — auth token injection, base URL config, health check polling, automatic reconnection, (2) `DataPoller` — configurable interval, ETag/last-modified caching, error backoff, change notification, (3) `WebViewMessageProtocol` — typed request/response messages between extension host and WebView, (4) `ThemeInjector` — VS Code theme variables → CSS custom properties for consistent styling, (5) `StatePersistence` — globalState/workspaceState wrapper with typed keys and migration. Publish as `@truthlayer/vscode-shared` package. Used by all extensions (task-097 through task-102). See `docs/engineering/ui/EXTENSION_ARCHITECTURE.md` § Shared patterns.
+```
+
+```ctx
+type: task
+id: task-118
+status: open
+---
+Naming convention standardization — Audit and fix naming inconsistencies: (1) Ensure all Rust structs serialized to JSON use `#[serde(rename_all = "camelCase")]` — fix Comment, CommentAnchor, RelationshipMetadata (overlaps task-107; task-107 covers the serde fix, this task covers the broader audit). (2) Verify all HTTP API endpoint paths follow kebab-case convention for multi-word segments. (3) Ensure all doc references to API fields use the correct casing convention (camelCase for JSON, snake_case for Rust internals). (4) Add a naming convention section to CONTRIBUTING.md covering: Rust (snake_case internals, camelCase JSON via serde), TypeScript (camelCase throughout), HTTP API (camelCase JSON fields, kebab-case URL paths), documentation (match the layer being described). See risk-041.
+```
+
+```ctx
+type: task
+id: task-119
+status: open
+---
+Server error handling audit and hardening — Audit all route handlers in `server/src/api/routes.rs` for silent error swallowing. Currently some handlers use `.ok()` or `.unwrap_or_default()` which masks failures from clients and audit. Fix: (1) all errors return appropriate HTTP status codes (400 bad request, 404 not found, 422 policy violation, 500 internal), (2) all error responses include structured JSON body `{ error, code, details }`, (3) all errors logged with OpenTelemetry trace context, (4) security-relevant failures (auth, RBAC, policy) always produce audit log entries even when the request is rejected. Add integration tests for error scenarios (malformed input, missing resources, policy violations, concurrent conflicts). See risk-042.
+```
+
+```ctx
+type: task
+id: task-120
+status: open
+---
+Heightened review triggers implementation — Implement automated detection of proposals requiring elevated review per `docs/reference/SECURITY_GOVERNANCE.md`: triggers when (1) proposal touches nodes with sensitivity ≥ confidential, (2) proposal is from an agent actor, (3) proposal affects identity/access/policy node types, (4) proposal contains >N operations (configurable threshold), (5) proposal modifies retention or security classification fields. When triggered: automatically add `heightened_review: true` to proposal metadata, require additional reviewer approval (extend policy engine), emit notification to designated security reviewers (depends on task-083). See SECURITY_GOVERNANCE §agent-behavior guardrails.
+```
+
+```ctx
+type: task
+id: task-121
+status: open
+---
+Workspace isolation enforcement and testing — Verify strict workspace scoping across all ContextStore methods and HTTP routes: (1) every query includes workspaceId filter (currently some methods accept optional workspaceId), (2) no cross-workspace data leakage in query results or traversals, (3) traversal APIs respect workspace boundaries (don't follow edges to nodes in other workspaces), (4) audit log entries include workspaceId, (5) proposals cannot reference nodes from other workspaces. Add integration tests: create data in workspace A and workspace B, verify queries in workspace A never return workspace B data. See `docs/core/ARCHITECTURE.md` § Tenancy.
+```
+
+```ctx
+type: task
+id: task-122
+status: open
+---
+Gateway performance benchmarks and HA design — (1) Establish latency baselines for the full gateway pipeline (auth → policy → prompt inspection → model routing → response filtering → audit) with target p99 < 200ms overhead beyond model latency. (2) Design high-availability strategy: connection pooling to model providers with configurable pool size, circuit breakers on provider failures (configurable thresholds), automatic failover routing to backup providers, graceful degradation when gateway is overloaded (queue with backpressure, reject with 503). (3) Load test with concurrent model calls (10/50/100 simultaneous) to both store-side and gateway-side operations. Document results and scalability limits. See risk-030, risk-038.
+```
+
+```ctx
+type: task
+id: task-123
+status: open
+---
+Export pipeline for fine-tuning — Implement export of accepted nodes to training data format: (1) JSONL export with configurable filters (node types, tags, date range, sensitivity ≤ threshold), (2) instruction/response format mapping (configurable templates per node type), (3) snapshot attachment for audit trail (which revision was exported, by whom, when), (4) sensitivity enforcement (never export above workspace's max export sensitivity), (5) CLI command and HTTP endpoint (`GET /export/training?format=jsonl&...`). Training data stays in-house. See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Retrieval pipeline, `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`.
+```
+
+```ctx
+type: task
+id: task-124
+status: open
+---
+Optional vector index for semantic search — Design and implement optional vector embedding of accepted nodes: (1) embed node content on apply (configurable: enabled/disabled per workspace), (2) self-hosted vector DB integration (Qdrant recommended, pgvector as alternative), (3) top-k semantic retrieval endpoint (`GET /nodes/search/semantic?query=...&limit=...`), (4) hybrid results: expand vector hits with `traverseReasoningChain` for related context, (5) index management: re-embed on node update, remove on delete, rebuild command. Useful for large workspaces (>1K nodes) or when keyword search is insufficient. See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Retrieval pipeline.
+```
+
+```ctx
+type: task
+id: task-125
+status: open
+---
+Implement truth anchoring pipeline (decision-037) — Add post-response grounding analysis to the server-side agent loop (task-112). Steps: (1) **Citation extraction**: parse model response for `[node:ID]` markers, build citation map with positions. (2) **Citation verification**: for each citation, verify node exists in workspace, status is accepted, and content semantically supports the model's claim (fuzzy match using sentence embedding or keyword overlap). Emit verified/failed citation SSE events. (3) **Segment classification**: split response into segments (sentence or paragraph level), classify each as grounded/derived/ungrounded/contradicted based on citation verification results. (4) **Aggregate grounding summary**: compute overall statistics (segment counts per tier, cited nodes, uncited claims, overall confidence). Emit `grounding` events per segment and `grounding_summary` event at turn end. (5) **Proposal metadata inheritance**: when `create_proposal` tool is called, attach grounding metadata to the proposal (groundingTier, citedNodes, uncitedClaims, contradictions). Depends on task-112 (agent loop), task-114 (retrieval module). See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Truth anchoring pipeline, `docs/core/AGENT_API.md` § Truth anchoring contract.
+```
+
+```ctx
+type: task
+id: task-126
+status: open
+---
+Implement grounding classification engine — Build the core engine used by the truth anchoring pipeline (task-125) for semantic verification and confidence scoring. (1) **Semantic similarity check**: given a model's claim and a cited node's content, compute whether the claim is supported (keyword overlap for MVP; sentence embedding cosine similarity for production). Configurable threshold (default: 0.7). (2) **Contradiction detection**: compare model claims against all retrieved accepted nodes, not just cited ones. Flag claims that directly contradict accepted content (negation, conflicting values, reversed decisions). (3) **Confidence scoring algorithm**: combine citation density (fraction of claims with verified citations), citation accuracy (semantic match scores), traversal depth (hops from source node), and recency (revision age). Output: 0.0–1.0 score per segment and aggregate. (4) **Configurable grounding policy**: per-workspace settings for grounding thresholds (minimum confidence to classify as "grounded"), contradiction sensitivity, and whether ungrounded claims should trigger warnings or be silently labeled. See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Confidence scoring, decision-037.
+```
+
+```ctx
+type: task
+id: task-127
+status: open
+---
+Implement truth-marked prompt construction — Build the three-layer prompt assembly used by the server-side agent loop (task-112). (1) **System context layer**: template-driven system prompt with truth boundary markers ("The following is ACCEPTED ORGANIZATIONAL TRUTH"), agent identity, citation instructions, grounding behavior expectations. Configurable per workspace. (2) **Retrieved context layer**: format retrieved nodes with provenance metadata (node ID, type, status, creator, reviewer, revision, sensitivity, relationships). Each node wrapped in `--- ACCEPTED TRUTH: node ID ---` / `--- END NODE ---` delimiters for clear truth boundaries. (3) **Tool definition layer**: inject tool definitions with grounding-aware descriptions (e.g. "cite results when referencing", "state reasoning when proposing"). (4) **Token budget allocation**: configurable budget per layer (system, context, history, response headroom). Truncation strategy: drop lowest-relevance nodes first, summarize conversation history beyond window. Depends on task-114 (retrieval module), task-115 (prompt builder). See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Prompt construction.
+```
+
+```ctx
+type: task
+id: task-128
+status: completed
+---
+Enable HTTP/3 (QUIC) transport on the Axum server from v1. Implemented: `quinn` 0.11, `h3` 0.0, `h3-quinn` 0.0 dependencies; `h3_server.rs` bridges QUIC connections to axum Router (all middleware applies); `tls.rs` manages TLS certs (PEM loading for production, self-signed dev cert auto-generation); `events.rs` provides `EventBus` (tokio::sync::broadcast, capacity 256) with `ServerEvent` (event_type, workspace_id, resource_id, actor_id, timestamp, data); `GET /events?workspace={id}` SSE endpoint streams real-time notifications (proposal_updated, review_submitted, config_changed), JWT-authenticated; TypeScript `subscribeToEvents()` method + `ServerEvent` interface added to `api-client.ts`; dev TCP bridge (`TRUTHTLAYER_DEV_TCP=true`) on same port for Node.js tooling (Node.js does not yet support HTTP/3 clients). QUIC config: ALPN h3, 0-RTT enabled, 15s keep-alive, 5min idle timeout. Integration test runner passes `TRUTHTLAYER_DEV_TCP=true` to server. Implements decision-038, resolves question-057. Related: task-098 (completed), risk-032 (resolved).
+```
+
+```ctx
+type: task
+id: task-129
+status: open
+---
+Remove dev TCP bridge when Node.js supports HTTP/3 — The `TRUTHTLAYER_DEV_TCP=true` listener in `server/src/main.rs` exists because Node.js (v24) does not yet support HTTP/3/QUIC clients. Monitor Node.js `undici` HTTP/3 progress (nodejs/undici and nodejs/node issue #60122). When Node.js ships stable HTTP/3 fetch support: (1) update TypeScript `api-client.ts` to use HTTPS URLs (QUIC), (2) update integration test runner to remove `TRUTHTLAYER_DEV_TCP` env var, (3) remove the dev TCP listener from `main.rs`, (4) update smoke test and documentation. Low priority — the dev TCP bridge has no production impact. See risk-047, task-128.
+```
+
+```ctx
+type: task
+id: task-130
+status: open
+---
+Document build prerequisites for ARM64 Windows — The `ring` cryptographic library (transitive dependency via `quinn`/`rustls`) requires LLVM/clang for ARM assembly compilation on `aarch64-pc-windows-msvc`. Document in `server/README.md` and project root `README.md`: (1) install LLVM via `winget install LLVM.LLVM` or from llvm.org, (2) ensure `C:\Program Files\LLVM\bin` is in PATH, (3) note this is only required for ARM64 Windows — x86_64 Windows and Linux/macOS do not require extra tooling. See risk-048.
+```
+
+
+```ctx
+type: task
+id: task-132
+status: open
+---
+SSE event ID tracking and reconnection — The current `GET /events` SSE endpoint does not include event IDs or support `Last-Event-ID` for reconnection. Implement: (1) assign monotonically increasing `id` to each SSE event, (2) accept `Last-Event-ID` header from client, (3) replay missed events from a bounded buffer on reconnection, (4) update TypeScript `subscribeToEvents()` to send `Last-Event-ID` and automatically reconnect with exponential backoff. Important for reliable real-time updates when network is intermittent. See task-128, task-098.
+```
+
+```ctx
+type: task
+id: task-133
+status: open
+---
+FileStore comment support — FileStore `get_proposal_comments` and `add_proposal_comment` are stubs (return empty/Ok). Implement file-backed comment persistence: store comments as part of the proposal JSON or as separate `data/comments/{proposalId}.json` files. Required for file-based deployments that need comment functionality. See task-113 (FileStore parity).
+```
+
+```ctx
+type: risk
+id: risk-047
+status: accepted
+severity: low
+likelihood: certain
+---
+**Node.js HTTP/3 client gap** — Node.js (v24, undici) does not support HTTP/3/QUIC client connections. The production server speaks QUIC-only; Node.js tooling (integration tests, smoke scripts, VS Code extension host) requires the `TRUTHTLAYER_DEV_TCP=true` TCP bridge. **Impact**: dev-only; production clients (Chromium-based VS Code fork) support HTTP/3 natively. **Mitigation**: dev TCP bridge implemented (task-128); monitor Node.js upstream progress (task-129). **Risk level**: Low (no production impact; dev workaround in place).
+```
+
+```ctx
+type: risk
+id: risk-048
+status: accepted
+severity: low
+likelihood: possible
+---
+**ARM64 Windows build dependency on LLVM/clang** — The `ring` crate requires LLVM/clang for ARM assembly compilation on `aarch64-pc-windows-msvc`. Without it, `cargo build` fails with "failed to find tool clang". **Impact**: affects ARM64 Windows developers only (x86_64 Windows, Linux, macOS unaffected). **Mitigation**: install via `winget install LLVM.LLVM`; document in build prerequisites (task-130). **Risk level**: Low (one-time setup per dev machine).
 ```

@@ -1,6 +1,6 @@
 # Project Risks
 
-This document tracks potential risks and mitigation strategies for TruthLayer. The design is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. Mitigations reference `server/` (Rust context store), `src/store/`, `src/playground/`, `src/api-client.ts`, and `docs/`. For **canonical walkthroughs**, see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md). For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **agent-behavior guardrails** (personal data, trade secrets, external model boundary, heightened review, retention, provenance, workspace isolation, when in doubt propose), see `docs/reference/SECURITY_GOVERNANCE.md`. For **procurement and DPIA** (controller/processor, DSAR, retention, redaction vs crypto-shredding, subprocessor/LLM egress, residency), see `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9. For **Word/Excel/Google** (optional), `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
+This document tracks potential risks and mitigation strategies for TruthLayer. The design is **agentic-first**: primary interface = in-process agent; one minimal review/apply surface; rich UIs optional. Mitigations reference `server/` (Rust context store), `src/api-client.ts`, `src/types/`, `src/markdown/`, and `docs/`. For **canonical walkthroughs**, see [Hello World](docs/scenarios/HELLO_WORLD_SCENARIO.md) and [Conflict and Merge](docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md). For **production security**, see `docs/WHITEPAPER.md` §7.4, §7.5. For **agent-behavior guardrails** (personal data, trade secrets, external model boundary, heightened review, retention, provenance, workspace isolation, when in doubt propose), see `docs/reference/SECURITY_GOVERNANCE.md`. For **procurement and DPIA** (controller/processor, DSAR, retention, redaction vs crypto-shredding, subprocessor/LLM egress, residency), see `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`. For **doc suite** (TruthLayer vs Office/Google Docs + Copilot/Gemini), whitepaper §2.4, §6.9. For **Word/Excel/Google** (optional), `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 
 ```ctx
 type: risk
@@ -95,7 +95,7 @@ likelihood: possible
 **Risk**: Store semantics diverge across providers (in-memory vs file-based vs MongoDB), causing inconsistent query/conflict behavior.
 
 **Mitigation**:
-- Canonical store behavior in Rust server (server/); TS keeps apply + graph in src/store/core/ for preview and tests; conflict/traversal to be extended in server.
+- Canonical store behavior in Rust server (server/); TS store core has been removed — all store logic lives exclusively in the Rust server. Conflict/traversal to be extended in server.
 - Keep providers focused on persistence/indexing and reuse core functions wherever possible.
 - Maintain targeted coverage tests for core behavior to prevent regressions.
 - See `docs/scenarios/CONFLICT_AND_MERGE_SCENARIO.md` for conflict/merge/stale behavior and playground scenarios.
@@ -461,4 +461,296 @@ likelihood: likely
 - Prioritize MCP server (task-082) as a prerequisite; track in critical path alongside Phase 5 dependencies (risk-024).
 - Design the gateway middleware layer so MCP gateway mode (task-090) is an extension, not a replacement, of the HTTP gateway API.
 - Related: task-082 (MCP server), task-090 (MCP gateway mode), question-056 (MCP + gateway interaction), risk-024 (Phase 5 dependencies).
+```
+
+```ctx
+type: risk
+id: risk-030
+status: accepted
+severity: high
+likelihood: likely
+---
+**Risk**: **VS Code fork maintenance burden.** Upstream rebases may break fork-only features when Microsoft changes editor rendering internals (`viewLineRenderer`, `TextModel`, margin components). Monthly VS Code releases mean ongoing rebase effort; breaking changes may require significant rework of proposal mode, anchored comments, and agent inline editing.
+
+**Mitigation**:
+- Isolate all fork changes in a new directory (`src/vs/editor/contrib/truthlayer/`) that does not conflict with upstream.
+- Maintain an `upstream/main` tracking branch with automated CI that builds against latest upstream to detect breakage early.
+- Monthly rebase cadence aligned with VS Code release cycle.
+- Fork-only features are additive — if one breaks, extensions still work. No extension depends on the fork layer.
+- Related: task-104 (fork setup), task-105 (fork features), `.cursor/plans/truthlayer_ide_analysis_4f3e7459.plan.md`.
+```
+
+```ctx
+type: risk
+id: risk-031
+status: accepted
+severity: medium
+likelihood: likely
+---
+**Risk**: **WebView theming and state persistence.** All 6 extensions use WebView panels for rich UIs. WebViews must respect VS Code's dark/light/high-contrast themes (via CSS variables), and they lose their DOM state when the tab is hidden and restored. Poor theming breaks in dark mode; state loss forces users to re-navigate panels.
+
+**Mitigation**:
+- Inject VS Code theme CSS variables (`--vscode-*`) into all WebView panels; test in both light and dark themes.
+- Use VS Code's `getState()`/`setState()` WebView API to persist panel state across hide/show cycles.
+- Create a shared WebView utility library (part of `@truthlayer/client` or a separate internal package) that handles theming and state for all extensions consistently.
+- Related: task-099 through task-102 (extension development), question-058 (WebView framework).
+```
+
+```ctx
+type: risk
+id: risk-032
+status: resolved
+severity: high
+likelihood: possible
+---
+**Risk**: **REST-only server limits IDE responsiveness.** The Rust server has no WebSocket or SSE support. Extensions must poll for proposal updates, review changes, and audit events. Polling creates stale data (user sees outdated proposal status), wasted bandwidth, and poor UX compared to real-time push.
+
+**Resolution**: SSE implemented over HTTP/3 (task-128, task-098). `GET /events?workspace={id}` streams real-time notifications (proposal_updated, review_submitted, config_changed) with 15s keep-alive. EventBus publishes events on all state-changing routes. TypeScript `subscribeToEvents()` client added. Extensions can subscribe to live event streams — no polling required. Remaining: event ID tracking and reconnection (task-132) for reliable delivery.
+
+**Original mitigation**:
+- ~~Implement polling with a configurable interval~~ — superseded by SSE.
+- ~~Plan WebSocket or SSE server endpoint (question-057)~~ — SSE chosen and implemented (decision-038).
+- Design extension code with a `SubscriptionProvider` abstraction so switching from polling to push requires no UI changes — still recommended for testing.
+- Related: task-098 (completed), task-128 (completed), question-057 (resolved).
+```
+
+```ctx
+type: risk
+id: risk-033
+status: accepted
+severity: medium
+likelihood: likely
+---
+**Risk**: **ContextStore interface bloat.** `src/types/context-store.ts` defines ~20 methods but only ~8 are implemented by `RustServerClient`. The rest are stubs returning empty arrays or throwing "not implemented." Extensions building against this interface will encounter dead methods, confusing developers and causing runtime errors.
+
+**Mitigation**:
+- Trim the `ContextStore` interface to match actual server capabilities before publishing `@truthlayer/client` (task-096).
+- Move aspirational methods (not yet implemented) to a separate `ContextStoreExtended` interface or mark them with `@experimental` JSDoc tags.
+- Extensions should type-check against the trimmed interface, not the full one.
+- Related: task-095 (shared library packaging), task-096 (interface cleanup), question-060.
+```
+
+```ctx
+type: risk
+id: risk-034
+status: accepted
+severity: medium
+likelihood: possible
+---
+**Risk**: **Cursor compatibility.** Extensions must work in vanilla VS Code AND Cursor (itself a VS Code fork). Cursor's fork may have divergent Extension API behavior, missing APIs, or additional restrictions. Extensions tested only in VS Code may break silently in Cursor.
+
+**Mitigation**:
+- CI testing in both vanilla VS Code and Cursor for all 6 extensions.
+- Avoid Cursor-specific APIs; use only standard VS Code Extension API.
+- Document known Cursor differences and workarounds.
+- The extension pack (task-103) must be tested in both environments before publishing.
+- Related: question-058 (WebView framework may behave differently in Cursor).
+```
+
+```ctx
+type: risk
+id: risk-035
+status: accepted
+severity: high
+likelihood: likely
+---
+**Risk**: **Fork-only features resist AI generation.** VS Code editor internals (`viewLineRenderer`, `TextModel`, margin components, `ICodeEditor` interfaces) are complex, sparsely documented, and change between releases. AI-driven development (Opus 4.6) may require significant human debugging time for Phase 9 fork features (semantic inline diffs, anchored comments, proposal mode, agent inline editing), as the AI must read and understand VS Code source to make correct modifications.
+
+**Mitigation**:
+- Build extensions first (Phase 9 items 7-11) — delivers immediate value with zero fork risk. Extensions are boilerplate-heavy and AI-friendly.
+- Fork features are additive — if one is blocked, skip it; extensions still ship and work.
+- Allocate extra time for Phase 9 items 12-13 (fork features are the highest-risk, highest-effort items).
+- Consider implementing fork features incrementally: start with the simplest (branding), then semantic diffs, then proposal mode, then anchored comments (hardest).
+- Related: task-104 (fork setup), task-105 (fork features), `.cursor/plans/truthlayer_ide_analysis_4f3e7459.plan.md` Phase 4.
+```
+
+```ctx
+type: risk
+id: risk-036
+status: accepted
+severity: high
+likelihood: certain
+---
+**Risk**: **Type serialization mismatch between Rust server and TypeScript client.** The `Comment`, `CommentAnchor`, and `RelationshipMetadata` structs in the Rust server are missing `#[serde(rename_all = "camelCase")]`, causing them to serialize field names as snake_case (`created_at`, `node_id`, `resolved_by`). The TypeScript client expects camelCase (`createdAt`, `nodeId`, `resolvedBy`). This causes **silent data loss** -- fields evaluate to `undefined` in JavaScript with no error. Additionally, the server sends `{ redacted: true, reason: "sensitivity" }` for redacted nodes, but the TS `AnyNode` type has no `redacted` or `reason` fields.
+
+**Mitigation**:
+- Fix server-side: add `#[serde(rename_all = "camelCase")]` to all three structs (task-107). This is a one-line change per struct and is backward-compatible for JSON consumers.
+- Fix TS types: add `redacted?: boolean` and `reason?: string` to `AnyNode` (task-110).
+- Add integration tests that verify JSON field names match between Rust serialization and TS type definitions.
+- These fixes are Gate 0 prerequisites -- must be completed before any extension development begins.
+- Related: task-107, task-110, `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 2.
+```
+
+```ctx
+type: risk
+id: risk-037
+status: accepted
+severity: medium
+likelihood: certain
+---
+**Risk**: **Server returns only open proposals**, blocking UI from showing accepted, rejected, withdrawn, or applied proposals. The `GET /proposals` endpoint calls `get_open_proposals()` internally and has no status filter parameter. The `truthlayer.governance` extension needs to list proposals of all statuses (grouped by status in a TreeView). The TS client's `getRejectedProposals()` method always returns `[]` because it filters the server response client-side, but the server never returns non-open proposals.
+
+**Mitigation**:
+- Add `status` query parameter to `GET /proposals` (task-108). When `status` is not provided, return all proposals (not just open).
+- Update both InMemoryStore and FileStore to support proposal status filtering.
+- This is a Gate 0 prerequisite -- must be completed before `truthlayer.governance` extension development begins.
+- Related: task-108, `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 4.1.
+```
+
+```ctx
+type: risk
+id: risk-038
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: **Server-side agent loop complexity** — The Cursor-pattern architecture (thin client extension, server runs agent loop with compliance gateway) concentrates significant complexity in the Rust server: multi-turn LLM orchestration, tool call execution, SSE streaming, conversation state management, context window management, and compliance gateway integration. This is a new capability area for the Rust server (previously REST-only CRUD) and creates a critical dependency between Phase 5 (Contextualize), Phase 8 (AI Compliance Gateway), and Phase 9 (agent extension).
+
+**Mitigation**:
+- Implement a minimal viable agent loop first: single-model routing + basic audit logging + SSE streaming (question-069). Layer in advanced gateway features (prompt inspection, response filtering, cost caps) progressively.
+- Cap per-request iteration depth (e.g. max 10 tool-call rounds) and enforce request timeouts to prevent runaway agent loops.
+- Use Axum's built-in SSE support (`axum::response::Sse`) for streaming — well-supported and production-tested.
+- Design the agent loop as a composable pipeline (retrieve → prompt → gateway → model → tools → loop) with each stage independently testable.
+- Add integration tests with mock LLM providers (canned responses + tool calls) to validate the full loop without external dependencies.
+- Monitor server resource usage under concurrent agent sessions (each session holds an open SSE connection + in-flight LLM request).
+- Related: task-112, question-067, question-068, question-069, risk-032 (REST limits), Phase 8 tasks.
+```
+
+```ctx
+type: risk
+id: risk-039
+status: accepted
+severity: medium
+likelihood: possible
+---
+**Risk**: **Agent loop creates Phase 5/8 hard dependency for Phase 9** — The `truthlayer.agent` extension cannot function without the server-side agent loop (task-112), which in turn requires at minimum basic model routing and audit from Phase 8. This creates a longer critical path for the agent extension compared to other extensions that only need REST API.
+
+**Mitigation**:
+- Allow a minimal gateway shim (basic model config + audit logging) so the agent loop can ship before the full Phase 8 gateway is complete (question-069).
+- Sequence Phase 9 so the agent extension is built last (after governance, audit, config), giving more time for Phase 5/8 prerequisites to be ready.
+- If Phase 8 is delayed, the agent extension can ship with a "gateway-lite" mode (model routing + audit only, no prompt inspection/response filtering) with clear documentation that advanced compliance features are pending.
+- Related: task-112, task-102, Phase 5, Phase 8, question-069.
+```
+
+```ctx
+type: risk
+id: risk-040
+status: accepted
+severity: high
+likelihood: certain
+---
+**Risk**: **FileStore feature parity gaps** — FileStore is missing implementations for 7 ContextStore trait methods: `detect_conflicts`, `is_proposal_stale`, `merge_proposals`, `traverse_reasoning_chain`, `build_context_chain`, `follow_decision_reasoning`, `query_with_reasoning`. These methods return empty results or errors. Any deployment using file-based storage (`TRUTHTLAYER_STORAGE=file`) cannot use conflict detection, reasoning chain traversal, or provenance queries — core features for the agent and governance workflows. This is a silent degradation: the server starts successfully but critical functionality is unavailable.
+
+**Mitigation**:
+- Implement all missing methods in FileStore to achieve full parity (task-113).
+- Add a shared integration test suite that runs against both InMemoryStore and FileStore, verifying identical behavior for all ContextStore methods.
+- Add a startup warning log when FileStore is active and any trait method returns a "not implemented" error.
+- Consider extracting shared logic from InMemoryStore into helper functions that both backends can use (many traversal methods only need node/edge access, not backend-specific logic).
+- Related: task-113, `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`.
+```
+
+```ctx
+type: risk
+id: risk-041
+status: accepted
+severity: medium
+likelihood: likely
+---
+**Risk**: **Naming convention inconsistency across layers** — The codebase has three naming conventions in different layers: Rust (snake_case), JSON API (mostly camelCase but 3 types still snake_case), TypeScript (camelCase), documentation (mixed). The inconsistency causes runtime bugs (TS fields read as `undefined` from snake_case JSON) and developer confusion. As the codebase grows with the extension layer and agent loop, the inconsistency will compound.
+
+**Mitigation**:
+- Establish and document the naming convention in CONTRIBUTING.md (task-118): Rust internals = snake_case, JSON serialization = camelCase (via `#[serde(rename_all = "camelCase")]`), TypeScript = camelCase, HTTP URL paths = kebab-case.
+- Fix the 3 remaining types (Comment, CommentAnchor, RelationshipMetadata) that serialize as snake_case (task-107, overlaps task-118).
+- Add a CI check: compile-time test that serializes each public API type and asserts all JSON field names are camelCase.
+- Audit all documentation references to field names and update to match the convention.
+- Related: task-107, task-118, risk-036.
+```
+
+```ctx
+type: risk
+id: risk-042
+status: accepted
+severity: medium
+likelihood: likely
+---
+**Risk**: **Silent error swallowing in server route handlers** — Several route handlers in `server/src/api/routes.rs` use `.ok()`, `.unwrap_or_default()`, or match-and-ignore patterns that silently discard errors. This means: (a) clients receive success responses when operations partially failed, (b) audit log entries may be silently lost, (c) debugging production issues is harder because errors leave no trace, (d) security-relevant failures (auth, RBAC) may not be recorded.
+
+**Mitigation**:
+- Audit all route handlers for silent error patterns (task-119).
+- Replace `.ok()` / `.unwrap_or_default()` with explicit error handling that returns appropriate HTTP status codes.
+- Ensure all error responses use a consistent structured format: `{ "error": "message", "code": "ERROR_CODE", "details": {...} }`.
+- Ensure audit log writes are themselves error-handled (log a warning if audit write fails, but don't mask the original error).
+- Add integration tests for error scenarios: malformed input (400), missing resources (404), policy violations (422), internal failures (500).
+- Related: task-119, risk-038 (agent loop complexity depends on reliable error handling).
+```
+
+```ctx
+type: risk
+id: risk-043
+status: accepted
+severity: high
+likelihood: possible
+---
+**Risk**: **Gateway single point of failure** — When the AI Compliance Gateway is active, all external model calls route through it. If the gateway (integrated in the Axum server) experiences high load, bugs, or resource exhaustion, all AI-dependent features (agent loop, MCP gateway mode, any application using the gateway) are blocked. There is no current HA or failover design.
+
+**Mitigation**:
+- Design connection pooling and circuit breakers for model provider connections (task-122).
+- Implement backpressure: when concurrent agent sessions exceed a configurable limit, return 503 with retry-after header.
+- Add health check endpoints for gateway components (model provider connectivity, policy engine status).
+- Document operational guidance for horizontal scaling (multiple server instances behind a load balancer with sticky sessions for SSE streams).
+- Consider a "bypass mode" for emergency situations where the gateway can be temporarily disabled (with full audit logging of the bypass).
+- Related: task-122, risk-038, Phase 8.
+```
+
+```ctx
+type: risk
+id: risk-044
+status: accepted
+severity: medium
+likelihood: possible
+---
+**Risk**: **Workspace isolation gaps in traversal and retrieval** — The architecture specifies that every object is scoped by workspaceId, but the traversal APIs (`traverse_reasoning_chain`, `build_context_chain`, etc.) and the future retrieval module may follow edges that cross workspace boundaries if the edge references a node in a different workspace. This could leak data between tenants.
+
+**Mitigation**:
+- Add workspace boundary checks to all traversal methods: before following an edge, verify the target node's workspaceId matches the query's workspace (task-121).
+- Make workspaceId required (not optional) on all ContextStore query methods.
+- Add integration tests with multi-workspace data that verify no cross-workspace leakage (task-121).
+- Document the invariant: "traversals never cross workspace boundaries" in ARCHITECTURE.md.
+- Related: task-121, `docs/core/ARCHITECTURE.md` § Tenancy.
+```
+
+```ctx
+type: risk
+id: risk-045
+status: accepted
+severity: medium
+likelihood: likely
+---
+**Risk**: **Grounding classification accuracy** — The truth anchoring pipeline (decision-037) relies on semantic similarity to verify whether a model's citation actually supports its claim. Both false positives (marking a loosely related citation as "grounded") and false negatives (marking a valid paraphrase as "ungrounded") undermine trust in the grounding system. If the grounding indicators are unreliable, users will learn to ignore them — defeating the purpose.
+
+**Mitigation**:
+- Start with keyword overlap for MVP (simple, fast, explainable); graduate to sentence embeddings for production accuracy (task-126).
+- Make grounding thresholds configurable per workspace — conservative enterprises can set high thresholds (more "ungrounded" flags, fewer false positives); teams that trust the model can lower them.
+- Include a "grounding confidence" score (0.0–1.0) alongside the tier, so the UI can show granularity (e.g. 0.85 grounded vs 0.62 grounded).
+- Build a grounding accuracy test suite: known-good citations (expect grounded), known-bad citations (expect ungrounded), known contradictions (expect contradicted). Run against each classifier implementation.
+- Log grounding decisions in the audit trail — if a classification is later found incorrect, the evidence is available for debugging and improvement.
+- The grounding system is a **signal, not a judgment** — documentation and UI must make clear that grounding tiers assist human reviewers but do not replace human judgment.
+- Related: task-125, task-126, decision-037, `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Truth anchoring pipeline.
+```
+
+```ctx
+type: risk
+id: risk-046
+status: accepted
+severity: low
+likelihood: possible
+---
+**Risk**: **Grounding pipeline latency** — The truth anchoring pipeline adds post-processing to every model response: citation extraction, semantic verification, contradiction scanning, confidence scoring. If this adds significant latency (>500ms per turn), it degrades the chat UX. Streaming helps (tokens arrive immediately), but `grounding` events may lag behind `token` events if classification is slow.
+
+**Mitigation**:
+- Stream `token` events immediately as they arrive from the model; run grounding classification asynchronously and emit `grounding` events as they complete (not blocking the token stream).
+- Use lightweight classification first (keyword overlap) for real-time grounding; optionally run a more accurate pass (sentence embeddings) asynchronously and emit updated grounding events.
+- Cache node content for retrieved context — the grounding classifier needs to compare model claims against node content that was already retrieved for the prompt, so no additional store queries are needed.
+- Benchmark the full pipeline (task-122) and set a p99 target for grounding classification latency.
+- Related: task-125, task-126, task-122, risk-038 (agent loop complexity).
 ```

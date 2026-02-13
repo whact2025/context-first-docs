@@ -3,8 +3,12 @@
  * Runs integration tests with the Rust server started automatically.
  * Spawns the server, waits for /health, runs Jest for api-client.integration tests, then kills the server.
  *
+ * The server is started with TRUTHTLAYER_DEV_TCP=true so that Node.js fetch()
+ * can connect over TCP/HTTP/1.1. The production transport is HTTP/3 (QUIC),
+ * but Node.js does not yet support HTTP/3 clients.
+ *
  * Usage: node scripts/run-integration-with-server.mjs
- * Or: npm run test:integration:with-server
+ * Or: npm run test:integration
  */
 
 import { spawn } from "node:child_process";
@@ -61,10 +65,11 @@ function killServer(child) {
 }
 
 async function main() {
-  console.log("Starting Rust server (in-memory store)...");
+  console.log("Starting Rust server (in-memory store, dev TCP bridge enabled)...");
   const serverProcess = spawn("cargo", ["run"], {
     cwd: serverDir,
     stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, TRUTHTLAYER_DEV_TCP: "true" },
   });
 
   let stderr = "";

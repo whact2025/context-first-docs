@@ -4,7 +4,10 @@
  *
  * Run with server started automatically:
  *   npm run test:integration
- * (Starts the Rust server, runs these tests, then stops the server.)
+ * (Starts the Rust server with TRUTHTLAYER_DEV_TCP=true, runs these tests, then stops the server.)
+ *
+ * Transport: Node.js fetch() connects via the dev TCP bridge (HTTP/1.1).
+ * The production server uses HTTP/3 (QUIC), which Node.js does not yet support.
  *
  * Base URL: TRUTHTLAYER_SERVER_URL (default http://127.0.0.1:3080)
  */

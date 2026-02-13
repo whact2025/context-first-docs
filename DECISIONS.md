@@ -1030,6 +1030,114 @@ status: accepted
 **Decided At**: 2026-02-06
 ```
 
+```ctx
+type: decision
+id: decision-034
+status: accepted
+---
+**Decision**: The `truthlayer.agent` extension follows the **Cursor-pattern architecture** — thin chat client in the IDE, server runs the full agent loop with compliance gateway interception. The extension never calls frontier models directly.
+
+**Rationale**:
+- **Compliance by design**: every model call passes through the same policy engine, sensitivity labels, RBAC, and audit log that govern all other TruthLayer operations. No bypass path exists.
+- **Tool execution is server-local**: the agent's tools (`query_nodes`, `create_proposal`, `get_provenance`, `query_audit`) operate directly against the ContextStore in-process — no HTTP round-trips for tool calls.
+- **Model configuration is centralized**: admin configures allowed models, API keys, rate limits, and cost caps server-side. Extensions don't hold LLM credentials.
+- **Consistent with Cursor's proven pattern**: IDE is the display layer; intelligence lives server-side.
+- **Simplifies the extension**: no MCP client, no workflow engine, no LLM provider integration in the extension. Just a WebView that renders streamed SSE events.
+
+**Implementation**:
+- **Server**: `POST /agent/chat` SSE streaming endpoint (task-112). Receives user message + conversation history + optional workflow template. Runs agent loop: retrieve context → build prompt → call model through compliance gateway → execute tool calls → feed results back → stream response.
+- **Extension**: `truthlayer.agent` (task-102) is a thin WebView that sends messages to the server and renders the SSE event stream (tokens, tool calls, citations, confirmations).
+- See `docs/engineering/ui/EXTENSION_ARCHITECTURE.md` §2.6, `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` §4.5, `docs/engineering/ui/UI_ENGINEERING_PLAN.md` §6.6.
+
+**Decided At**: 2026-02-12
 ```
 
+```ctx
+type: decision
+id: decision-035
+status: accepted
+---
+**Decision**: Build the TruthLayer IDE as a **VS Code fork** (Code OSS) with a **layered extension strategy**. Six standard VS Code extensions form the portable layer (works in VS Code, Cursor, and TruthLayer IDE). Fork-only features provide deep editor integration available only in TruthLayer IDE.
+
+**Rationale**:
+- **Extension portability**: governance features built as standard extensions work in vanilla VS Code, Cursor, and the TruthLayer IDE — maximizing reach.
+- **Fork for deep integration**: features requiring editor internals (semantic inline diffs, anchored review comments, proposal mode overlay, agent inline editing) need fork-level access that the extension API doesn't provide.
+- **Precedent**: Cursor's success validates the fork-plus-extensions model for specialized IDEs.
+- **Upstream tracking**: Code OSS is MIT-licensed; a tracking branch allows pulling upstream fixes and features.
+
+**Implementation**:
+- **Extension layer**: `truthlayer.governance`, `truthlayer.ctx-language`, `truthlayer.ctx-preview`, `truthlayer.audit`, `truthlayer.config`, `truthlayer.agent` — bundled as `truthlayer` extension pack.
+- **Fork layer**: fork `microsoft/vscode`, apply branding, pre-install extensions, add fork-only features.
+- See PLAN.md Phase 9, `docs/engineering/ui/` engineering docs for detailed architecture.
+
+**Decided At**: 2026-02-12
+```
+
+```ctx
+type: decision
+id: decision-036
+status: accepted
+---
+**Decision**: The AI Compliance Gateway is implemented as an **integrated Axum middleware layer** within the existing Rust server, not as a separate service. It reuses existing auth, RBAC, policy engine, sensitivity labels, and audit infrastructure.
+
+**Rationale**:
+- **Zero duplication**: the gateway needs exactly the same infrastructure the server already has (JWT auth, RBAC, policy evaluation, sensitivity labels, audit log). Building it as middleware reuses all of this.
+- **Single deployment**: one binary, one config root, one operational surface. Simpler for enterprise deployments.
+- **Consistent enforcement**: internal operations and external model calls go through the same policy engine — no configuration drift between "internal governance" and "external AI compliance."
+- **Performance**: in-process middleware avoids network hops between gateway and store for context retrieval during prompt building.
+- **Future option**: if needed, the gateway middleware can be extracted into a standalone proxy later (the pipeline is composable).
+
+**Implementation**:
+- Phase 8 tasks (task-085 through task-094): gateway proxy middleware, EgressControl enforcement, prompt inspection, response filtering, audit logging, MCP gateway mode, model routing, observability, cost governance, admin API.
+- See PLAN.md Phase 8, `docs/core/ARCHITECTURE.md` §8.
+
+**Decided At**: 2026-02-12
+```
+
+```ctx
+type: decision
+id: decision-037
+status: accepted
+---
+**Decision**: Model output is **never truth**. The server-side agent loop performs **truth anchoring** — classifying every response segment against accepted truth into four grounding tiers (grounded, derived, ungrounded, contradicted) with confidence scores and verified citations. Proposals created from model output inherit grounding metadata. The ACAL process (human review + human apply) is the sole mechanism for determining truth; the model's role is to make grounding status visible so humans can make informed decisions.
+
+**Rationale**:
+- **Epistemic clarity**: the system must never blur the line between "what the model said" and "what the organization has ratified." Grounding tiers make this distinction visible at every point in the workflow.
+- **Trust calibration**: confidence scores and citation verification give reviewers signals about how much to trust different parts of a model's response. A claim backed by 3 cited accepted nodes is different from an ungrounded suggestion.
+- **Provenance preservation**: when a proposal originates from an agent interaction, the grounding metadata (which nodes were cited, what tier, what confidence) is preserved in the proposal. Reviewers see this context when deciding whether to approve.
+- **Contradiction detection**: the system actively identifies when model output conflicts with accepted truth, preventing the model from subtly overwriting organizational decisions through a proposal that reviewers might approve without noticing the conflict.
+- **Hallucination transparency**: rather than trying to prevent hallucination (impossible with current models), the system makes hallucination *visible*. Ungrounded claims are flagged, not hidden.
+
+**Implementation**:
+- **Prompt construction**: three-layer prompt (system context with truth boundaries, retrieved nodes with provenance metadata, tool definitions with grounding instructions). See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Prompt construction.
+- **Response processing**: citation extraction → citation verification → grounding classification → confidence scoring → aggregate annotation. See `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Response processing.
+- **SSE events**: `grounding` events emitted alongside `token` events, carrying tier classification and confidence. `grounding_summary` event at end of turn with aggregate statistics. See `docs/engineering/ui/SERVER_API_REQUIREMENTS.md`.
+- **UI rendering**: grounding tiers rendered as visual indicators (green = grounded, amber = derived, dotted = ungrounded, red = contradicted). Citations rendered as clickable links to source nodes. See `docs/engineering/ui/EXTENSION_ARCHITECTURE.md` §2.6.
+- **Tasks**: task-125 (truth anchoring pipeline implementation), task-126 (grounding classification engine). See PLAN.md.
+
+**Decided At**: 2026-02-13
+```
+
+```ctx
+type: decision
+id: decision-038
+status: accepted
+---
+**Decision**: SSE over **HTTP/3 (QUIC) only** as the v1 transport. No HTTP/2 fallback, no polling, no WebSocket. We control every client (VS Code fork, extensions, CLI) — there are no third-party clients requiring protocol negotiation. All server-push patterns (agent loop streaming, extension real-time notifications) use SSE. Client actions use standard HTTP requests. HTTP/3 via `quinn`/`h3` crates.
+
+**Rationale**:
+- **No legacy**: building from scratch, so no reason to start with a weaker transport and migrate later. HTTP/3 is the final state — build it once.
+- **SSE over HTTP/3 is superior to WebSocket**: multiplexed QUIC streams eliminate HTTP/1.1's 6-connection limit and HTTP/2's head-of-line blocking. Each SSE stream gets an independent QUIC stream. 0-RTT reconnection handles network transitions (laptop sleep/wake, VPN reconnect). Connection migration handles IP changes without stream interruption.
+- **WebSocket is unnecessary**: all TruthLayer communication patterns are server-push (SSE) with client actions via separate HTTP requests. WebSocket's bidirectional framing is unused overhead. Worse, WebSocket bypasses standard HTTP middleware (auth, RBAC, audit logging), requiring custom handshake handling.
+- **Unified infrastructure**: the agent loop (`POST /agent/chat`) already requires SSE for streaming tokens, grounding events, and tool calls. Extension notifications (`GET /events`) reuse the same SSE stack. One transport, one auth model, one middleware chain.
+- **No fallback needed**: we control every client. The VS Code fork (Chromium) has native HTTP/3 support. The extension host (Node.js) uses `undici` or embedded QUIC client. CLI tools link the same `quinn` QUIC library. There is no unknown third-party client that might arrive with only HTTP/2. Enterprise networks that block UDP must open the QUIC port — documented as a deployment prerequisite, not a reason to maintain two transport stacks.
+
+**Implementation**:
+- Server: Axum + `quinn` (QUIC) + `h3-quinn` (HTTP/3 bindings). QUIC-only listener, no TCP fallback.
+- Agent loop: `POST /agent/chat` → SSE stream (token, grounding, tool_call, confirm, done events). Already designed.
+- Extension notifications: `GET /events?workspace={id}` → SSE stream (proposal_updated, review_submitted, config_changed, audit_event). JWT auth on connection.
+- Extension infrastructure: `DataPoller` wraps `EventSource` (SSE) with auto-reconnect. `onDataChanged` interface abstracts transport. See `docs/engineering/ui/EXTENSION_ARCHITECTURE.md`.
+- Related: question-057 (resolved), task-098, risk-032.
+
+**Decided At**: 2026-02-13
 ```

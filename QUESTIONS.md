@@ -37,6 +37,32 @@ Outstanding items that can block specific design or implementation. _(Resolved o
 | **MCP server**             | [**question-047**](#question-047) (MCP authentication for AI assistants).                                                                                                                                                                                                                                                                          | Phase 4 item 7 (MCP server); agent integration security.                   |
 | **Projection engine**      | [**question-049**](#question-049) (projection engine: Rust vs TypeScript).                                                                                                                                                                                                                                                                         | Phase 3 items 20–21 (projection + change detection); architecture.         |
 | **AI Compliance Gateway**  | [**question-052**](#question-052) (gateway architecture: integrated vs separate); [**question-053**](#question-053) (multi-sensitivity prompt handling); [**question-054**](#question-054) (cost tracking model); [**question-055**](#question-055) (streaming response filtering); [**question-056**](#question-056) (MCP + gateway interaction). | Phase 8 gateway design; external model compliance.                         |
+| **TruthLayer IDE**         | [**question-057**](#question-057) (real-time updates: WebSocket/SSE/polling); [**question-058**](#question-058) (WebView framework); [**question-059**](#question-059) (repository structure); [**question-060**](#question-060) (ContextStore interface cleanup); [**question-061**](#question-061) (extension activation); [**question-062-ide**](#question-062-ide) (offline/disconnected behavior); [**question-063**](#question-063) (server auto-discovery); [**question-064**](#question-064) (shared library package boundary). | Phase 9 IDE prerequisites; extension development start; shared library.    |
+| **Type alignment (Gate 0)** | [**question-065**](#question-065) (snake_case vs camelCase: fix server-side or client-side?); [**question-066**](#question-066) (proposal status filter: extend GET /proposals or new endpoint?). | Phase 9 Gate 0; blocks ALL extension development. |
+| **Server-side agent loop** | [**question-067**](#question-067) (conversation state, context window, multi-turn orchestration); [**question-068**](#question-068) (user confirmation for truth-changing tool calls via SSE); [**question-069**](#question-069) (can agent loop ship before full Phase 8 gateway?); [**question-072**](#question-072) (concurrent session handling). | task-112 (server-side agent loop); `truthlayer.agent` extension; Phase 9 agent delivery. |
+| **Truth anchoring**        | [**question-073**](#question-073) (semantic similarity approach for citation verification); [**question-074**](#question-074) (grounding metadata storage in proposals); [**question-075**](#question-075) (mixed-grounding segment granularity). | task-125, task-126 (truth anchoring + grounding engine); agent response quality. |
+| **FileStore parity**       | [**question-070**](#question-070) (FileStore degradation policy while parity is in progress). | task-113 (FileStore parity); production file-based deployments. |
+
+## Resolution timeline (critical blockers)
+
+The following questions are on the critical path. They must be resolved before the phase/task they block can begin implementation.
+
+| Priority | Question | Recommended Resolution | Resolve By | Blocks |
+| --- | --- | --- | --- | --- |
+| **P0 (Gate 0)** | question-065 | Option (a): add `#[serde(rename_all = "camelCase")]` server-side. Minimal, consistent with existing patterns. | Before Phase 9 extension work (task-107) | ALL extension development |
+| **P0 (Gate 0)** | question-066 | Option (a): extend `GET /proposals` with `status` query param, default to all. | Before Phase 9 extension work (task-108) | `truthlayer.governance` extension |
+| **P0 (Phase 5)** | question-067 | Option (c): hybrid — client sends recent history, server truncates/summarizes. Start with (a) stateless for MVP. | Before task-112 implementation | Server-side agent loop |
+| **P0 (Phase 5)** | question-068 | Option (a): `confirm` SSE event pauses stream, client sends confirmation via `POST /agent/confirm`. | Before task-112 implementation | Agent tool confirmation UX |
+| **P1 (Phase 5)** | question-069 | Yes — ship agent loop with minimal gateway shim (basic model routing + audit). Layer in advanced gateway features later. | Before task-112 implementation | Agent loop delivery timeline |
+| **P1 (Phase 8)** | question-044 | Default deny: `no_egress_by_default` flag in server config. Workspace admin must explicitly add destinations to allowlist. EgressControl policy evaluates before any outbound call. | Before Phase 8 gateway (task-086) | Gateway enforcement; EU compliance |
+| **P1 (Phase 8)** | question-052 | Integrated middleware (decision-036 accepted). Not a separate service. | Resolved (decision-036) | Phase 8 architecture |
+| **P2 (Phase 3)** | question-042 | API-driven: `POST /admin/dsar/export` (implemented), `POST /admin/dsar/erase` (stub → task-076). Admin UI in `truthlayer.config` extension. | Before `truthlayer.config` extension (task-101) | DSAR compliance |
+| **P2 (Phase 3)** | question-043 | Default retention periods: accepted truth = permanent, proposals = 2 years, comments = 2 years, audit = 7 years (configurable per workspace). Ship with `truthlayer.config` extension. | Before task-075 and task-101 | Retention compliance |
+| **P2 (IDE)** | question-057 | Resolved: SSE over HTTP/3 only. No fallback, no polling. We control all clients. | Resolved | Extension data freshness |
+| **P2 (Phase 5)** | question-073 | Option (d): pluggable — keyword overlap for MVP, embeddings for production. | Before task-126 (grounding engine) | Truth anchoring accuracy |
+| **P2 (Phase 5)** | question-074 | Option (b): supplementary `agentMetadata` field on proposals. | Before task-125 (truth anchoring) | Proposal schema; reviewer UX |
+
+**Resolution process**: Questions with a recommended resolution above should be resolved via a proposal (decision ctx block) or direct implementation. Questions marked "Resolved" have been addressed by the referenced decision.
 
 ## Security & compliance (guardrail implementation)
 
@@ -1103,9 +1129,11 @@ status: open
 ```ctx
 type: question
 id: question-052
-status: open
+status: resolved
 ---
 **Question**: Should the AI Compliance Gateway be a separate service or an integrated Axum middleware layer within the existing Rust server?
+
+**Resolution**: Option (a) — integrated Axum middleware. Decided in decision-036. The gateway reuses existing auth, RBAC, policy engine, sensitivity labels, and audit log. Single deployment, single binary, no configuration drift. Future option to extract standalone proxy if needed.
 
 **Context**:
 - Phase 8 introduces a gateway that intercepts outbound LLM calls, applies policy, inspects prompts, filters responses, and audits everything.
@@ -1185,4 +1213,373 @@ status: open
 - Related: task-082 (MCP server), task-090 (MCP gateway mode), question-047 (MCP authentication).
 
 **Impact:** High — determines the integration surface for AI assistants and the gateway's role in the MCP ecosystem
+```
+
+## TruthLayer IDE (Phase 9)
+
+Open questions that must be resolved before or during TruthLayer IDE development:
+
+| Question             | Topic                                                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **question-057**     | Real-time updates: WebSocket, SSE, or polling for live proposal/review/audit updates in extensions?                                    |
+| **question-058**     | WebView framework: React, Svelte, Lit/Web Components, or raw HTML for all 6 extension WebView panels?                                 |
+| **question-059**     | Repository structure: monorepo (extensions + server + shared lib), multi-repo, or hybrid (extensions in main repo, IDE fork separate)? |
+| **question-060**     | ContextStore interface cleanup: trim unimplemented stubs before extensions depend on it, or keep as aspirational spec?                 |
+| **question-061**     | Extension activation strategy: when do extensions activate (workspace open, first `.md` file, explicit command, server connection)?    |
+| **question-062-ide** | Offline/disconnected behavior: cached data, graceful degradation, or disable entirely when server is unreachable?                      |
+| **question-063**     | Server auto-discovery: auto-detect running TruthLayer server or always require manual URL configuration?                               |
+| **question-064**     | Shared library package boundary: what is included in `@truthlayer/client` (API client + types only, or also markdown + telemetry)?     |
+| **question-067**     | Server-side agent loop: conversation state management, context window limits, multi-turn orchestration                                  |
+| **question-068**     | Agent loop tool confirmation: user confirmation for truth-changing tool calls via SSE                                                   |
+| **question-069**     | Agent loop phasing: can agent loop ship before full Phase 8 gateway with minimal compliance shim?                                       |
+
+```ctx
+type: question
+id: question-057
+status: resolved
+---
+**Question**: Should the Rust server add WebSocket or SSE support for live proposal/review/audit updates, or is HTTP polling acceptable for the initial extension release?
+
+**Resolution**: SSE over HTTP/3 only. No HTTP/2 fallback, no polling. We control every client (our VS Code fork, our extensions, our CLI tools) — there are no arbitrary third-party clients. The agent loop already requires SSE (`POST /agent/chat`); extend the same SSE infrastructure to extension notifications. HTTP/3 via `quinn`/`h3` crates provides multiplexed streams without head-of-line blocking, 0-RTT reconnection, and connection migration. WebSocket is not needed — all TruthLayer patterns are server-push with occasional client requests (unidirectional). Add `GET /events` SSE endpoint for real-time notifications (proposal_updated, review_submitted, config_changed, audit_event), scoped per workspace, authenticated via JWT. Enterprise deployments that block UDP/QUIC must open the port — this is a documented deployment requirement, not a reason to maintain two transport stacks.
+
+**Context**:
+- The server is REST-only (Axum HTTP). Extensions need to know when proposals change status, reviews are submitted, config is updated, etc.
+- Options: (a) HTTP polling with configurable interval (simplest, functional, wastes bandwidth, stale data between polls); (b) Server-Sent Events / SSE (unidirectional push from server, lightweight to implement in Axum, sufficient for most notification use cases); (c) WebSocket (bidirectional, most flexible, heavier implementation); (d) polling for v1, SSE for v2 (pragmatic phased approach).
+- SSE is the lightest real-time option: Axum supports it natively via `axum::response::Sse`, and extensions can consume it via standard `EventSource` API in WebView or via Node.js in extension host.
+- HTTP/3 eliminates the main SSE drawback on HTTP/1.1 (connection limit per origin). HTTP/3 (QUIC) provides independent stream multiplexing (no head-of-line blocking), 0-RTT reconnection, and connection migration. No HTTP/2 fallback needed — we control every client.
+- WebSocket is unnecessary: TruthLayer's patterns are server-streaming (agent loop, notifications) with client actions via separate HTTP requests. WebSocket's bidirectional capability is unused overhead and bypasses HTTP middleware (auth, RBAC, audit).
+- Must consider: connection management (reconnection on drop), event types (proposal_updated, review_submitted, config_changed, audit_event), per-workspace event scoping, authentication on the event stream.
+- Related: task-098 (real-time updates), risk-032 (REST polling limits IDE responsiveness).
+
+**Impact:** High — affects IDE UX quality and extension architecture for all 6 extensions
+```
+
+```ctx
+type: question
+id: question-058
+status: open
+---
+**Question**: What UI framework should all WebView panels use across the 6 extensions?
+
+**Context**:
+- Every extension uses WebView panels for rich UI (proposal detail, review flow, audit log, policy builder, agent chat, etc.).
+- Options: (a) React (most ecosystem support, heavier bundle, most AI training data); (b) Svelte (lightweight, fast compilation, excellent for constrained WebView environments); (c) Lit / Web Components (native, no build step for simple panels, lightest runtime); (d) raw HTML/CSS/JS (simplest, no framework dependency, hardest to maintain at scale); (e) let AI decide per panel (risks inconsistency).
+- Must consider: bundle size (WebViews load per-panel), build pipeline complexity (each extension needs its own bundler), theming support (CSS variable injection), state management across hide/show cycles, AI code generation quality for each framework.
+- A single framework across all extensions ensures consistency, shared components, and a unified build pipeline.
+- Related: risk-031 (WebView theming), task-099 through task-102 (extension development).
+
+**Impact:** Medium — cascades across all 6 extensions; changing later requires rewriting all WebView panels
+```
+
+```ctx
+type: question
+id: question-059
+status: open
+---
+**Question**: What is the repository structure for the IDE work — monorepo, multi-repo, or hybrid?
+
+**Context**:
+- Current code lives in `context-first-docs` (server, TypeScript client, docs, existing vscode-ctx-markdown extension).
+- The IDE initiative adds: shared library (`@truthlayer/client`), 6 new extensions, and a forked VS Code codebase.
+- Options: (a) monorepo — extensions, shared lib, and server all in `context-first-docs` (simplest dependency management, one CI pipeline, but repo gets very large when VS Code fork is included); (b) multi-repo — IDE fork in its own repo, extensions in another, shared lib published to npm (strongest isolation, more complex dependency management); (c) hybrid — extensions + shared lib stay in `context-first-docs`, IDE fork gets its own repo (balances isolation with development convenience).
+- The VS Code fork is ~500MB+ of source; including it in the main repo may be impractical.
+- Must consider: CI/CD pipeline complexity, npm publishing workflow for `@truthlayer/client`, how extensions reference the shared lib (workspace symlink vs npm install), how fork CI triggers extension tests.
+- Related: task-095 (shared library packaging), task-104 (fork setup).
+
+**Impact:** High — affects CI/CD, versioning, development workflow, and contributor experience
+```
+
+```ctx
+type: question
+id: question-060
+status: open
+---
+**Question**: Should unimplemented stubs in `src/types/context-store.ts` be removed before extensions depend on the interface, or kept as aspirational spec?
+
+**Context**:
+- `ContextStore` interface defines ~20 methods (queryNodes, createProposal, submitReview, applyProposal, traverseReasoningChain, buildContextChain, followDecisionReasoning, discoverRelatedReasoning, queryWithReasoning, detectConflicts, mergeProposals, isProposalStale, etc.).
+- `RustServerClient` implements ~8 of these (basic CRUD + query). The rest throw "not implemented" or return empty results.
+- Options: (a) trim to match server capabilities (extensions get a reliable interface); (b) keep full interface but mark unimplemented methods with `@experimental` or `@notImplemented` JSDoc (preserves spec, signals incompleteness); (c) split into `ContextStore` (implemented) and `ContextStoreExtended` (aspirational).
+- Extensions built against the full interface will encounter runtime errors on unimplemented methods.
+- Related: task-096 (ContextStore cleanup), risk-033 (interface bloat), task-095 (shared library packaging).
+
+**Impact:** Medium — affects shared library reliability and extension developer experience
+```
+
+```ctx
+type: question
+id: question-061
+status: open
+---
+**Question**: When should TruthLayer extensions activate — on workspace open, on first Markdown file, on explicit command, or on server connection?
+
+**Context**:
+- VS Code extensions declare `activationEvents` in package.json. Eager activation (e.g. `*` or `onStartupFinished`) loads the extension on every workspace open, slowing startup. Lazy activation (e.g. `onLanguage:markdown` or `onCommand:truthlayer.*`) delays loading until needed.
+- Options: (a) activate on workspace open if a `.truthlayer` config file exists (detects TruthLayer projects); (b) activate on first `.md` file open (most common trigger); (c) activate only on explicit command (`TruthLayer: Connect to Server`); (d) lightweight activation on startup (just status bar + commands), full activation on first interaction.
+- Must consider: extension startup time (6 extensions activating simultaneously), server connection latency, user expectation (should governance indicators appear automatically?).
+- The `truthlayer.ctx-language` extension should activate on Markdown files; the `truthlayer.governance` extension may need earlier activation for status bar.
+- Related: task-099 through task-102 (extension development).
+
+**Impact:** Low-Medium — affects startup performance and user onboarding experience
+```
+
+```ctx
+type: question
+id: question-062-ide
+status: open
+---
+**Question**: What happens when the TruthLayer server is unreachable — should extensions show cached data, degrade gracefully, or disable entirely?
+
+**Context**:
+- Extensions communicate with the Rust server for all data (proposals, nodes, audit, config). If the server is down, restarting, or unreachable (network issue), every API call fails.
+- Options: (a) disable all governance features and show "Server unavailable" in status bar (simplest, but user loses all context); (b) show cached/stale data with "Last updated: X minutes ago" indicators (better UX, requires local caching layer); (c) allow read-only mode from cached data, disable write operations (proposal creation, review submission).
+- Must consider: what to cache (proposal list, node data, policy config), cache invalidation on reconnect, storage location (VS Code globalState, workspace state, IndexedDB in WebViews), cache size limits.
+- The `truthlayer.ctx-language` extension (syntax highlighting, validation) should work entirely offline since it parses local files.
+- Related: question-063 (server auto-discovery), risk-032 (REST polling).
+
+**Impact:** Medium — affects extension robustness and user experience during outages
+```
+
+```ctx
+type: question
+id: question-063
+status: open
+---
+**Question**: Can extensions auto-detect a running TruthLayer server, or must the user always manually configure the URL?
+
+**Context**:
+- Currently, users would need to set `truthlayer.serverUrl` in VS Code settings. This adds friction to onboarding.
+- Options: (a) check well-known localhost port (e.g. `localhost:8080`) on activation; (b) look for a `.truthlayer.json` config file in the workspace root; (c) check an environment variable (`TRUTHLAYER_SERVER_URL`); (d) mDNS/DNS-SD discovery on local network; (e) prompt on first activation with "Connect to Server" wizard.
+- For local development, auto-discovery reduces setup. For enterprise, the URL is typically known and configured via workspace settings or deployment tooling.
+- Must consider: security (don't auto-connect to untrusted servers), multiple servers (workspace-specific URLs), and the "first run" experience.
+- Related: question-062-ide (offline behavior), task-100 (governance extension server connection).
+
+**Impact:** Low — affects onboarding UX; manual config is always a fallback
+```
+
+```ctx
+type: question
+id: question-064
+status: open
+---
+**Question**: What is included in the `@truthlayer/client` npm package — just API client and types, or also Markdown utilities and telemetry?
+
+**Context**:
+- Current `src/` contains: API client (`api-client.ts`), types (`types/`), Markdown projection and ctx-block parsing (`markdown/`), and OpenTelemetry instrumentation (`telemetry.ts`).
+- Options: (a) single package with everything (simplest, but consumers who only need types also get markdown + telemetry dependencies); (b) split into `@truthlayer/client` (API + types), `@truthlayer/markdown` (projection, ctx-block), `@truthlayer/telemetry` (OTEL) — more granular, more packages to manage; (c) single package with subpath exports (`@truthlayer/client/markdown`, `@truthlayer/client/telemetry`) — one package, tree-shakeable.
+- Extensions need different subsets: `ctx-language` needs markdown + types; `governance` needs API client + types; `audit` needs API client + types; all may want telemetry.
+- Must consider: npm publishing workflow, version synchronization across packages, peer dependency management, bundle size impact on extensions.
+- Related: task-095 (shared library packaging), task-096 (ContextStore cleanup).
+
+**Impact:** Medium — affects package management complexity and extension dependency footprint
+```
+
+## Type alignment and API behavior
+
+Open questions discovered during the recursive UI dependency analysis (see `docs/engineering/ui/SERVER_API_REQUIREMENTS.md`):
+
+| Question         | Topic                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| **question-065** | Type alignment: fix server-side (serde rename) or client-side (field mapping in RustServerClient)?         |
+| **question-066** | Proposal status filter: extend `GET /proposals` to accept `status` param, or add a separate query endpoint? |
+
+```ctx
+type: question
+id: question-065
+status: resolved
+---
+**Question**: Should the snake_case vs camelCase type serialization mismatch be fixed server-side or client-side?
+
+**Resolution**: Option (a) — fix server-side by adding `#[serde(rename_all = "camelCase")]` to the three structs. Minimal change, consistent with existing patterns, fixes root cause. Implementation: task-107. Broader naming convention audit: task-118.
+
+**Context**:
+- The Rust server's `Comment`, `CommentAnchor`, and `RelationshipMetadata` structs are missing `#[serde(rename_all = "camelCase")]`, causing them to serialize as snake_case JSON. The TypeScript client expects camelCase, resulting in `undefined` field values.
+- Options: (a) fix server-side by adding `#[serde(rename_all = "camelCase")]` to the three structs (one-line change each, backward-compatible for JSON consumers, consistent with other structs like `ContextNode` and `Proposal` that already use it); (b) fix client-side by mapping snake_case to camelCase in the `RustServerClient` response handlers (more code, but avoids server changes); (c) add a server middleware that converts all JSON responses to camelCase (global solution, but may affect non-TS consumers).
+- Option (a) is strongly recommended: it's minimal, consistent with existing patterns in the codebase (most other types already have the serde attribute), and fixes the root cause.
+- Related: task-107, task-118, risk-036, `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 2.
+
+**Impact:** High — blocks all extension development (Gate 0 prerequisite); silent data loss in production if unfixed
+```
+
+```ctx
+type: question
+id: question-066
+status: resolved
+---
+**Question**: Should `GET /proposals` be extended to return proposals of all statuses with a filter parameter, or should a separate endpoint be added?
+
+**Resolution**: Option (a) — extend `GET /proposals` with a `status` query parameter (comma-separated, e.g. `?status=open,accepted,rejected`), defaulting to all statuses when not provided. Simplest approach, backward-compatible (existing clients that don't send the param now get all statuses, which is more correct). Implementation: task-108.
+
+**Context**:
+- Currently `GET /proposals` calls `get_open_proposals()` internally and only returns proposals with status `open`. The `truthlayer.governance` extension needs to list proposals of all statuses (grouped by status in the sidebar TreeView).
+- The TS client's `getRejectedProposals()` always returns `[]` because it filters the server response, but the server never includes non-open proposals.
+- Options: (a) extend `GET /proposals` to accept a `status` query parameter (comma-separated, e.g. `?status=open,accepted,rejected`), defaulting to all statuses when not provided; (b) add a new `GET /proposals/query` endpoint with richer filter capabilities; (c) keep `GET /proposals` as open-only and add `GET /proposals/all` for full listing.
+- Option (a) is simplest and follows the existing pattern used by `GET /nodes?status=`. It also matches the `queryProposals({ status })` interface in the TS `ContextStore`.
+- Must consider: pagination behavior for large result sets (accepted + applied proposals may accumulate), performance of scanning all proposals vs maintaining status indexes.
+- Related: task-108, risk-037, `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 4.1.
+
+**Impact:** High — blocks `truthlayer.governance` extension (Gate 0 prerequisite); proposal list TreeView cannot show non-open proposals
+```
+
+## Server-side agent loop (Cursor-pattern architecture)
+
+Open questions about the server-side agent loop that runs the TruthLayer agent (thin client extension, server runs the agent loop with full compliance interception):
+
+| Question         | Topic                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **question-067** | Server-side agent loop: conversation state management, context window limits, and multi-turn orchestration                    |
+| **question-068** | Agent loop tool confirmation: how does user confirmation for truth-changing tool calls (create_proposal) work with SSE?       |
+| **question-069** | Agent loop and Phase 5/8 ordering: can the agent loop ship with minimal gateway (basic model routing + audit) before Phase 8? |
+
+```ctx
+type: question
+id: question-067
+status: open
+---
+**Question**: How should the server-side agent loop manage conversation state, context window limits, and multi-turn orchestration?
+
+**Context**:
+- The TruthLayer agent extension follows the Cursor-pattern: thin client sends user messages to `POST /agent/chat`, server runs the full agent loop (prompt building, compliance gateway, LLM call, tool execution, streaming response).
+- The server must manage conversation state between turns. Options: (a) client sends full conversation history with each request (stateless server, simple, but grows unbounded); (b) server stores conversation sessions and client sends only new messages + session ID (stateful server, bounded context, but requires session storage); (c) hybrid — client sends recent history, server truncates/summarizes older turns to fit context window.
+- Context window management: frontier models have token limits (128K–2M). The agent loop builds prompts from: system context + retrieved nodes + conversation history + tool definitions. As conversations grow, older turns may need to be summarized or dropped.
+- Multi-turn tool execution: a single user message may trigger multiple LLM → tool → LLM cycles (e.g. agent queries nodes, then creates a proposal based on results). The server must orchestrate this loop with bounded iteration to prevent runaway.
+- Must consider: maximum turns per request, timeout per agent request, maximum tool calls per turn, conversation history size limits, session persistence (in-memory vs database), session expiry.
+- Related: task-112, `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 4.5, `docs/engineering/ui/EXTENSION_ARCHITECTURE.md` section 2.6.
+
+**Impact:** High — determines server resource usage, scalability, and UX quality for the agent extension
+```
+
+```ctx
+type: question
+id: question-068
+status: open
+---
+**Question**: How does user confirmation for truth-changing tool calls work in the SSE-based agent loop?
+
+**Context**:
+- When the agent's LLM response includes a tool call that changes truth (e.g. `create_proposal`), the user must confirm before the server executes it.
+- The server streams SSE events to the client. For confirmation, the server must pause the agent loop, emit a `confirm` event, and wait for the client's response.
+- Options: (a) server emits `confirm` event and holds the SSE connection open, waiting for a follow-up `POST /agent/confirm` from the client (requires connection coordination); (b) server emits `confirm` event with a pending proposal preview, then closes the turn — client sends a new `POST /agent/chat` with explicit confirmation (simpler, but breaks the conversation flow); (c) bidirectional communication via WebSocket instead of SSE (most flexible, but more complex).
+- Option (b) is simplest and aligns with SSE's unidirectional nature. The agent turn ends at the confirmation point; the user's "yes/no" is a new message in the next turn.
+- Must consider: what happens if the user doesn't confirm (timeout? auto-cancel?), can multiple confirmations be needed in one turn, and how does this interact with the compliance gateway audit trail.
+- Related: task-112, question-067, `docs/core/AGENT_API.md` (agents cannot commit review/apply; proposals require human confirmation).
+
+**Impact:** Medium — affects UX flow for the most common agent workflow (drafting proposals)
+```
+
+```ctx
+type: question
+id: question-069
+status: open
+---
+**Question**: Can the server-side agent loop ship before the full AI Compliance Gateway (Phase 8), with a minimal gateway (basic model routing + audit)?
+
+**Context**:
+- The full AI Compliance Gateway (Phase 8) includes: prompt inspection, response filtering, destination enforcement, cost/rate governance, model routing, observability, and admin API (tasks 085–094).
+- The server-side agent loop (task-112) is designed to route all model calls through this gateway. However, Phase 8 is a large body of work.
+- Options: (a) block agent extension until full Phase 8 is complete (safest, but delays the agent significantly); (b) implement a minimal gateway shim for the agent loop: basic model routing (single configured model), audit logging of calls, and no advanced interception — then progressively wire in Phase 8 features as they're built; (c) implement the agent loop with direct model calls (no gateway), add gateway interception later (fastest, but violates the compliance-by-design principle).
+- Option (b) is pragmatic: the agent loop works with basic compliance (audit + routing), and advanced features (sensitivity-based redaction, response filtering, cost caps) are layered in as Phase 8 tasks complete.
+- Must consider: what is the minimum viable gateway for the agent to ship (audit + model config at minimum), and does shipping without full compliance inspection create risk for early adopters.
+- Related: task-112, task-085 through task-094, Phase 5 Contextualize, Phase 8 AI Compliance Gateway.
+
+**Impact:** High — determines the timeline for the `truthlayer.agent` extension; directly affects Phase 9 delivery schedule
+```
+
+```ctx
+type: question
+id: question-070
+status: open
+---
+**Question**: What is the acceptable FileStore degradation policy while parity implementation (task-113) is in progress?
+
+**Context**:
+- FileStore is missing 7 ContextStore trait methods (conflict detection, traversal, reasoning chains). Any deployment on file-based storage silently loses these features.
+- Options: (a) fail fast — return 501 Not Implemented for unimplemented features (clear to clients, blocks workflows that need them); (b) return empty results with a warning header (degraded but functional for basic CRUD); (c) block FileStore from being activated until parity is achieved (forces InMemoryStore).
+- Option (a) is recommended: clear error feedback, prevents silent degradation, and motivates parity implementation.
+- Related: task-113, risk-040.
+
+**Impact:** Medium — affects production deployments using file-based storage; blocks advanced agent/governance workflows on FileStore
+```
+
+```ctx
+type: question
+id: question-071
+status: open
+---
+**Question**: Should the naming convention CI check be a compile-time test (Rust), a runtime test (TS), or a standalone linting script?
+
+**Context**:
+- task-118 establishes a naming convention (camelCase JSON, snake_case Rust, camelCase TS). To prevent regression, a CI check should verify compliance.
+- Options: (a) Rust compile-time test: serialize each public API struct, assert all JSON field names match `^[a-z][a-zA-Z0-9]*$`; (b) TypeScript runtime test: import all types, check field names; (c) standalone script (e.g. Python or Node) that parses Rust source for serde attributes and TS source for type definitions, cross-references them; (d) combination of (a) + snapshot testing.
+- Option (a) is simplest and catches the most common issue (missing serde attributes on new types).
+- Related: task-118, risk-041.
+
+**Impact:** Low — prevents naming regression; operational hygiene
+```
+
+```ctx
+type: question
+id: question-072
+status: open
+---
+**Question**: How should the server-side agent loop handle concurrent sessions from the same user and from different users?
+
+**Context**:
+- The agent loop holds an open SSE connection per session. Under concurrent load, the server must manage: (a) multiple open connections per user (multiple chat windows), (b) resource limits (memory for conversation state, open connections to model providers), (c) fair scheduling between users (prevent one user's complex agent loop from starving others).
+- Options for limiting: per-user session cap (e.g. max 3 concurrent), global session cap, queue-based with backpressure, or no limit (rely on infrastructure scaling).
+- Must consider: what happens to an in-flight session when the user disconnects (timeout? cleanup? resume?).
+- Related: task-112, task-122 (gateway HA), risk-043 (gateway single point of failure).
+
+**Impact:** Medium — affects production scalability and UX for multi-user deployments
+```
+
+```ctx
+type: question
+id: question-073
+status: open
+---
+**Question**: What semantic similarity approach should be used for citation verification in the truth anchoring pipeline — and should it be pluggable?
+
+**Context**:
+- The grounding classification engine (task-126) must verify whether a model's citation actually supports its claim. This requires comparing the model's text (e.g. "We decided to use Axum for performance") against the cited node's content (e.g. "Decision: Use Axum as HTTP framework. Rationale: performance, ecosystem, type safety.").
+- Options for similarity: (a) keyword/TF-IDF overlap (fast, no dependencies, explainable, but misses paraphrases); (b) sentence embeddings (e.g. `all-MiniLM-L6-v2` via ONNX runtime in Rust — accurate, handles paraphrases, but adds a model dependency and ~50ms per comparison); (c) LLM-as-judge (send the claim + node content to a small model and ask "does this support that?" — most accurate, but adds another model call per citation); (d) pluggable — start with keyword, allow upgrade to embeddings.
+- Option (d) is recommended: start with keyword overlap for MVP (zero dependencies), provide a trait/interface for the classifier so embeddings or LLM-as-judge can be swapped in.
+- Must consider: how many citations per turn (typically 3-10), latency budget per citation (~20ms target), whether the classifier should run synchronously or asynchronously relative to token streaming.
+- Related: task-126, risk-045, decision-037.
+
+**Impact:** Medium — affects grounding accuracy and user trust in the truth anchoring system
+```
+
+```ctx
+type: question
+id: question-074
+status: open
+---
+**Question**: Should grounding metadata (tier, confidence, cited nodes) be stored in the proposal as first-class fields, or as supplementary metadata that can be regenerated?
+
+**Context**:
+- When the agent creates a proposal via `create_proposal`, the truth anchoring pipeline attaches grounding metadata: `groundingTier`, `citedNodes`, `uncitedClaims`, `contradictions`. This helps reviewers understand how well-anchored the proposal is.
+- Options: (a) first-class fields in the Proposal schema (always present, queryable, part of the data model — but adds schema complexity and may be meaningless for human-authored proposals); (b) supplementary metadata in an `agentMetadata` field (present only on agent-created proposals, doesn't affect the core schema); (c) stored in the agent session and linked by session ID (not in the proposal at all; requires lookup).
+- Option (b) is recommended: keeps the core proposal schema clean while preserving grounding context for agent-created proposals.
+- Must consider: should reviewers be able to filter proposals by grounding tier ("show me all ungrounded proposals")?
+- Related: task-125, decision-037, `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Truth anchoring pipeline.
+
+**Impact:** Medium — affects proposal schema, reviewer UX, and governance filtering capabilities
+```
+
+```ctx
+type: question
+id: question-075
+status: open
+---
+**Question**: How should the system handle model responses that are partially grounded — e.g. a paragraph where the first sentence is grounded and the second is ungrounded?
+
+**Context**:
+- The truth anchoring pipeline classifies response "segments" into grounding tiers. The granularity of segmentation affects both accuracy and UX.
+- Options: (a) sentence-level segmentation (fine-grained, accurate, but produces many grounding events and a noisy UI); (b) paragraph-level segmentation (coarser, simpler UI, but a single ungrounded sentence in an otherwise grounded paragraph could taint the whole paragraph); (c) claim-level segmentation (parse factual claims from the text and classify each — most accurate, but requires NLP claim extraction); (d) hybrid — paragraph-level by default, split into sentences if the paragraph has mixed grounding.
+- Option (d) is pragmatic: most paragraphs will be uniformly grounded or ungrounded; only mixed paragraphs need finer granularity.
+- Must consider: how this interacts with streaming (tokens arrive one at a time; segmentation can only happen after enough text accumulates).
+- Related: task-125, risk-045 (grounding accuracy), `docs/appendix/CONTEXTUALIZED_AI_MODEL.md` § Response processing.
+
+**Impact:** Low — affects UX clarity and grounding pipeline complexity
 ```

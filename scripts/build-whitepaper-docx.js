@@ -62,6 +62,10 @@ const DOC_LIST = [
   { file: "OTEL_LOGGING.md", prefix: "otel", title: "OpenTelemetry (OTEL) Logging" },
   { file: "engineering/storage/STORAGE_ARCHITECTURE.md", prefix: "storage", title: "Storage Architecture" },
   { file: "engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md", prefix: "impl", title: "Storage Implementation Plan" },
+  { file: "engineering/ui/UI_ENGINEERING_PLAN.md", prefix: "uieng", title: "UI Engineering Plan" },
+  { file: "engineering/ui/SERVER_API_REQUIREMENTS.md", prefix: "srvapi", title: "Server API Requirements" },
+  { file: "engineering/ui/EXTENSION_ARCHITECTURE.md", prefix: "extarch", title: "Extension Architecture" },
+  { file: "DEVELOPMENT_DEPLOY_AZURE.md", prefix: "azure", title: "Development & Deploy (Azure)" },
 ];
 
 /** Match Mermaid code blocks: optional space after ``` and after 'mermaid', flexible closing. */

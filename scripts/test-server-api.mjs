@@ -4,6 +4,10 @@
  * Usage: node scripts/test-server-api.mjs [baseUrl]
  * Default baseUrl: http://127.0.0.1:3080
  * Exit 0 if all checks pass, 1 otherwise.
+ *
+ * Note: the server must be started with TRUTHTLAYER_DEV_TCP=true for this
+ * script to work, since Node.js fetch() uses TCP and the production server
+ * only speaks HTTP/3 (QUIC).
  */
 
 const base = process.argv[2] || 'http://127.0.0.1:3080';

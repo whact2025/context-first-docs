@@ -2,7 +2,7 @@
 name = "truthlayer-server"
 version = "0.1.0"
 edition = "2021"
-description = "TruthLayer server - server-centric config, storage, RBAC"
+description = "TruthLayer server - server-centric config, storage, RBAC, HTTP/3 transport"
 license = "MIT"
 
 [dependencies]
@@ -27,7 +27,20 @@ base64 = "0.22"
 hmac = "0.12"
 uuid = { version = "1", features = ["v4"] }
 sha2 = "0.10"
+# HTTP/3 (QUIC) transport — decision-038
+quinn = "0.11"
+h3 = "0.0"
+h3-quinn = "0.0"
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std"] }
+rustls-pemfile = "2"
+rcgen = "0.13"
+# Body bridging (h3 ↔ axum)
+bytes = "1"
+http = "1"
+http-body = "1"
+http-body-util = "0.1"
+# SSE events streaming
+tokio-stream = { version = "0.1", features = ["sync"] }
+futures-util = "0.3"
 
 [dev-dependencies]
-http-body-util = "0.1"
-http = "1"

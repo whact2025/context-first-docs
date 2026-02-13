@@ -151,6 +151,23 @@ The gateway builds on the existing auth, RBAC, policy engine (with `EgressContro
 
 See [Security & Governance](../reference/SECURITY_GOVERNANCE.md), [Privacy and Data Protection](../reference/PRIVACY_AND_DATA_PROTECTION.md), [WHITEPAPER](../WHITEPAPER.md).
 
+9. **Server-Side Agent Loop** (Cursor-pattern architecture)
+   - The `truthlayer.agent` extension is a **thin chat client**; the **Rust server runs the full agent loop** with compliance gateway interception (decision-034).
+   - **Flow**: extension sends user message + conversation context to `POST /agent/chat` (SSE stream) → server retrieves relevant context from ContextStore → builds prompt with system context and tool definitions → calls configured frontier model **through the compliance gateway** (§8) → executes tool calls in-process (`query_nodes`, `create_proposal`, `get_provenance`, `query_audit`) → feeds tool results back to model → streams conversation as SSE events (tokens, tool calls, citations, confirmations) → extension renders the stream.
+   - **Compliance by design**: every model call passes through the same policy engine, sensitivity labels, RBAC, and audit log. No bypass path.
+   - **Model configuration**: admin configures allowed models, API keys, rate limits, cost caps server-side (model routing config). Extensions never hold LLM credentials.
+   - **Agent identity**: acts on behalf of authenticated user with agent-type restrictions (cannot review/apply). All interactions audit-logged.
+   - **Workflow templates**: pre-built templates (Draft Proposal, Risk Assessment, Impact Analysis, etc.) execute server-side, selected by template name in request body.
+   - **Truth anchoring**: the agent loop performs **post-response grounding analysis** — every model response segment is classified against the retrieved accepted truth: **grounded** (directly supported by a cited accepted node), **derived** (logically inferred from multiple accepted nodes), **ungrounded** (not supported by any retrieved context), or **contradicted** (conflicts with an accepted node). Citations are verified server-side before reaching the client. The UI renders grounding tiers as visual indicators so the user always knows how well-anchored a model claim is. See decision-037.
+   - **Epistemological model**: model output is **never truth**. It is either informational commentary (ephemeral, graded by grounding tier) or a proposed truth change (enters the ACAL pipeline as a draft proposal, requires human review and apply to become accepted truth). The agent does not determine truth; the ACAL process does.
+   - This is the convergence point of the **Contextualize module** (retrieval, prompt building), the **AI Compliance Gateway** (interception, policy, audit), and the **Truth Anchoring Pipeline** (grounding classification, citation verification). See [Contextualized AI Model](../appendix/CONTEXTUALIZED_AI_MODEL.md), [Agent API](AGENT_API.md), task-112.
+
+10. **TruthLayer IDE** (VS Code fork with extension layering)
+    - A standalone IDE built as a VS Code fork (Code OSS) with a **layered extension strategy** (decision-035).
+    - **Extension layer** (portable — works in VS Code, Cursor, AND TruthLayer IDE): 6 standard VS Code extensions — `truthlayer.governance` (proposal list, detail, review, apply, status bar), `truthlayer.ctx-language` (syntax highlighting, validation, completion for ctx blocks), `truthlayer.ctx-preview` (enhanced Markdown preview), `truthlayer.audit` (audit log, provenance viewer, DSAR), `truthlayer.config` (policy builder, retention, sensitivity, role matrix), `truthlayer.agent` (thin chat client for server-side agent loop).
+    - **Fork layer** (TruthLayer IDE only): semantic inline diffs, anchored review comments, proposal mode overlay, agent inline editing — features requiring editor internals beyond the extension API.
+    - See [UI Engineering Plan](../engineering/ui/UI_ENGINEERING_PLAN.md), [Extension Architecture](../engineering/ui/EXTENSION_ARCHITECTURE.md), [Server API Requirements](../engineering/ui/SERVER_API_REQUIREMENTS.md), PLAN.md Phase 9.
+
 ## Core data flows
 
 ```mermaid
@@ -204,6 +221,8 @@ Every object is scoped by **workspaceId**. Workspace = unit of access control, a
 ## Server and configuration
 
 Deployments run a **server** (local or remote). All runtime configuration—storage backend and paths, RBAC provider, and other runtime settings—lives in a **predefined location relative to the server** (config root). No repo-scattered runtime config. See QUESTIONS.md question-038 (storage/workspace), question-007 (RBAC provider).
+
+**Transport**: The server uses **HTTP/3 (QUIC) only**. No HTTP/2 fallback — we control every client (VS Code fork, extensions, CLI tools). HTTP/3 via `quinn`/`h3` crates provides multiplexed streams without head-of-line blocking, 0-RTT reconnection, and connection migration. All streaming (agent loop SSE, extension notification SSE) and REST API run over the same HTTP/3 connection. No WebSocket — all patterns are server-push (SSE) with client actions via standard HTTP requests. Enterprise deployments must allow UDP on the server port (documented deployment prerequisite).
 
 ## Storage backends
 
