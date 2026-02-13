@@ -246,7 +246,7 @@ async fn get_node(
         .store
         .get_node(&node_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound(format!("node {}", id)))?;
+        .ok_or_else(|| ApiError::NotFound(format!("node {} not found", id)))?;
 
     // Agent sensitivity redaction and read logging
     if actor.actor_type == ActorType::Agent {
@@ -404,7 +404,7 @@ async fn get_proposal(
         .store
         .get_proposal(&id)
         .await?
-        .ok_or_else(|| ApiError::NotFound(format!("proposal {}", id)))?;
+        .ok_or_else(|| ApiError::NotFound(format!("proposal {} not found", id)))?;
     Ok(Json(proposal))
 }
 

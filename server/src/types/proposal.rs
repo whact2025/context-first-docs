@@ -105,6 +105,7 @@ pub struct Proposal {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CommentAnchor {
     pub node_id: NodeId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -129,6 +130,7 @@ pub enum CommentStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Comment {
     pub id: String,
     pub content: String,
