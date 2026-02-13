@@ -25,7 +25,9 @@ COPY --from=builder /build/target/release/truthlayer-server /usr/local/bin/truth
 
 USER app
 
-EXPOSE 3080
+# HTTP/3 (QUIC) on UDP; dev TCP bridge on TCP when TRUTHTLAYER_DEV_TCP=true
+EXPOSE 3080/udp
+EXPOSE 3080/tcp
 
 ENV TRUTHTLAYER_LISTEN=0.0.0.0:3080
 

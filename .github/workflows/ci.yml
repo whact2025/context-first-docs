@@ -121,7 +121,7 @@ jobs:
 
       - name: Start server container
         run: |
-          docker run -d --name server -p 3080:3080 truthlayer-server:ci
+          docker run -d --name server -p 3080:3080 -e TRUTHTLAYER_DEV_TCP=true truthlayer-server:ci
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:3080/health >/dev/null; then break; fi
             if [ "$i" -eq 30 ]; then echo "Server did not become ready"; exit 1; fi

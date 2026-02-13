@@ -4,6 +4,7 @@
 
 import { describe, expect, it, jest, beforeEach, afterEach } from "@jest/globals";
 import { RustServerClient, createRustServerClient } from "../src/api-client.js";
+import type { ServerEvent } from "../src/api-client.js";
 import type { Proposal, Review } from "../src/types/index.js";
 
 const BASE = "http://127.0.0.1:3080";
@@ -249,6 +250,193 @@ describe("RustServerClient", () => {
       );
       const result = await client.getOpenProposals();
       expect(result).toEqual(list);
+    });
+  });
+
+  // ── Stub methods ──────────────────────────────────────────────────
+
+  describe("stub methods", () => {
+    it("getRejectedProposals returns empty when none rejected", async () => {
+      fetchSpy.mockReturnValueOnce(
+        mockFetch(true, { proposals: [], total: 0, limit: 50, offset: 0, hasMore: false })
+      );
+      const result = await client.getRejectedProposals();
+      expect(result).toEqual([]);
+    });
+
+    it("getReferencingNodes returns empty array", async () => {
+      const result = await client.getReferencingNodes({ id: "any" });
+      expect(result).toEqual([]);
+    });
+
+    it("updateReferencingNodes is a no-op", async () => {
+      await expect(client.updateReferencingNodes({ id: "any" })).resolves.toBeUndefined();
+    });
+
+    it("isProposalStale returns false", async () => {
+      const result = await client.isProposalStale("p-1");
+      expect(result).toBe(false);
+    });
+
+    it("queryComments returns empty array", async () => {
+      const result = await client.queryComments({});
+      expect(result).toEqual([]);
+    });
+
+    it("createIssuesFromProposal throws not implemented", async () => {
+      await expect(client.createIssuesFromProposal("p-1", "r-1")).rejects.toThrow("Not implemented");
+    });
+
+    it("detectConflicts throws not implemented", async () => {
+      await expect(client.detectConflicts("p-1")).rejects.toThrow("Not implemented");
+    });
+
+    it("mergeProposals throws not implemented", async () => {
+      await expect(client.mergeProposals(["p-1", "p-2"])).rejects.toThrow("Not implemented");
+    });
+
+    it("traverseReasoningChain throws not implemented", async () => {
+      await expect(
+        client.traverseReasoningChain({ id: "n1" }, { path: [] } as any)
+      ).rejects.toThrow("Not implemented");
+    });
+
+    it("buildContextChain throws not implemented", async () => {
+      await expect(
+        client.buildContextChain({ id: "n1" }, { relationshipSequence: [] } as any)
+      ).rejects.toThrow("Not implemented");
+    });
+
+    it("followDecisionReasoning throws not implemented", async () => {
+      await expect(
+        client.followDecisionReasoning({ id: "d1" }, {} as any)
+      ).rejects.toThrow("Not implemented");
+    });
+
+    it("discoverRelatedReasoning throws not implemented", async () => {
+      await expect(
+        client.discoverRelatedReasoning({ id: "n1" }, { relationshipTypes: [] } as any)
+      ).rejects.toThrow("Not implemented");
+    });
+
+    it("queryWithReasoning throws not implemented", async () => {
+      await expect(
+        client.queryWithReasoning({ query: {}, reasoning: {} } as any)
+      ).rejects.toThrow("Not implemented");
+    });
+  });
+
+  // ── SSE subscribeToEvents ─────────────────────────────────────────
+
+  describe("subscribeToEvents", () => {
+    it("connects to /events with workspace param and parses SSE events", async () => {
+      const ssePayload = 'data:{"eventType":"proposal_updated","resourceId":"p-1","actorId":"u1","timestamp":"2026-01-01T00:00:00Z"}\n\n';
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(ssePayload));
+          controller.close();
+        },
+      });
+
+      fetchSpy.mockReturnValueOnce(
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          body: stream,
+        } as unknown as Response)
+      );
+
+      const events: ServerEvent[] = [];
+      const controller = client.subscribeToEvents("ws-1", (ev: ServerEvent) => events.push(ev));
+
+      // Wait for the stream to be consumed
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        `${BASE}/events?workspace=ws-1`,
+        expect.objectContaining({
+          headers: expect.objectContaining({ Accept: "text/event-stream" }),
+        })
+      );
+
+      expect(events.length).toBe(1);
+      expect(events[0]).toEqual(
+        expect.objectContaining({ eventType: "proposal_updated", resourceId: "p-1" })
+      );
+
+      controller.abort();
+    });
+
+    it("connects to /events without workspace param when undefined", async () => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) { controller.close(); },
+      });
+      fetchSpy.mockReturnValueOnce(
+        Promise.resolve({ ok: true, status: 200, statusText: "OK", body: stream } as unknown as Response)
+      );
+
+      client.subscribeToEvents(undefined, () => {});
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        `${BASE}/events`,
+        expect.any(Object)
+      );
+    });
+
+    it("calls onError when fetch fails", async () => {
+      fetchSpy.mockReturnValueOnce(
+        Promise.resolve({ ok: false, status: 500, statusText: "Internal Server Error", body: null } as unknown as Response)
+      );
+
+      const errors: Error[] = [];
+      client.subscribeToEvents(undefined, () => {}, (e: Error) => errors.push(e));
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(errors.length).toBe(1);
+      expect(errors[0].message).toContain("SSE connection failed");
+    });
+
+    it("skips malformed SSE data gracefully", async () => {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode("data:not-json\n\n"));
+          controller.enqueue(encoder.encode('data:{"eventType":"ok","resourceId":"r","actorId":"a","timestamp":"t"}\n\n'));
+          controller.close();
+        },
+      });
+
+      fetchSpy.mockReturnValueOnce(
+        Promise.resolve({ ok: true, status: 200, statusText: "OK", body: stream } as unknown as Response)
+      );
+
+      const events: ServerEvent[] = [];
+      client.subscribeToEvents(undefined, (ev: ServerEvent) => events.push(ev));
+
+      await new Promise((r) => setTimeout(r, 50));
+      // Only the valid event should be received; malformed one skipped
+      expect(events.length).toBe(1);
+      expect(events[0]).toEqual(expect.objectContaining({ eventType: "ok" }));
+    });
+
+    it("does not call onError when intentionally aborted", async () => {
+      fetchSpy.mockImplementationOnce(() => {
+        return new Promise((_resolve, reject) => {
+          // simulate abort error after a tick
+          setTimeout(() => reject(new DOMException("aborted", "AbortError")), 10);
+        });
+      });
+
+      const errors: Error[] = [];
+      const controller = client.subscribeToEvents(undefined, () => {}, (e: Error) => errors.push(e));
+
+      // Abort immediately
+      controller.abort();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(errors.length).toBe(0);
     });
   });
 });
