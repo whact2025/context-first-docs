@@ -89,8 +89,7 @@ impl InMemoryStore {
                 node.metadata.modified_by = modified_by.to_string();
                 node.metadata.version += 1;
                 // Content fingerprinting: SHA-256 hash for IP protection
-                node.metadata.content_hash =
-                    Some(crate::sensitivity::content_hash(&node.content));
+                node.metadata.content_hash = Some(crate::sensitivity::content_hash(&node.content));
                 nodes.insert(key, node);
             }
             Operation::Update {
@@ -107,8 +106,7 @@ impl InMemoryStore {
                     existing.content = c.clone();
                     existing.description = Some(c.clone());
                     // Recompute content hash on content change
-                    existing.metadata.content_hash =
-                        Some(crate::sensitivity::content_hash(c));
+                    existing.metadata.content_hash = Some(crate::sensitivity::content_hash(c));
                 }
                 if let Some(s) = changes.status {
                     existing.status = s;

@@ -121,14 +121,14 @@ The server enforces configurable policy rules loaded from `policies.json`. Rules
 
 **Implemented rule types:**
 
-| Rule                     | Description                                                               |
-| ------------------------ | ------------------------------------------------------------------------- |
+| Rule                     | Description                                                                |
+| ------------------------ | -------------------------------------------------------------------------- |
 | `min_approvals`          | Minimum number of approvals before apply (optionally scoped to node types) |
-| `required_reviewer_role` | At least one reviewer must hold a specific role (e.g. InfoSec)            |
-| `change_window`          | Restrict applies to specific time windows (CAB-style)                     |
-| `agent_restriction`      | Block agents from specific operations (e.g. review, apply)               |
-| `agent_proposal_limit`   | Limit agent proposal size (max operations, max content length)            |
-| `egress_control`         | Cap the sensitivity level agents can read (default: internal)             |
+| `required_reviewer_role` | At least one reviewer must hold a specific role (e.g. InfoSec)             |
+| `change_window`          | Restrict applies to specific time windows (CAB-style)                      |
+| `agent_restriction`      | Block agents from specific operations (e.g. review, apply)                 |
+| `agent_proposal_limit`   | Limit agent proposal size (max operations, max content length)             |
+| `egress_control`         | Cap the sensitivity level agents can read (default: internal)              |
 
 Examples:
 

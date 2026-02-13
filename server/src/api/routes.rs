@@ -281,8 +281,7 @@ async fn create_proposal(
     rbac::require_role(&actor, Role::Contributor)?;
 
     // Policy: evaluate on create
-    let violations =
-        policy::evaluate_on_create(&proposal, actor_type_str(&actor), &state.policies);
+    let violations = policy::evaluate_on_create(&proposal, actor_type_str(&actor), &state.policies);
     if !violations.is_empty() {
         let event = AuditEvent::new(
             &actor.actor_id,
@@ -562,26 +561,37 @@ async fn export_audit(
     let format = params.format.as_deref().unwrap_or("json");
     match format {
         "csv" => {
-            let mut csv = String::from("event_id,timestamp,actor_id,actor_type,action,resource_id,outcome\n");
+            let mut csv =
+                String::from("event_id,timestamp,actor_id,actor_type,action,resource_id,outcome\n");
             for e in &events {
-                let action_str =
-                    serde_json::to_string(&e.action).unwrap_or_default().replace('"', "");
-                let outcome_str =
-                    serde_json::to_string(&e.outcome).unwrap_or_default().replace('"', "");
+                let action_str = serde_json::to_string(&e.action)
+                    .unwrap_or_default()
+                    .replace('"', "");
+                let outcome_str = serde_json::to_string(&e.outcome)
+                    .unwrap_or_default()
+                    .replace('"', "");
                 csv.push_str(&format!(
                     "{},{},{},{},{},{},{}\n",
-                    e.event_id, e.timestamp, e.actor_id, e.actor_type, action_str, e.resource_id, outcome_str
+                    e.event_id,
+                    e.timestamp,
+                    e.actor_id,
+                    e.actor_type,
+                    action_str,
+                    e.resource_id,
+                    outcome_str
                 ));
             }
             Ok((
                 StatusCode::OK,
-                [("content-type", "text/csv"), ("content-disposition", "attachment; filename=audit.csv")],
+                [
+                    ("content-type", "text/csv"),
+                    ("content-disposition", "attachment; filename=audit.csv"),
+                ],
                 csv,
-            ).into_response())
+            )
+                .into_response())
         }
-        _ => {
-            Ok((StatusCode::OK, Json(events)).into_response())
-        }
+        _ => Ok((StatusCode::OK, Json(events)).into_response()),
     }
 }
 
@@ -602,7 +612,15 @@ async fn dsar_export(
 
     let audit_events = state
         .store
-        .query_audit(Some(&params.subject), None, None, None, None, Some(100_000), None)
+        .query_audit(
+            Some(&params.subject),
+            None,
+            None,
+            None,
+            None,
+            Some(100_000),
+            None,
+        )
         .await?;
 
     Ok(Json(DsarExportResponse {
@@ -701,14 +719,8 @@ impl From<Forbidden> for ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
         let (status, body) = match &self {
-            ApiError::NotFound(m) => (
-                StatusCode::NOT_FOUND,
-                serde_json::json!({ "error": m }),
-            ),
-            ApiError::Invalid(m) => (
-                StatusCode::BAD_REQUEST,
-                serde_json::json!({ "error": m }),
-            ),
+            ApiError::NotFound(m) => (StatusCode::NOT_FOUND, serde_json::json!({ "error": m })),
+            ApiError::Invalid(m) => (StatusCode::BAD_REQUEST, serde_json::json!({ "error": m })),
             ApiError::Store(s) => (
                 match s {
                     crate::store::context_store::StoreError::NotFound(_) => StatusCode::NOT_FOUND,
@@ -717,10 +729,7 @@ impl IntoResponse for ApiError {
                 },
                 serde_json::json!({ "error": s.to_string() }),
             ),
-            ApiError::Forbidden(f) => (
-                StatusCode::FORBIDDEN,
-                serde_json::json!({ "error": f.0 }),
-            ),
+            ApiError::Forbidden(f) => (StatusCode::FORBIDDEN, serde_json::json!({ "error": f.0 })),
             ApiError::PolicyViolation(violations) => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 serde_json::json!({ "error": "policy violation", "violations": violations }),
@@ -744,16 +753,21 @@ mod tests {
         let policies = Arc::new(PolicyConfig::default());
         let r = router(store, policies);
         // In tests, inject a default ActorContext (simulates AUTH_DISABLED=true)
-        r.layer(axum::middleware::from_fn(|mut req: Request<Body>, next: axum::middleware::Next| async move {
-            req.extensions_mut().insert(ActorContext::dev_default());
-            next.run(req).await
-        }))
+        r.layer(axum::middleware::from_fn(
+            |mut req: Request<Body>, next: axum::middleware::Next| async move {
+                req.extensions_mut().insert(ActorContext::dev_default());
+                next.run(req).await
+            },
+        ))
     }
 
     #[tokio::test]
     async fn health_returns_ok() {
         let app = app();
-        let req = Request::builder().uri("/health").body(Body::empty()).unwrap();
+        let req = Request::builder()
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap();
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body = res.into_body().collect().await.unwrap().to_bytes();
@@ -775,7 +789,10 @@ mod tests {
     #[tokio::test]
     async fn nodes_query_returns_empty() {
         let app = app();
-        let req = Request::builder().uri("/nodes").body(Body::empty()).unwrap();
+        let req = Request::builder()
+            .uri("/nodes")
+            .body(Body::empty())
+            .unwrap();
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body = res.into_body().collect().await.unwrap().to_bytes();
@@ -786,7 +803,10 @@ mod tests {
     #[tokio::test]
     async fn list_proposals_returns_paginated_response() {
         let app = app();
-        let req = Request::builder().uri("/proposals").body(Body::empty()).unwrap();
+        let req = Request::builder()
+            .uri("/proposals")
+            .body(Body::empty())
+            .unwrap();
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body = res.into_body().collect().await.unwrap().to_bytes();
@@ -885,7 +905,11 @@ mod tests {
             .body(Body::empty())
             .unwrap();
         let get_res = app.clone().oneshot(get_req).await.unwrap();
-        assert_eq!(get_res.status(), StatusCode::OK, "get proposal after create");
+        assert_eq!(
+            get_res.status(),
+            StatusCode::OK,
+            "get proposal after create"
+        );
 
         let apply_req = Request::builder()
             .method("POST")
@@ -1111,11 +1135,18 @@ mod tests {
             .unwrap();
         let csv_res = app.clone().oneshot(csv_req).await.unwrap();
         assert_eq!(csv_res.status(), StatusCode::OK);
-        let ct = csv_res.headers().get("content-type").unwrap().to_str().unwrap().to_string();
+        let ct = csv_res
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
         assert!(ct.contains("text/csv"), "Expected text/csv, got {}", ct);
         let body = csv_res.into_body().collect().await.unwrap().to_bytes();
         let csv_text = String::from_utf8(body.to_vec()).unwrap();
-        assert!(csv_text.starts_with("event_id,timestamp,actor_id,actor_type,action,resource_id,outcome\n"));
+        assert!(csv_text
+            .starts_with("event_id,timestamp,actor_id,actor_type,action,resource_id,outcome\n"));
         assert!(csv_text.lines().count() >= 2); // header + at least one data row
     }
 
@@ -1184,14 +1215,19 @@ mod tests {
             .method("POST")
             .uri("/admin/dsar/erase")
             .header("content-type", "application/json")
-            .body(Body::from(serde_json::to_vec(&serde_json::json!({ "subject": "user-to-erase" })).unwrap()))
+            .body(Body::from(
+                serde_json::to_vec(&serde_json::json!({ "subject": "user-to-erase" })).unwrap(),
+            ))
             .unwrap();
         let erase_res = app.clone().oneshot(erase_req).await.unwrap();
         assert_eq!(erase_res.status(), StatusCode::OK);
         let body = erase_res.into_body().collect().await.unwrap().to_bytes();
         let result: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(result["ok"], true);
-        assert!(result["message"].as_str().unwrap().contains("user-to-erase"));
+        assert!(result["message"]
+            .as_str()
+            .unwrap()
+            .contains("user-to-erase"));
     }
 
     #[tokio::test]

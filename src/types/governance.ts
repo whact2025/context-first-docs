@@ -26,7 +26,8 @@ export type PolicyRuleType =
   | "required_reviewer_role"
   | "change_window"
   | "agent_restriction"
-  | "agent_proposal_limit";
+  | "agent_proposal_limit"
+  | "egress_control";
 
 export interface PolicyRule {
   type: PolicyRuleType;

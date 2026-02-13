@@ -10,8 +10,8 @@ use async_trait::async_trait;
 
 use crate::store::context_store::{ContextStore, StoreError};
 use crate::types::{
-    AppliedMetadata, AuditEvent, Comment, ConflictDetectionResult, ContextNode, MergeResult, NodeId,
-    NodeQuery, NodeQueryResult, Proposal, ProposalQuery, ProposalStatus, Review,
+    AppliedMetadata, AuditEvent, Comment, ConflictDetectionResult, ContextNode, MergeResult,
+    NodeId, NodeQuery, NodeQueryResult, Proposal, ProposalQuery, ProposalStatus, Review,
 };
 
 /// File-based ContextStore: persists all data as JSON files.
@@ -70,13 +70,11 @@ impl FileStore {
     /// Atomic write: write to temp file then rename.
     fn atomic_write(path: &Path, content: &[u8]) -> Result<(), StoreError> {
         let dir = path.parent().unwrap_or(path);
-        std::fs::create_dir_all(dir)
-            .map_err(|e| StoreError::Internal(format!("mkdir: {}", e)))?;
+        std::fs::create_dir_all(dir).map_err(|e| StoreError::Internal(format!("mkdir: {}", e)))?;
         let tmp = path.with_extension("tmp");
         std::fs::write(&tmp, content)
             .map_err(|e| StoreError::Internal(format!("write tmp: {}", e)))?;
-        std::fs::rename(&tmp, path)
-            .map_err(|e| StoreError::Internal(format!("rename: {}", e)))?;
+        std::fs::rename(&tmp, path).map_err(|e| StoreError::Internal(format!("rename: {}", e)))?;
         Ok(())
     }
 
@@ -136,7 +134,12 @@ impl FileStore {
                     let content = std::fs::read_to_string(entry.path())
                         .map_err(|e| StoreError::Internal(e.to_string()))?;
                     if let Ok(review_list) = serde_json::from_str::<Vec<Review>>(&content) {
-                        let stem = entry.path().file_stem().unwrap_or_default().to_string_lossy().to_string();
+                        let stem = entry
+                            .path()
+                            .file_stem()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string();
                         reviews.insert(stem, review_list);
                     }
                 }
@@ -174,8 +177,8 @@ impl FileStore {
 
     fn save_node(&self, node: &ContextNode) -> Result<(), StoreError> {
         let path = self.nodes_dir().join(format!("{}.json", node.id.key()));
-        let json = serde_json::to_string_pretty(node)
-            .map_err(|e| StoreError::Internal(e.to_string()))?;
+        let json =
+            serde_json::to_string_pretty(node).map_err(|e| StoreError::Internal(e.to_string()))?;
         Self::atomic_write(&path, json.as_bytes())
     }
 
@@ -188,8 +191,8 @@ impl FileStore {
 
     fn save_reviews(&self, proposal_id: &str, reviews: &[Review]) -> Result<(), StoreError> {
         let path = self.reviews_dir().join(format!("{}.json", proposal_id));
-        let json =
-            serde_json::to_string_pretty(reviews).map_err(|e| StoreError::Internal(e.to_string()))?;
+        let json = serde_json::to_string_pretty(reviews)
+            .map_err(|e| StoreError::Internal(e.to_string()))?;
         Self::atomic_write(&path, json.as_bytes())
     }
 
@@ -387,7 +390,9 @@ impl ContextStore for FileStore {
                     let _ = std::fs::remove_file(path);
                 }
                 crate::types::Operation::StatusChange {
-                    node_id, new_status, ..
+                    node_id,
+                    new_status,
+                    ..
                 } => {
                     let key = node_key(node_id);
                     if let Some(existing) = nodes.get_mut(&key) {
@@ -563,8 +568,9 @@ impl ContextStore for FileStore {
                     }
                 }
                 if let Some(act) = action {
-                    let action_str =
-                        serde_json::to_string(&e.action).unwrap_or_default().replace('"', "");
+                    let action_str = serde_json::to_string(&e.action)
+                        .unwrap_or_default()
+                        .replace('"', "");
                     if action_str != act {
                         return false;
                     }
@@ -589,12 +595,7 @@ impl ContextStore for FileStore {
             .collect();
         let off = offset.unwrap_or(0) as usize;
         let lim = limit.unwrap_or(100) as usize;
-        let page = filtered
-            .into_iter()
-            .skip(off)
-            .take(lim)
-            .cloned()
-            .collect();
+        let page = filtered.into_iter().skip(off).take(lim).cloned().collect();
         Ok(page)
     }
 }

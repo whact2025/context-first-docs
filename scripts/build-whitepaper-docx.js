@@ -20,7 +20,7 @@
 
 import { execFile, execSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -64,7 +64,8 @@ const DOC_LIST = [
   { file: "engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md", prefix: "impl", title: "Storage Implementation Plan" },
 ];
 
-const MERMAID_BLOCK_RE = /```mermaid\r?\n([\s\S]*?)```/g;
+/** Match Mermaid code blocks: optional space after ``` and after 'mermaid', flexible closing. */
+const MERMAID_BLOCK_RE = /```\s*mermaid\s*\r?\n([\s\S]*?)```\s*/g;
 
 /** Map: source .md path (normalized) -> { docxName, title, prefix }. Used for index and for link rewriting. */
 function buildMdToDocxMap() {
@@ -359,12 +360,17 @@ async function processMermaidInContent(content, prefix, outputDir, scale, skipMe
     const mmdPath = path.join(outputDir, `${baseName}.mmd`);
     const pngPath = path.join(outputDir, `${baseName}.png`);
     await writeFile(mmdPath, matches[i][1].trimEnd(), "utf8");
-    if (isWindows) {
-      execSync(`"${mmdcBin}" -i "${mmdPath}" -o "${pngPath}" --scale ${scale}`, { cwd: repoRoot, maxBuffer: 10 * 1024 * 1024 });
-    } else {
-      await exec(mmdcBin, ["-i", mmdPath, "-o", pngPath, "--scale", String(scale)], repoRoot);
+    try {
+      if (isWindows) {
+        execSync(`"${mmdcBin}" -i "${mmdPath}" -o "${pngPath}" --scale ${scale}`, { cwd: repoRoot, maxBuffer: 10 * 1024 * 1024 });
+      } else {
+        await exec(mmdcBin, ["-i", mmdPath, "-o", pngPath, "--scale", String(scale)], repoRoot);
+      }
+      imageRefs.push(`\n![Diagram: ${baseName}](${path.basename(pngPath)})\n`);
+    } catch (err) {
+      console.warn(`${path.basename(mmdPath)}: Mermaid render failed (${err.message}); leaving code block in place.`);
+      imageRefs.push(`\n<details><summary>Diagram (render failed)</summary>\n\n\`\`\`mermaid\n${matches[i][1].trimEnd()}\n\`\`\`\n\n</details>\n`);
     }
-    imageRefs.push(`\n![Diagram: ${baseName}](${path.basename(pngPath)})\n`);
   }
 
   let idx = 0;
@@ -376,9 +382,47 @@ function slugFromFile(file) {
   return path.basename(file, ".md").toLowerCase().replace(/_/g, "-");
 }
 
+const IMAGE_LINK_RE = /!\[([^\]]*)\]\(([^)]+)\)/g;
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|svg|webp)$/i;
+
+/**
+ * Copy static image refs from source-relative paths into outputDir and rewrite refs to basename
+ * so Pandoc (with --resource-path) can find them. Skips absolute URLs and anchors.
+ */
+async function copyStaticImagesAndRewriteRefs(content, currentFile, prefix, outputDir) {
+  const currentDir = path.join(docsDir, path.dirname(currentFile));
+  const docsDirAbs = path.resolve(docsDir);
+  const replacements = [];
+  let nextIndex = 1;
+  for (const m of [...content.matchAll(IMAGE_LINK_RE)]) {
+    const alt = m[1];
+    const srcTrim = m[2].trim();
+    if (/^https?:\/\/|^#|^mailto:/.test(srcTrim)) continue;
+    if (!IMAGE_EXT_RE.test(srcTrim)) continue;
+    const resolved = path.resolve(currentDir, srcTrim);
+    if (!resolved.startsWith(docsDirAbs) || !existsSync(resolved)) continue;
+    const ext = path.extname(srcTrim).toLowerCase();
+    const destName = `img-${prefix}-${String(nextIndex++).padStart(2, "0")}${ext}`;
+    await copyFile(resolved, path.join(outputDir, destName));
+    replacements.push({ from: m[0], to: `![${alt}](${destName})` });
+  }
+  const byFrom = new Map();
+  for (const { from: k, to } of replacements) byFrom.set(k, to);
+  let result = content;
+  for (const [from, to] of byFrom) result = result.replaceAll(from, to);
+  return result;
+}
+
+/** Absolute path to output dir so Pandoc can resolve image paths reliably (e.g. on Windows). */
+function outputDirForPandoc(dir) {
+  const abs = path.resolve(dir);
+  return isWindows ? abs.replace(/\\/g, "/") : abs;
+}
+
 async function main() {
   const { skipPandoc, skipMermaid, scale, singleDocx, watermarkText } = parseArgs();
   const outputDir = defaultOutputDir;
+  const resourcePath = outputDirForPandoc(outputDir);
 
   await mkdir(outputDir, { recursive: true });
 
@@ -408,7 +452,8 @@ async function main() {
 
     const { content: afterMermaid, imageCount } = await processMermaidInContent(content, prefix, outputDir, scale, skipMermaid);
     if (imageCount > 0) console.log(`${file}: rendered ${imageCount} Mermaid diagram(s) to PNG`);
-    const processed = rewriteCrossDocLinks(afterMermaid, file, mdToDocx);
+    let processed = rewriteCrossDocLinks(afterMermaid, file, mdToDocx);
+    processed = await copyStaticImagesAndRewriteRefs(processed, file, prefix, outputDir);
 
     const slug = slugFromFile(file);
     const mdName = `${slug}.md`;
@@ -427,7 +472,11 @@ async function main() {
 
     if (!skipPandoc) {
       try {
-        await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", mdName, "-o", docxName], outputDir);
+        await exec(
+          pandocCmd,
+          ["-f", "markdown", "-t", "docx", "--toc", "--resource-path", resourcePath, mdName, "-o", docxName],
+          outputDir
+        );
         if (watermarkText) {
           await addWatermarkToDocx(docxPath, watermarkText);
           console.log(`Wrote ${docxPath} (watermark: ${watermarkText})`);
@@ -447,7 +496,11 @@ async function main() {
     await writeFile(singleMdPath, combinedMd, "utf8");
     console.log(`Wrote ${singleMdPath}`);
     try {
-      await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", "--toc-depth=3", "truthlayer-docs.md", "-o", "truthlayer-docs.docx"], outputDir);
+      await exec(
+        pandocCmd,
+        ["-f", "markdown", "-t", "docx", "--toc", "--toc-depth=3", "--resource-path", resourcePath, "truthlayer-docs.md", "-o", "truthlayer-docs.docx"],
+        outputDir
+      );
       if (watermarkText) {
         await addWatermarkToDocx(singleDocxPath, watermarkText);
         console.log(`Wrote ${singleDocxPath} (watermark: ${watermarkText})`);
@@ -475,7 +528,11 @@ async function main() {
     const indexDocxPath = path.join(outputDir, "docs-index.docx");
     await writeFile(indexMdPath, indexMd, "utf8");
     try {
-      await exec(pandocCmd, ["-f", "markdown", "-t", "docx", "--toc", "docs-index.md", "-o", "docs-index.docx"], outputDir);
+      await exec(
+        pandocCmd,
+        ["-f", "markdown", "-t", "docx", "--toc", "--resource-path", resourcePath, "docs-index.md", "-o", "docs-index.docx"],
+        outputDir
+      );
       if (watermarkText) {
         await addWatermarkToDocx(indexDocxPath, watermarkText);
         console.log(`Wrote ${indexDocxPath} (watermark: ${watermarkText})`);

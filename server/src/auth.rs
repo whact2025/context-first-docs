@@ -136,8 +136,8 @@ fn decode_jwt(token: &str, secret: &str) -> Result<Claims, String> {
     let payload_bytes = URL_SAFE_NO_PAD
         .decode(parts[1])
         .map_err(|e| format!("invalid payload encoding: {}", e))?;
-    let claims: Claims = serde_json::from_slice(&payload_bytes)
-        .map_err(|e| format!("invalid claims: {}", e))?;
+    let claims: Claims =
+        serde_json::from_slice(&payload_bytes).map_err(|e| format!("invalid claims: {}", e))?;
 
     // Check expiration
     if claims.exp > 0 {
@@ -184,8 +184,8 @@ pub fn extract_actor(
         "AUTH_SECRET not configured".to_string(),
     ))?;
 
-    let claims =
-        decode_jwt(token, secret).map_err(|e| (StatusCode::UNAUTHORIZED, format!("auth: {}", e)))?;
+    let claims = decode_jwt(token, secret)
+        .map_err(|e| (StatusCode::UNAUTHORIZED, format!("auth: {}", e)))?;
 
     let mut roles = claims.roles;
     if roles.is_empty() {
