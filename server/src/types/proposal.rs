@@ -66,6 +66,7 @@ pub enum Operation {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateChanges {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
@@ -117,6 +118,7 @@ pub struct CommentAnchor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CommentRange {
     pub start: u32,
     pub end: u32,

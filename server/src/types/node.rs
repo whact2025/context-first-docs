@@ -84,6 +84,7 @@ mod tests {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TextRange {
     pub start: u32,
     pub end: u32,
@@ -105,6 +106,7 @@ pub enum RelationshipType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeRelationship {
     #[serde(rename = "type")]
     pub relationship_type: RelationshipType,
@@ -116,6 +118,7 @@ pub struct NodeRelationship {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RelationshipMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,

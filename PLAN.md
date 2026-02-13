@@ -14,7 +14,7 @@ This document tracks the development roadmap and milestones for TruthLayer.
 - **Doc suite**: TruthLayer does not replace doc suites; many orgs use both. See `docs/WHITEPAPER.md` (competitive positioning, “enterprise foundation”).
 - **Word/Google review**: Optional bidirectional flow and context visualization: `docs/appendix/DOCX_REVIEW_INTEGRATION.md`.
 
-**Current implementation (from code):** **Rust server** in `server/`: ContextStore trait with two backends (InMemoryStore — full, FileStore — partial: missing conflict detection/merge/stale), config from server config root, **HTTP/3 (QUIC) transport** via `quinn`/`h3`/`h3-quinn` with mandatory TLS 1.3 (self-signed dev cert auto-generated, production PEM from config), **SSE real-time events** via `GET /events?workspace={id}` (EventBus with `tokio::sync::broadcast`), 18 HTTP routes bridged through h3→axum (all middleware applies: auth, RBAC, policy, OTEL, CORS), JWT auth (HS256), RBAC enforcement on all routes, configurable policy engine (6 rule types from `policies.json`), immutable audit log (queryable + exportable), sensitivity labels with agent egress control, IP protection (SHA-256 content hash, source attribution), DSAR endpoints (export queries audit log; erase records audit event but does not yet mutate store data), retention engine (background task with config loading; enforcement stub — logs audit events but does not yet delete/archive), and optional dev TCP bridge (`TRUTHTLAYER_DEV_TCP=true`) for Node.js tooling (Node.js does not yet support HTTP/3 clients). **58 Rust tests** covering routes, auth, RBAC, policy, sensitivity, store, telemetry, TLS, and events. **TypeScript** (pure client): `src/api-client.ts` (RustServerClient with auth token injection + SSE `subscribeToEvents()` + `ServerEvent` type), types in `src/types/`, Markdown projection and ctx blocks in `src/markdown/`, telemetry in `src/telemetry.ts`. **60 TypeScript tests** (unit, integration, metrics, telemetry, type guards, ctx blocks). All store logic lives exclusively in the Rust server; TS store core and playground were removed to enforce the client-only boundary. **118 tests total** (58 Rust + 60 TypeScript). MongoDB backend, full query/traversal/conflict in the server, GraphQL layer, and minimal governance UI are next per phases below and `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`.
+**Current implementation (from code):** **Rust server** in `server/`: ContextStore trait with two backends (InMemoryStore — full, FileStore — partial: missing conflict detection/merge/stale), config from server config root, **HTTP/3 (QUIC) transport** via `quinn`/`h3`/`h3-quinn` with mandatory TLS 1.3 (self-signed dev cert auto-generated, production PEM from config), **SSE real-time events** via `GET /events?workspace={id}` (EventBus with `tokio::sync::broadcast`), 18 HTTP routes bridged through h3→axum (all middleware applies: auth, RBAC, policy, OTEL, CORS), JWT auth (HS256), RBAC enforcement on all routes, configurable policy engine (6 rule types from `policies.json`), immutable audit log (queryable + exportable), sensitivity labels with agent egress control, IP protection (SHA-256 content hash, source attribution), DSAR endpoints (export queries audit log; erase records audit event but does not yet mutate store data), retention engine (background task with config loading; enforcement stub — logs audit events but does not yet delete/archive), and optional dev TCP bridge (`TRUTHTLAYER_DEV_TCP=true`) for Node.js tooling (Node.js does not yet support HTTP/3 clients). **58 Rust tests** covering routes, auth, RBAC, policy, sensitivity, store, telemetry, TLS, and events. **TypeScript** (pure client): `src/api-client.ts` (RustServerClient with auth token injection + SSE `subscribeToEvents()` + `ServerEvent` type), types in `src/types/`, Markdown projection and ctx blocks in `src/markdown/`, telemetry in `src/telemetry.ts`. **60 TypeScript tests** (unit, integration, metrics, telemetry, type guards, ctx blocks). All store logic lives exclusively in the Rust server; TS store core and playground were removed to enforce the client-only boundary. **118 tests total** (58 Rust + 60 TypeScript). MongoDB backend, full query/traversal/conflict in the server, GraphQL layer, self-contained server observability endpoints (metrics, detailed health, log/metrics streaming via SSE — see task-134 through task-138), and minimal governance UI are next per phases below and `docs/engineering/storage/STORAGE_IMPLEMENTATION_PLAN.md`.
 
 **Server and configuration:** Agent deployments use a **server component** (local or remote). All runtime configuration—storage backend and paths, RBAC provider, TLS certificates, and other runtime settings—lives in a **predefined location relative to the server** (config root). No repo-scattered runtime config. See QUESTIONS.md question-038 (storage/workspace config), question-007 (RBAC provider abstraction). The Rust server in `server/` (see `server/README.md`) is the reference implementation with HTTP/3 (QUIC) transport, mandatory TLS 1.3, JWT auth, RBAC, policy engine, audit log, sensitivity labels, SSE real-time events, file-based storage, and dev TCP bridge for Node.js tooling; extend with MongoDB backend, full query/traversal/conflict.
 
@@ -150,6 +150,7 @@ Implement the **Contextualize** module and **The Agent** as in `docs/appendix/CO
 9. Encryption at rest — Backend-dependent encryption (file-based: OS-level or encrypted volumes; MongoDB: native encryption at rest). BYOK support for enterprise. See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`.
 10. SCIM provisioning — Automated user/role provisioning from enterprise identity providers to reduce manual role management. See `docs/reference/PRIVACY_AND_DATA_PROTECTION.md`.
 11. API versioning — Strategy for managing breaking HTTP API changes (URL-based versioning, deprecation headers, migration guides). See question-048.
+12. **Server observability endpoints** — Self-contained observability APIs so the UI can pull real-time logs, metrics, and server health without requiring an external OTLP backend. `GET /metrics` (structured JSON: uptime, request counts by route, error rate, active SSE connections, store entity counts, memory usage), `GET /health/details` (detailed health: store connectivity, TLS cert expiry, background task status, QUIC endpoint status), `metrics_snapshot` SSE event (periodic push of key metrics), `log_entry` SSE event (structured server log streaming). See task-134, task-135, task-136, task-138, `docs/OTEL_LOGGING.md`.
 
 **Phase 8: AI Compliance Gateway**
 
@@ -182,7 +183,7 @@ A standalone TruthLayer IDE built as a VS Code fork with a layered extension str
 **Extension Layer (works in VS Code, Cursor, AND TruthLayer IDE):**
 7. Extension: `truthlayer.ctx-language` + `truthlayer.ctx-preview` — TextMate grammar, validation diagnostics, auto-complete, CodeLens, decorations; evolve existing `vscode-ctx-markdown/` preview. See task-099.
 8. Extension: `truthlayer.governance` — Proposal list TreeView, proposal detail WebView (semantic diff cards), review flow, apply confirmation, status bar, server connection. See task-100.
-9. Extension: `truthlayer.audit` + `truthlayer.config` — Audit log WebView, provenance viewer, DSAR tools; Policy Builder wizard, Workflow Visualizer, Retention config, Sensitivity defaults, Role matrix. See task-101.
+9. Extension: `truthlayer.audit` + `truthlayer.config` — Audit log WebView, provenance viewer, DSAR tools; Policy Builder wizard, Workflow Visualizer, Retention config, Sensitivity defaults, Role matrix; **Server Monitor panel** with real-time activity feed (SSE events), metrics gauges (request rate, latency, error rate), audit log table with search/filter, health/connection status, and structured log tail. See task-101, task-137.
 10. Extension: `truthlayer.agent` — **Thin chat client** (Cursor-pattern architecture): Agent Chat WebView renders SSE stream from server-side agent loop. Server runs the full agent loop: receives user messages, builds prompts, calls frontier models through compliance gateway (Phase 8), executes tool calls in-process, streams conversation back. Extension never calls LLMs directly. Guided workflow templates (draft proposal, risk assessment, impact analysis, compliance check, explain decision) execute server-side. Requires server-side agent loop endpoint (task-112). See task-102.
 11. Extension pack — Bundle all 6 extensions as `truthlayer` extension pack, publishable to VS Code Marketplace and Open VSX. See task-103.
 
@@ -1005,7 +1006,7 @@ type: task
 id: task-101
 status: open
 ---
-Build `truthlayer.audit` and `truthlayer.config` extensions — Audit: timeline WebView with filters (actor, action, resource, date range), export to CSV/JSON, provenance viewer (full history per node), compliance TreeView (DSAR tools, policy viewer, retention status). Config: Policy Builder wizard (visual rule editor for all 6 rule types with validation and dry-run), Workflow Pipeline Visualizer (interactive ACAL flow showing where rules fire), Retention Configuration (visual editor with timeline preview), Sensitivity/IP Configuration, Server Connection/Auth panel, Role Matrix display, Config Status TreeView with health indicators. Requires server config API (task-097). See Phase 9 item 9.
+Build `truthlayer.audit` and `truthlayer.config` extensions — Audit: timeline WebView with filters (actor, action, resource, date range), export to CSV/JSON, provenance viewer (full history per node), compliance TreeView (DSAR tools, policy viewer, retention status). Config: Policy Builder wizard (visual rule editor for all 6 rule types with validation and dry-run), Workflow Pipeline Visualizer (interactive ACAL flow showing where rules fire), Retention Configuration (visual editor with timeline preview), Sensitivity/IP Configuration, Server Connection/Auth panel, Role Matrix display, Config Status TreeView with health indicators. **Server Monitor panel** (task-137): real-time activity feed (SSE events), metrics gauges (request rate, latency, error rate, active connections), audit log table with inline search/filter, health status indicators (store, TLS, QUIC, background tasks), structured log tail. Requires server config API (task-097), metrics endpoint (task-134), health details endpoint (task-136), metrics/log SSE events (task-135). See Phase 9 item 9.
 ```
 
 ```ctx
@@ -1051,9 +1052,9 @@ TruthLayer IDE polish and distribution — Cross-platform build verification (Wi
 ```ctx
 type: task
 id: task-107
-status: open
+status: completed
 ---
-Fix type serialization mismatch (snake_case vs camelCase) — Add `#[serde(rename_all = "camelCase")]` to `Comment`, `CommentAnchor`, and `RelationshipMetadata` structs in the Rust server. Currently these types serialize field names as snake_case (`created_at`, `node_id`, etc.) but the TypeScript client expects camelCase (`createdAt`, `nodeId`). This causes `undefined` values when the TS client reads server JSON. Prerequisite for all UI extension development. See `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 2, risk-036.
+Fix type serialization mismatch (snake_case vs camelCase) — Added `#[serde(rename_all = "camelCase")]` to all Rust structs serialized to JSON: `Comment`, `CommentAnchor` (fixed in CI commit), `RelationshipMetadata`, `NodeRelationship`, `TextRange`, `UpdateChanges`, `CommentRange`, `ActorContext`, `ApplyBody`, `AuditQueryParams`. All multi-word fields now serialize/deserialize as camelCase to match TypeScript client expectations. Fixed a silent bug where `ApplyBody.appliedBy` from the TS client was ignored because serde expected `applied_by`. See `docs/engineering/ui/SERVER_API_REQUIREMENTS.md` section 2, risk-036.
 ```
 
 ```ctx
@@ -1139,9 +1140,9 @@ Extension shared infrastructure library — Build shared WebView component libra
 ```ctx
 type: task
 id: task-118
-status: open
+status: completed
 ---
-Naming convention standardization — Audit and fix naming inconsistencies: (1) Ensure all Rust structs serialized to JSON use `#[serde(rename_all = "camelCase")]` — fix Comment, CommentAnchor, RelationshipMetadata (overlaps task-107; task-107 covers the serde fix, this task covers the broader audit). (2) Verify all HTTP API endpoint paths follow kebab-case convention for multi-word segments. (3) Ensure all doc references to API fields use the correct casing convention (camelCase for JSON, snake_case for Rust internals). (4) Add a naming convention section to CONTRIBUTING.md covering: Rust (snake_case internals, camelCase JSON via serde), TypeScript (camelCase throughout), HTTP API (camelCase JSON fields, kebab-case URL paths), documentation (match the layer being described). See risk-041.
+Naming convention standardization — Completed full audit of all Rust structs serialized to JSON. Results: (1) **All 28 serializable structs and enums** verified: 15 structs already had correct `rename_all`, 8 structs fixed (added `camelCase`), 5 enums correctly use `kebab-case`/`lowercase`/`snake_case` as appropriate. Fixed: `RelationshipMetadata`, `NodeRelationship`, `TextRange`, `UpdateChanges`, `CommentRange`, `ActorContext`, `ApplyBody`, `AuditQueryParams`. (2) HTTP API endpoint paths verified — all single-word segments (no multi-word paths needing kebab-case). (3) Naming convention: Rust internals use snake_case, all JSON serialization uses camelCase via `#[serde(rename_all = "camelCase")]`, enums serialize with appropriate case per domain (node types kebab-case, roles lowercase, audit actions snake_case). 137 tests pass (58 Rust + 79 TypeScript). See risk-041.
 ```
 
 ```ctx
@@ -1255,6 +1256,46 @@ id: task-133
 status: open
 ---
 FileStore comment support — FileStore `get_proposal_comments` and `add_proposal_comment` are stubs (return empty/Ok). Implement file-backed comment persistence: store comments as part of the proposal JSON or as separate `data/comments/{proposalId}.json` files. Required for file-based deployments that need comment functionality. See task-113 (FileStore parity).
+```
+
+```ctx
+type: task
+id: task-134
+status: open
+---
+Implement `GET /metrics` endpoint — Add a structured JSON metrics endpoint to the Rust server returning a real-time snapshot of server health and performance: (1) **Server info**: uptime (seconds since start), server version, transport (QUIC/TCP), TLS cert expiry, active QUIC connections, active SSE subscribers. (2) **Request metrics**: total requests, requests per route (method + path), error counts by status code, request rate (per second, rolling 60s window), latency percentiles (p50, p95, p99 over rolling 60s). (3) **Store metrics**: node count, proposal count (by status), review count, audit log entry count, comment count. (4) **System metrics**: process memory (RSS), CPU usage (if available via `sysinfo` crate), open file handles (file-based store). Reader role required. Complements existing OTLP export (which requires external backend) by providing a self-contained endpoint for the UI. See Phase 7 item 12, task-137.
+```
+
+```ctx
+type: task
+id: task-135
+status: open
+---
+Implement real-time metrics and log streaming via SSE — Extend the existing `EventBus` and `GET /events` SSE endpoint with two new event types: (1) **`metrics_snapshot`**: emitted every N seconds (configurable, default 5s) containing key metrics (request rate, error rate, active connections, latency p50/p95, store entity counts). A background `tokio::spawn` task reads from internal counters and publishes to the EventBus. Clients can filter via `GET /events?type=metrics_snapshot`. (2) **`log_entry`**: structured server log events streamed in real-time. Add a custom `tracing` subscriber layer that publishes `log_entry` events (level, target, message, span context, timestamp) to the EventBus. Configurable: min log level for SSE streaming (default: `info`), max buffer size. Clients filter via `GET /events?type=log_entry`. Both event types respect workspace scoping and RBAC (Reader role for metrics, Admin role for logs). See Phase 7 item 12, task-134, task-137.
+```
+
+```ctx
+type: task
+id: task-136
+status: open
+---
+Implement enhanced health check endpoint — Extend `GET /health` with a detailed variant `GET /health/details` (Admin role required) returning structured JSON: (1) **Store health**: backend type (memory/file/mongodb), connectivity status (ok/degraded/error), entity counts, last write timestamp. (2) **TLS/QUIC health**: certificate subject, issuer, expiry date, days until expiry, QUIC endpoint status (listening, port, active connections). (3) **Background task health**: retention engine status (running/stopped, last run, next scheduled), SSE EventBus status (subscriber count, buffer utilization). (4) **Configuration**: loaded policy count, loaded retention rules, server config root path, storage path. (5) **Runtime**: Rust version, server version, process uptime, PID, start time. The existing `GET /health` remains lightweight (`{"status":"ok"}`) for load balancer probes; the detailed endpoint is for monitoring UI. See Phase 7 item 12, task-137.
+```
+
+```ctx
+type: task
+id: task-137
+status: open
+---
+Build Server Monitor panel in `truthlayer.audit`/`truthlayer.config` extension — A WebView panel providing real-time server observability without requiring an external OTLP backend. Components: (1) **Activity Feed**: live stream of SSE events (proposals, reviews, config changes) with timestamp, actor, and action — clickable to navigate to relevant resources. (2) **Metrics Dashboard**: gauges and sparkline charts for request rate, error rate, latency (p50/p95), active SSE connections, store entity counts. Data from `metrics_snapshot` SSE events (task-135) with fallback polling of `GET /metrics` (task-134). Auto-refreshing. (3) **Audit Log Table**: inline searchable/filterable table (actor, action, resource, date range) with export button. Uses `queryAudit()` client method (task-109). (4) **Health Panel**: traffic-light indicators for store, TLS/QUIC, background tasks, and overall server status. Data from `GET /health/details` (task-136), polled every 30s. Certificate expiry warning when < 30 days. (5) **Log Tail**: scrolling structured log view with level coloring (debug/info/warn/error), filter by level/target, pause/resume. Data from `log_entry` SSE events (task-135). Admin role required for log access. (6) **Connection Status Bar Item**: persistent status bar indicator showing server connection state (connected/disconnected/degraded), click to open Server Monitor panel. Depends on task-134, task-135, task-136, task-109 (client methods), task-138 (TypeScript client). See Phase 9 item 9, task-101.
+```
+
+```ctx
+type: task
+id: task-138
+status: open
+---
+Add metrics, health details, and log subscription methods to TypeScript client — Extend `RustServerClient` in `src/api-client.ts` with methods for the monitoring UI: (1) `getMetrics(): Promise<ServerMetrics>` — calls `GET /metrics` (task-134), returns typed metrics snapshot. (2) `getHealthDetails(): Promise<HealthDetails>` — calls `GET /health/details` (task-136), returns detailed server health. (3) `subscribeToMetrics(onMetrics, onError): AbortController` — convenience wrapper around `subscribeToEvents()` that filters for `metrics_snapshot` events only. (4) `subscribeToLogs(minLevel, onLog, onError): AbortController` — convenience wrapper that filters for `log_entry` events only (Admin role required). (5) Define TypeScript interfaces: `ServerMetrics` (request rates, latency percentiles, store counts, system info), `HealthDetails` (store health, TLS health, task health, runtime info), `LogEntry` (level, target, message, timestamp, span context). Extends task-109 (audit/provenance client methods). Required by task-137 (Server Monitor panel).
 ```
 
 ```ctx

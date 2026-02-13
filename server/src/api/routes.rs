@@ -500,6 +500,7 @@ async fn submit_review(
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApplyBody {
     #[serde(default)]
     pub applied_by: Option<String>,
@@ -597,6 +598,7 @@ async fn reset_store(
 // --- Audit routes ---
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuditQueryParams {
     pub actor: Option<String>,
     pub action: Option<String>,

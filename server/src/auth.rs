@@ -48,6 +48,7 @@ impl Role {
 
 /// Identity and roles extracted from the JWT (or defaults when auth is disabled).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ActorContext {
     pub actor_id: String,
     pub actor_type: ActorType,
